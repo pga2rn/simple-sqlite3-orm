@@ -1,0 +1,89 @@
+[build-system]
+requires = ["hatchling>=1.20.0", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "simple-sqlite3-orm"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "LICENSE.md" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: Unix",
+    "Operating System :: Windows",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = ["pydantic==2.6.0", "typing_extensions>=4.0"]
+dynamic = ["version"]
+description = "A simple python sqlite3 ORM with pydantic."
+
+[project.optional-dependencies]
+dev = [
+    "black==24.1.1",
+    "coverage==7.4.1",
+    "flake8==6.1.0",
+    "isort==5.13.2",
+    "pytest==7.4.4",
+    "pytest-mock==3.12.0",
+]
+
+[project.urls]
+Source = "https://github.com/pga2rn/simple-sqlite3-orm"
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.coverage.run]
+branch = false
+include = ["src/**/*.py"]
+
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "if cfg.DEBUG_MODE",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+skip_covered = true
+skip_empty = true
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/simple_sqlite3_orm/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/.github", "/docs"]
+
+[tool.hatch.build.targets.wheel]
+only-include = ["src"]
+sources = ["src"]
+
+[tool.isort]
+atomic = true
+profile = "black"
+line_length = 88
+lines_before_imports = 2
+skip_gitignore = true
+known_first_party = ["simple_sqlite3_orm"]
+
+[tool.pyright]
+exclude = ["**/__pycache__"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+log_auto_indent = true
+log_format = "%(asctime)s %(levelname)s %(filename)s %(funcName)s,%(lineno)d %(message)s"
+log_cli = true
+log_cli_level = "INFO"
+pythonpath = ["src"]
+testpaths = ["./tests"]
