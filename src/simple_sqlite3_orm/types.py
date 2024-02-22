@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 from abc import ABC
 from typing import Any, Literal, TypeVar, Union
+
 from typing_extensions import Annotated
 
-# sqlite3 data type
+# ------ sqlite3 data type ------ #
 # ref: https://www.sqlite.org/datatype3.html
 
 
@@ -26,7 +28,6 @@ BLOB_Type = Annotated[bytes, "BLOB"]
 NULL_Type = Annotated[_NULL_Type, "NULL"]
 NUMERIC_Type = Union[INTEGER_Type, TEXT_Type, REAL_Type, BLOB_Type, NULL_Type]
 
-SQLiteDataTypeTuple = (INTEGER_Type, TEXT_Type, REAL_Type, BLOB_Type, NULL_Type)
 SQLiteDataType = Union[INTEGER_Type, TEXT_Type, REAL_Type, BLOB_Type, NULL_Type]
 SQLiteDataTypes = TypeVar("SQLiteDataTypes", bound=SQLiteDataType)
 
