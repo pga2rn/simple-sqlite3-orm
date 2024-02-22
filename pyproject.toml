@@ -10,7 +10,7 @@ license = { text = "LICENSE.md" }
 classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: Unix",
-    "Operating System :: Windows",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -55,6 +55,11 @@ show_missing = true
 skip_covered = true
 skip_empty = true
 
+[tool.hatch.envs.dev_py38]
+type = "virtual"
+python = "3.8"
+path = "./hatch_venv_dev_py38"
+
 [tool.hatch.version]
 source = "vcs"
 
@@ -72,12 +77,8 @@ sources = ["src"]
 atomic = true
 profile = "black"
 line_length = 88
-lines_before_imports = 2
 skip_gitignore = true
 known_first_party = ["simple_sqlite3_orm"]
-
-[tool.pyright]
-exclude = ["**/__pycache__"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
