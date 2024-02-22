@@ -33,6 +33,7 @@ SQLiteDataTypes = TypeVar("SQLiteDataTypes", bound=SQLiteDataType)
 
 DataTypeName = Literal["INTEGER", "TEXT", "REAL", "BLOB", "NULL"]
 
+# ------ contrain keywords ------ #
 # ref: https://www.sqlite.org/lang_createtable.html
 ConstrainLiteral = Literal[
     "PRIMARY KEY",

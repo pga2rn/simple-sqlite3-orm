@@ -28,6 +28,7 @@ def ConstrainRepr(*constrains: ConstrainLiteral | tuple[ConstrainLiteral, str]) 
 class ORMBase(BaseModel):
     @classmethod
     def orm_dump_column(cls, column_name: str) -> str:
+        """Dump the column statement for table creation."""
         if not (field_info := cls.model_fields.get(column_name)):
             raise ValueError(f"{column_name=} not found")
 
@@ -43,6 +44,7 @@ class ORMBase(BaseModel):
         if_not_exists: bool = True,
         without_rowid: bool = False,
     ) -> str:
+        """Get create table statement for this table spec class."""
         with StringIO() as buffer:
             buffer.write(f"CREATE TABLE {table_name} ")
             if if_not_exists:
@@ -64,6 +66,7 @@ class ORMBase(BaseModel):
         index_name: str,
         *cols: str,
     ) -> str:
+        """Get index create statement fro this table spec class."""
         for _col in cols:
             if _col not in cls.model_fields:
                 raise ValueError(f"{_col=} doesn't exist in {table_name}")
@@ -72,9 +75,7 @@ class ORMBase(BaseModel):
 
     @classmethod
     def row_factory(
-        cls,
-        _cursor: sqlite3.Cursor,
-        _row: tuple[Any, ...] | sqlite3.Row,
+        cls, _cursor: sqlite3.Cursor, _row: tuple[Any, ...] | sqlite3.Row
     ) -> Self:
         """row_factory implement for used in sqlite3 connection."""
         _fields = [col[0] for col in _cursor.description]
