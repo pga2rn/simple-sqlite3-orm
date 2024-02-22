@@ -127,6 +127,7 @@ venv*/
 ENV/
 env.bak/
 venv.bak/
+hatch_venv*/
 
 # Spyder project settings
 .spyderproject
