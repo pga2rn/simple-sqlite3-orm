@@ -64,13 +64,13 @@ class TypeAffinityRepr(str):
     @classmethod
     def _map_from_type(cls, _in: type[Any]) -> Self:
         if issubclass(_in, int):  # NOTE: also include IntEnum
-            return str.__new__(cls, SQLiteTypeAffinity.INTEGER)
+            return str.__new__(cls, SQLiteTypeAffinity.INTEGER.value)
         elif issubclass(_in, str):  # NOTE: also include StrEnum
-            return str.__new__(cls, SQLiteTypeAffinity.TEXT)
+            return str.__new__(cls, SQLiteTypeAffinity.TEXT.value)
         elif issubclass(_in, bytes):
-            return str.__new__(cls, SQLiteTypeAffinity.BLOB)
+            return str.__new__(cls, SQLiteTypeAffinity.BLOB.value)
         elif issubclass(_in, float):
-            return str.__new__(cls, SQLiteTypeAffinity.REAL)
+            return str.__new__(cls, SQLiteTypeAffinity.REAL.value)
         raise TypeError(f"cannot map {_in} to any sqlite3 type affinity")
 
 
