@@ -2,38 +2,44 @@ from __future__ import annotations
 
 import sqlite3
 from io import StringIO
-from typing import Any, get_args
+from typing import Any
 
 from pydantic import BaseModel
 from typing_extensions import Self
 
-from simple_sqlite3_orm.types import ConstrainLiteral, SQLiteDataType
+from simple_sqlite3_orm._utils import (
+    ConstrainRepr,
+    SQLiteStorageClass,
+    SQLiteStorageClassLiteral,
+    SQLiteTypeAffinity,
+    SQLiteTypeAffinityLiteral,
+    TypeAffinityRepr,
+)
 
-
-def ConstrainRepr(*constrains: ConstrainLiteral | tuple[ConstrainLiteral, str]) -> str:
-    """Compose column def and do some basic check over it."""
-    constrain_kwds = get_args(ConstrainLiteral)
-    with StringIO() as buffer:
-        for _input_constrain in constrains:
-            if isinstance(_input_constrain, tuple):
-                _contrain, _option = _input_constrain
-                assert _contrain in constrain_kwds
-                buffer.write(f"{_contrain} {_option} ")
-            else:
-                assert _input_constrain in constrain_kwds
-                buffer.write(f"{_input_constrain} ")
-        return buffer.getvalue()
+__all__ = (
+    "SQLiteStorageClass",
+    "SQLiteStorageClassLiteral",
+    "SQLiteTypeAffinity",
+    "SQLiteTypeAffinityLiteral",
+    "TypeAffinityRepr",
+    "ConstrainRepr",
+    "ORMBase",
+)
 
 
 class ORMBase(BaseModel):
     @classmethod
     def orm_dump_column(cls, column_name: str) -> str:
         """Dump the column statement for table creation."""
-        if not (field_info := cls.model_fields.get(column_name)):
-            raise ValueError(f"{column_name=} not found")
-
-        assert len(_meta := field_info.metadata) == 2
-        _datatype_name, _constrain = _meta
+        _datatype_name, _constrain = None, None
+        for _metadata in cls.model_fields[column_name].metadata:
+            if isinstance(_metadata, TypeAffinityRepr):
+                _datatype_name = _metadata
+            elif isinstance(_metadata, ConstrainRepr):
+                _constrain = _metadata
+        assert (
+            _datatype_name and _constrain
+        ), "missing one of TypeAffinityRepr or ConstrainRepr"
         return f"{column_name} {_datatype_name} {_constrain}"
 
     @classmethod
@@ -51,7 +57,9 @@ class ORMBase(BaseModel):
                 buffer.write("IF NOT EXISTS ")
             buffer.write("( ")
             buffer.write(
-                ",".join(cls.orm_dump_column(col_name) for col_name in cls.model_fields)
+                ", ".join(
+                    cls.orm_dump_column(col_name) for col_name in cls.model_fields
+                )
             )
             buffer.write(")")
             if without_rowid:
@@ -81,6 +89,6 @@ class ORMBase(BaseModel):
         _fields = [col[0] for col in _cursor.description]
         return cls.model_construct(**dict(zip(_fields, _row)))
 
-    def orm_as_tuple(self) -> tuple[SQLiteDataType, ...]:
+    def orm_as_tuple(self) -> tuple[SQLiteStorageClass, ...]:
         """Dump self to a tuple of col values."""
         return tuple(getattr(self, _col) for _col in self.model_fields)

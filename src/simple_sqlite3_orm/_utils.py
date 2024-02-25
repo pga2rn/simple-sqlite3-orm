@@ -34,7 +34,7 @@ class SQLiteTypeAffinity(str, Enum):
 SQLiteTypeAffinityLiteral = Literal["TEXT", "NUMERIC", "INTEGER", "REAL", "BLOB"]
 
 
-class TypeAffinity(str):
+class TypeAffinityRepr(str):
     def __new__(cls, _in: type[Any] | SQLiteTypeAffinityLiteral | str | Any) -> Self:
         """Mapping python types to corresponding sqlite storage classes."""
         if isinstance(_in, str):  # user-define type affinity, use as it
