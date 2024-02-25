@@ -89,6 +89,22 @@ class ORMBase(BaseModel):
         _fields = [col[0] for col in _cursor.description]
         return cls.model_construct(**dict(zip(_fields, _row)))
 
-    def orm_as_tuple(self) -> tuple[SQLiteStorageClass, ...]:
-        """Dump self to a tuple of col values."""
-        return tuple(getattr(self, _col) for _col in self.model_fields)
+    def orm_as_tuple(self, *cols: str) -> tuple[SQLiteStorageClass, ...]:
+        """Dump self to a tuple of col values.
+
+        Args:
+            *cols: which cols to export, if not specified, export all cols.
+
+        Returns:
+            A tuple of col values from this row.
+        """
+        if not cols:
+            return tuple(getattr(self, _col) for _col in self.model_fields)
+
+        _cols = set(cols)
+        _res: list[str] = []
+        for _col in self.model_fields:
+            if _col in _cols:
+                _res.append(_col)
+        return tuple(getattr(self, _col) for _col in _res)
+
