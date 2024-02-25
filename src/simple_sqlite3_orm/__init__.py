@@ -66,7 +66,7 @@ class ORMBase(BaseModel):
             return buffer.getvalue()
 
     @classmethod
-    def get_create_index_stmt(
+    def simple_create_index_stmt(
         cls,
         table_name: str,
         index_name: str,
