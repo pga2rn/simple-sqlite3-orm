@@ -31,19 +31,17 @@ class ORMBase(BaseModel):
     @classmethod
     def orm_dump_column(cls, column_name: str) -> str:
         """Dump the column statement for table creation."""
-        _datatype_name, _constrain = None, None
+        _datatype_name, _constrain = "", ""
         for _metadata in cls.model_fields[column_name].metadata:
             if isinstance(_metadata, TypeAffinityRepr):
                 _datatype_name = _metadata
             elif isinstance(_metadata, ConstrainRepr):
                 _constrain = _metadata
-        assert (
-            _datatype_name and _constrain
-        ), "missing one of TypeAffinityRepr or ConstrainRepr"
-        return f"{column_name} {_datatype_name} {_constrain}"
+        assert _datatype_name, "data affinity must be set"
+        return f"{column_name} {_datatype_name} {_constrain}".strip()
 
     @classmethod
-    def get_create_table_stmt(
+    def simple_create_table_stmt(
         cls,
         table_name: str,
         *,
@@ -52,10 +50,10 @@ class ORMBase(BaseModel):
     ) -> str:
         """Get create table statement for this table spec class."""
         with StringIO() as buffer:
-            buffer.write(f"CREATE TABLE {table_name} ")
+            buffer.write("CREATE TABLE ")
             if if_not_exists:
                 buffer.write("IF NOT EXISTS ")
-            buffer.write("( ")
+            buffer.write(f"{table_name} ( ")
             buffer.write(
                 ", ".join(
                     cls.orm_dump_column(col_name) for col_name in cls.model_fields
