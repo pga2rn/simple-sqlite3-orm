@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 from io import StringIO
-from typing import Any, Literal, get_args, get_origin
+from typing import Any, Literal, get_args, get_origin, Optional
 
 from typing_extensions import Self
 
@@ -40,8 +40,12 @@ class TypeAffinityRepr(str):
         if isinstance(_in, str):  # user-define type affinity, use as it
             return str.__new__(cls, _in)
 
-        if (_origin := get_origin(_in)) and _origin is Literal:
-            return cls._map_from_literal(_in)
+        if _origin := get_origin(_in):
+            if _origin is Literal:
+                return cls._map_from_literal(_in)
+            if _origin is Optional:
+                return cls._map_from_type(get_args(_origin)[0])
+            raise TypeError(f"not one of Literal or Optional: {_in}")
 
         if not isinstance(_in, type):
             raise TypeError(f"expecting type or str object, get {type(_in)=}")
