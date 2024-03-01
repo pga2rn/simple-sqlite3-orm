@@ -164,15 +164,17 @@ class ORMBase(BaseModel):
                     WHERE <col_1>=<col_values[col_1]>
                         [AND <col_2>=<col_values[col_2]>[AND ...]]
         """
-        assert col_values, "at least one col_value pair is provided"
         with StringIO() as buffer:
-            buffer.write(f"SELECT * FROM {table_name} WHERE ")
-            _conditions: list[str] = []
-            for _col, _value in col_values.items():
-                if _col not in cls.model_fields:
-                    continue
-                _conditions.append(f"{_col}={_value}")
-            buffer.write(" AND ".join(_conditions))
+            buffer.write(f"SELECT * FROM {table_name}")
+            if col_values:
+                _conditions: list[str] = []
+                for _col, _value in col_values.items():
+                    if _col not in cls.model_fields:
+                        continue
+                    _conditions.append(f"{_col}={_value}")
+
+                buffer.write("WHERE ")
+                buffer.write(" AND ".join(_conditions))
             buffer.write(";")
             return buffer.getvalue()
 
@@ -200,15 +202,17 @@ class ORMBase(BaseModel):
                     [ORDER BY <order_by>]
                     [LIMIT <limit>]
         """
-        assert col_values, "at least one col_value pair is provided"
         with StringIO() as buffer:
-            buffer.write(f"DELETE FROM {table_name} WHERE ")
-            _conditions: list[str] = []
-            for _col, _value in col_values.items():
-                if _col not in cls.model_fields:
-                    continue
-                _conditions.append(f"{_col}={_value}")
-            buffer.write(" AND ".join(_conditions))
+            buffer.write(f"DELETE FROM {table_name}")
+            if col_values:
+                _conditions: list[str] = []
+                for _col, _value in col_values.items():
+                    if _col not in cls.model_fields:
+                        continue
+                    _conditions.append(f"{_col}={_value}")
+
+                buffer.write("WHERE ")
+                buffer.write(" AND ".join(_conditions))
             if order_by:
                 buffer.write(f" ORDER BY {order_by} ")
             if limit > 0:
