@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal
+from typing import Literal, Union
 
 #
 # ------ sqlite3 datatypes ------ #
@@ -52,8 +52,8 @@ ConstrainLiteral = Literal[
 #
 # ------ built-in functions ------ #
 #
-# Check https://www.sqlite.org/lang_corefunc.html for more details.
-SQLiteBuiltInFuncs = Literal[
+# https://www.sqlite.org/lang_corefunc.html
+SQLiteBuiltInScalarFuncs = Literal[
     "abs",
     "changes",
     "char",
@@ -113,6 +113,98 @@ SQLiteBuiltInFuncs = Literal[
     "zeroblob",
 ]
 
+# https://www.sqlite.org/lang_aggfunc.html
+SQLiteBuiltInAggregateFuncs = Literal[
+    "avg",
+    "count",
+    "count",
+    "group_concat",
+    "group_concat",
+    "max",
+    "min",
+    "string_agg",
+    "sum",
+]
+
+# https://www.sqlite.org/lang_datefunc.html
+SQLiteBuiltInDateTimeFuncs = Literal[
+    "data", "time", "datetime", "julianday", "unixepoch", "strftime", "timediff"
+]
+
+# https://www.sqlite.org/lang_mathfunc.html
+SQLiteBuiltInMathFuncs = Literal[
+    "acos",
+    "acosh",
+    "asin",
+    "asinh",
+    "atan",
+    "atan2",
+    "atanh",
+    "ceil",
+    "ceiling",
+    "cos",
+    "cosh",
+    "degrees",
+    "exp",
+    "floor",
+    "ln",
+    "log",
+    "log",
+    "log10",
+    "log2",
+    "mod",
+    "pi",
+    "pow",
+    "power",
+    "radians",
+    "sin",
+    "sinh",
+    "sqrt",
+    "tan",
+    "tanh",
+    "trunc",
+]
+
+# https://www.sqlite.org/json1.html
+SQLiteBuiltInJSONFuncs = Literal[
+    "json",
+    "jsonb",
+    "json_array",
+    "jsonb_array",
+    "json_array_length",
+    "json_error_position",
+    "json_extract",
+    "jsonb_extract",
+    "json_insert",
+    "jsonb_insert",
+    "json_object",
+    "jsonb_object",
+    "json_patch",
+    "jsonb_patch",
+    "json_remove",
+    "jsonb_remove",
+    "json_replace",
+    "jsonb_replace",
+    "json_set",
+    "jsonb_set",
+    "json_type",
+    "json_valid",
+    "json_quote",
+    "json_group_array",
+    "jsonb_group_array",
+    "json_group_object",
+    "jsonb_group_object",
+    "json_each",
+    "json_tree",
+]
+
+SQLiteBuiltInFuncs = Union[
+    SQLiteBuiltInAggregateFuncs,
+    SQLiteBuiltInDateTimeFuncs,
+    SQLiteBuiltInJSONFuncs,
+    SQLiteBuiltInMathFuncs,
+    SQLiteBuiltInScalarFuncs,
+]
 
 INSERT_OR = Literal["abort", "fail", "ignore", "replace", "rollback"]
 ORDER_DIRECTION = Literal["ASC", "DESC"]
