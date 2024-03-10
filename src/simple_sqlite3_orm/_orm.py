@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from io import StringIO
-from typing import Any
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel
 from typing_extensions import Self
@@ -32,23 +32,44 @@ class ORMBase(BaseModel):
         cls,
         table_name: str,
         *,
-        if_not_exists: bool = True,
+        if_not_exists: bool = False,
+        schema_name: Optional[str] = None,
+        strict: bool = False,
+        temporary: bool = False,
         without_rowid: bool = False,
     ) -> str:
-        """Get create table statement for this table spec class."""
+        """Get create table statement for this table spec class.
+
+        Check https://www.sqlite.org/lang_createtable.html for more details.
+        """
         with StringIO() as buffer:
-            buffer.write("CREATE TABLE ")
+            buffer.write("CREATE ")
+            if temporary:
+                buffer.write("TEMPORARY ")
             if if_not_exists:
                 buffer.write("IF NOT EXISTS ")
-            buffer.write(f"{table_name} ( ")
+            buffer.write("TABLE ")
+
+            _table_name_stmt = f"{table_name}"
+            if schema_name:
+                _table_name_stmt = f"{schema_name}.{table_name}"
+            buffer.write(f"{_table_name_stmt} ")
+
+            buffer.write("( ")
             buffer.write(
                 ", ".join(
                     cls.orm_dump_column(col_name) for col_name in cls.model_fields
                 )
             )
-            buffer.write(")")
+            buffer.write(") ")
+
+            _table_options: list[str] = []
             if without_rowid:
-                buffer.write(" WITHOUT ROWID")
+                _table_options.append("WITHOUT ROWID")
+            if strict:
+                _table_options.append("STRICT")
+            buffer.write(",".join(_table_options))
+
             buffer.write(";")
             return buffer.getvalue()
 
