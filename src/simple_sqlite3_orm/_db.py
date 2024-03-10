@@ -53,7 +53,7 @@ ConstrainLiteral = Literal[
 # ------ built-in functions ------ #
 #
 # Check https://www.sqlite.org/lang_corefunc.html for more details.
-SQLite3BuiltInFuncs = Literal[
+SQLiteBuiltInFuncs = Literal[
     "abs",
     "changes",
     "char",
