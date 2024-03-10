@@ -38,7 +38,6 @@ class ORMBase(BaseModel):
         table_name: str,
         *,
         if_not_exists: bool = False,
-        schema_name: Optional[str] = None,
         strict: bool = False,
         temporary: bool = False,
         without_rowid: bool = False,
@@ -47,36 +46,18 @@ class ORMBase(BaseModel):
 
         Check https://www.sqlite.org/lang_createtable.html for more details.
         """
-        with StringIO() as buffer:
-            buffer.write("CREATE ")
-            if temporary:
-                buffer.write("TEMPORARY ")
-            if if_not_exists:
-                buffer.write("IF NOT EXISTS ")
-            buffer.write("TABLE ")
 
-            _table_name_stmt = f"{table_name}"
-            if schema_name:
-                _table_name_stmt = f"{schema_name}.{table_name}"
-            buffer.write(f"{_table_name_stmt} ")
-
-            buffer.write("( ")
-            buffer.write(
-                ", ".join(
-                    cls.orm_dump_column(col_name) for col_name in cls.model_fields
-                )
-            )
-            buffer.write(") ")
-
-            _table_options: list[str] = []
-            if without_rowid:
-                _table_options.append("WITHOUT ROWID")
-            if strict:
-                _table_options.append("STRICT")
-            buffer.write(",".join(_table_options))
-
-            buffer.write(";")
-            return buffer.getvalue()
+        _cols_spec = ",".join(
+            cls.orm_dump_column(col_name) for col_name in cls.model_fields
+        )
+        cols_stmt = f"({_cols_spec}) "
+        return (
+            f"CREATE {'TEMPORARY ' if temporary else ''}"
+            f"{'IF NOT EXISTS ' if if_not_exists else ''}"
+            f"TABLE {table_name} {cols_stmt}"
+            f"{'WITHOUT ROWID ' if without_rowid else ''}"
+            f"{'STRICT ' if strict else ''};"
+        )
 
     @classmethod
     def simple_create_index_stmt(
