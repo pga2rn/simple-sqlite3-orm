@@ -78,15 +78,45 @@ class ORMBase(BaseModel):
         cls,
         table_name: str,
         index_name: str,
-        *cols: str,
+        *cols: str | tuple[str, Literal["ASC", "DESC"]],
+        if_not_exists: bool = False,
+        schema_name: Optional[str] = None,
+        unique: bool = False,
     ) -> str:
-        """Get index create statement for this table spec class."""
+        """Get index create statement for this table spec class.
+
+        Check https://www.sqlite.org/lang_createindex.html for more details.
+        """
         assert cols, "at least one col should be specified for an index"
-        for _col in cols:
-            if _col not in cls.model_fields:
-                raise ValueError(f"{_col=} doesn't exist in {table_name}")
-        _cols_spec = ", ".join(cols)
-        return f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name}({_cols_spec});"
+
+        _indexed_col_stmts: list[str] = []
+        for _input in cols:
+            if isinstance(_input, tuple):
+                _col, _order = _input
+                assert _col in cls.model_fields, f"{_col=} is not a valid column"
+                _indexed_col_stmts.append(f"{_col} {_order}")
+            else:
+                _col = _input
+                assert _col in cls.model_fields, f"{_col=} is not a valid column"
+                _indexed_col_stmts.append(_col)
+        _indexed_columns_stmt = ", ".join(_indexed_col_stmts)
+
+        with StringIO() as buffer:
+            buffer.write("CREATE ")
+            if unique:
+                buffer.write("UNIQUE ")
+            buffer.write("INDEX ")
+            if if_not_exists:
+                buffer.write("IF NOT EXISTS ")
+
+            _index_name_stmt = f"{index_name}"
+            if schema_name:
+                _index_name_stmt = f"{schema_name}.{index_name}"
+            buffer.write(f"{_index_name_stmt} ")
+
+            buffer.write(f"ON {table_name} ")
+            buffer.write(f"({_indexed_columns_stmt});")
+            return buffer.getvalue()
 
     @classmethod
     def row_factory(
