@@ -225,7 +225,19 @@ class ORMBase(BaseModel):
             where_stmt = f"WHERE {' AND '.join(_conditions)} "
 
         group_by_stmt = f"GROUP BY {','.join(group_by)} " if group_by else ""
-        order_by_stmt = f"ORDER BY {','.join(order_by)} " if order_by else ""
+
+        order_by_stmt = ""
+        if order_by:
+            _order_by_stmts: list[str] = []
+            for _item in order_by:
+                if isinstance(_item, tuple):
+                    _col, _direction = _item
+                    cls.orm_check_cols(_col)
+                    _order_by_stmts.append(f"{_col} {_direction}")
+                else:
+                    _order_by_stmts.append(_item)
+            order_by_stmt = f"{','}.join(_order_by_stmts)"
+
         limit_stmt = f"LIMIT {limit} " if limit is not None else ""
 
         with StringIO() as buffer:
