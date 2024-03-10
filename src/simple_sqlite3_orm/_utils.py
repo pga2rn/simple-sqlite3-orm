@@ -104,7 +104,7 @@ class ConstrainRepr(str):
             return str.__new__(cls, _buffer.getvalue().strip())
 
 
-def filter_with_order(table_spec: BaseModel, *cols: str) -> Iterable[str]:
+def filter_with_order(table_spec: type[BaseModel], *cols: str) -> Iterable[str]:
     """Return an Iterable of cols specified by <cols>, but in cols definition order."""
     _cols_set = set(cols)
     return (_col for _col in filter(lambda x: x in _cols_set, table_spec.model_fields))

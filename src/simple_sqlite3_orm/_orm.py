@@ -199,30 +199,50 @@ class ORMBase(BaseModel):
             return buffer.getvalue()
 
     @classmethod
-    def simple_select_entry_stmt(cls, table_name: str, **col_values: Any) -> str:
-        """Get sql for getting row(s) from <table_name>.
+    def simple_select_entry_stmt(
+        cls,
+        select_from: str,
+        /,
+        *select_cols: str,
+        distinct: bool = False,
+        function: Optional[str] = None,
+        group_by: Optional[Iterable[str]] = None,
+        order_by: Optional[Iterable[str]] = None,
+        limit: Optional[int | str] = None,
+        **col_values: Any,
+    ) -> str:
+        """Get sql for getting row(s) from <table_name>, optionally with
+            where condition specified by <col_values>.
 
-        Args:
-            table_name: table to select from.
-            **col_values: WHERE condition to locate the target row(s).
-
-        Returns:
-            SQL statement like the following:
-                SELECT * FROM <table_name>
-                    WHERE <col_1>=<col_values[col_1]>
-                        [AND <col_2>=<col_values[col_2]>[AND ...]]
+        Check https://www.sqlite.org/lang_select.html for more details.
         """
-        with StringIO() as buffer:
-            buffer.write(f"SELECT * FROM {table_name}")
-            if col_values:
-                _conditions: list[str] = []
-                for _col, _value in col_values.items():
-                    if _col not in cls.model_fields:
-                        continue
-                    _conditions.append(f"{_col}={_value}")
+        _select_target = "*"
+        if select_cols:
+            _select_target = cls._filter_with_order(*select_cols)
+        if function:
+            _select_target = f"{function}({_select_target})"
+        select_stmt = f"SELECT {'DISTINCT ' if distinct else ''}{_select_target} "
+        select_from_stmt = f"FROM {select_from} "
 
-                buffer.write("WHERE ")
-                buffer.write(" AND ".join(_conditions))
+        where_stmt = ""
+        if col_values:
+            _conditions: list[str] = []
+            for _col, _value in col_values.items():
+                if _col in cls.model_fields:
+                    _conditions.append(f"{_col}={_value}")
+            where_stmt = f"WHERE {' AND '.join(_conditions)} "
+
+        group_by_stmt = f"GROUP BY {','.join(group_by)} " if group_by else ""
+        order_by_stmt = f"ORDER BY {','.join(order_by)} " if order_by else ""
+        limit_stmt = f"LIMIT {limit} " if limit is not None else ""
+
+        with StringIO() as buffer:
+            buffer.write(select_stmt)
+            buffer.write(select_from_stmt)
+            buffer.write(where_stmt)
+            buffer.write(group_by_stmt)
+            buffer.write(order_by_stmt)
+            buffer.write(limit_stmt)
             buffer.write(";")
             return buffer.getvalue()
 
