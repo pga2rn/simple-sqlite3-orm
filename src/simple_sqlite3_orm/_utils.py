@@ -110,6 +110,12 @@ def filter_with_order(table_spec: BaseModel, *cols: str) -> Iterable[str]:
     return (_col for _col in filter(lambda x: x in _cols_set, table_spec.model_fields))
 
 
-def check_cols(table_spec: BaseModel, *cols: str) -> bool:
-    """Ensure that all <cols> are defined in table_spec."""
-    return all(map(lambda x: x in table_spec.model_fields, cols))
+def check_cols(table_spec: type[BaseModel], *cols: str) -> None:
+    """Ensure that all <cols> are defined in table_spec.
+
+    Raises:
+        ValueError on first <col> that is not defined in <table_spec>.
+    """
+    for col in cols:
+        if col not in table_spec.model_fields:
+            raise ValueError(f"{col} is not defined in {table_spec=}")
