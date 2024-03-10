@@ -150,13 +150,14 @@ class ORMBase(BaseModel):
             buffer.write(cols_specify_stmt)
 
             if insert_default:
-                buffer.write(f"DEFAULT VALUES {returning_stmt} ")
+                buffer.write("DEFAULT VALUES ")
             if insert_select:
                 buffer.write(f"{insert_select} ")
             else:
                 buffer.write(values_specify_stmt)
 
-            buffer.write(f"{returning_stmt};")
+            buffer.write(returning_stmt)
+            buffer.write(";")
             return buffer.getvalue()
 
     @classmethod
