@@ -1,38 +1,16 @@
 from __future__ import annotations
 
-from enum import Enum
 from io import StringIO
 from typing import Any, Iterable, Literal, Optional, get_args, get_origin
 
 from pydantic import BaseModel
 from typing_extensions import Self
 
-#
-# ------ sqlite3 datatypes ------ #
-#
-# ref: https://www.sqlite.org/datatype3.html
-
-
-class SQLiteStorageClass(str, Enum):
-    NULL = "NULL"
-    INTEGER = "INTEGER"
-    REAL = "REAL"
-    TEXT = "TEXT"
-    BLOB = "BLOB"
-
-
-SQLiteStorageClassLiteral = Literal["NULL", "INTEGER", "REAL", "TEXT", "BLOB"]
-
-
-class SQLiteTypeAffinity(str, Enum):
-    TEXT = "TEXT"
-    NUMERIC = "NUMERIC"
-    INTEGER = "INTEGER"
-    REAL = "REAL"
-    BLOB = "BLOB"
-
-
-SQLiteTypeAffinityLiteral = Literal["TEXT", "NUMERIC", "INTEGER", "REAL", "BLOB"]
+from simple_sqlite3_orm._db import (
+    ConstrainLiteral,
+    SQLiteTypeAffinity,
+    SQLiteTypeAffinityLiteral,
+)
 
 
 class TypeAffinityRepr(str):
@@ -73,23 +51,6 @@ class TypeAffinityRepr(str):
         elif issubclass(_in, float):
             return str.__new__(cls, SQLiteTypeAffinity.REAL.value)
         raise TypeError(f"cannot map {_in} to any sqlite3 type affinity")
-
-
-#
-# ------ contrain keywords ------ #
-#
-# ref: https://www.sqlite.org/lang_createtable.html
-ConstrainLiteral = Literal[
-    "PRIMARY KEY",
-    "NOT NULL",
-    "UNIQUE",
-    "CHECK",
-    "DEFAULT",
-    "COLLATE",
-    "REFERENCES",
-    "GENERATED ALWAYS AS",
-    "AS",
-]
 
 
 class ConstrainRepr(str):
