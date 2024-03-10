@@ -52,14 +52,13 @@ class ORMBase(BaseModel):
         Check https://www.sqlite.org/lang_createtable.html for more details.
         """
 
-        _cols_spec = ",".join(
+        cols_spec = ",".join(
             cls.orm_dump_column(col_name) for col_name in cls.model_fields
         )
-        cols_stmt = f"({_cols_spec}) "
         return (
             f"CREATE {'TEMPORARY ' if temporary else ''}"
             f"{'IF NOT EXISTS ' if if_not_exists else ''}"
-            f"TABLE {table_name} ({cols_stmt}) "
+            f"TABLE {table_name} ({cols_spec}) "
             f"{'WITHOUT ROWID ' if without_rowid else ''}"
             f"{'STRICT ' if strict else ''};"
         )
