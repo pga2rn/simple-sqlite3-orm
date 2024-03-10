@@ -10,7 +10,7 @@ from typing_extensions import Self
 from simple_sqlite3_orm._db import (
     INSERT_OR,
     ORDER_DIRECTION,
-    SQLite3BuiltInFuncs,
+    SQLiteBuiltInFuncs,
     SQLiteStorageClass,
 )
 from simple_sqlite3_orm._utils import (
@@ -170,7 +170,7 @@ class ORMBase(BaseModel):
         /,
         *select_cols: str,
         distinct: bool = False,
-        function: Optional[SQLite3BuiltInFuncs] = None,
+        function: Optional[SQLiteBuiltInFuncs] = None,
         group_by: Optional[Iterable[str]] = None,
         order_by: Optional[Iterable[str | tuple[str, ORDER_DIRECTION]]] = None,
         limit: Optional[int | str] = None,
