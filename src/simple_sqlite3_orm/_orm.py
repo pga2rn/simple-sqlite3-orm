@@ -173,6 +173,7 @@ class ORMBase(BaseModel):
         group_by: Optional[Iterable[str]] = None,
         order_by: Optional[Iterable[str | tuple[str, ORDER_DIRECTION]]] = None,
         limit: Optional[int | str] = None,
+        where: Optional[str] = None,
         **col_values: Any,
     ) -> str:
         """Get sql for getting row(s) from <table_name>, optionally with
@@ -189,7 +190,9 @@ class ORMBase(BaseModel):
         from_stmt = f"FROM {select_from} "
 
         where_stmt = ""
-        if col_values:
+        if where:
+            where_stmt = f"WHERE {where} "
+        elif col_values:
             _conditions: list[str] = []
             for _col, _value in col_values.items():
                 if _col in cls.model_fields:
@@ -228,6 +231,7 @@ class ORMBase(BaseModel):
         delete_from: str,
         limit: Optional[int | str] = None,
         order_by: Optional[Iterable[str | tuple[str, ORDER_DIRECTION]]] = None,
+        where: Optional[str] = None,
         returning: Optional[bool | str] = None,
         **col_values: Any,
     ) -> str:
@@ -236,8 +240,11 @@ class ORMBase(BaseModel):
         Check https://www.sqlite.org/lang_delete.html for more details.
         """
         delete_from_stmt = f"DELETE FROM {delete_from} "
+
         where_stmt = ""
-        if col_values:
+        if where:
+            where_stmt = f"WHERE {where} "
+        elif col_values:
             cls.orm_check_cols(*col_values)
             _conditions = (f"{_col}={_value}" for _col, _value in col_values.items())
             where_stmt = " AND ".join(_conditions)
