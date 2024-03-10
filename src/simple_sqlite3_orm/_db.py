@@ -112,3 +112,7 @@ SQLite3BuiltInFuncs = Literal[
     "upper",
     "zeroblob",
 ]
+
+
+INSERT_OR = Literal["abort", "fail", "ignore", "replace", "rollback"]
+ORDER_DIRECTION = Literal["ASC", "DESC"]

@@ -2,17 +2,22 @@ from __future__ import annotations
 
 import sqlite3
 from io import StringIO
-from typing import Any, Iterable, Literal, Optional
+from typing import Any, Iterable, Optional
 
 from pydantic import BaseModel
 from typing_extensions import Self
 
+from simple_sqlite3_orm._db import (
+    INSERT_OR,
+    ORDER_DIRECTION,
+    SQLite3BuiltInFuncs,
+    SQLiteStorageClass,
+)
 from simple_sqlite3_orm._utils import (
     ConstrainRepr,
-    SQLiteStorageClass,
     TypeAffinityRepr,
-    filter_with_order,
     check_cols,
+    filter_with_order,
 )
 
 
@@ -64,7 +69,7 @@ class ORMBase(BaseModel):
         cls,
         table_name: str,
         index_name: str,
-        *cols: str | tuple[str, Literal["ASC", "DESC"]],
+        *cols: str | tuple[str, ORDER_DIRECTION],
         if_not_exists: bool = False,
         unique: bool = False,
     ) -> str:
@@ -120,9 +125,7 @@ class ORMBase(BaseModel):
         *cols: str,
         insert_default: bool = False,
         insert_select: Optional[str] = None,
-        or_option: Optional[
-            Literal["abort", "fail", "ignore", "replace", "rollback"]
-        ] = None,
+        or_option: Optional[INSERT_OR] = None,
         returning: bool | str = False,
     ) -> str:
         """Get sql for inserting row(s) into <table_name>.
@@ -167,9 +170,9 @@ class ORMBase(BaseModel):
         /,
         *select_cols: str,
         distinct: bool = False,
-        function: Optional[str] = None,
+        function: Optional[SQLite3BuiltInFuncs] = None,
         group_by: Optional[Iterable[str]] = None,
-        order_by: Optional[Iterable[str | tuple[str, Literal["ASC", "DESC"]]]] = None,
+        order_by: Optional[Iterable[str | tuple[str, ORDER_DIRECTION]]] = None,
         limit: Optional[int | str] = None,
         **col_values: Any,
     ) -> str:
@@ -225,7 +228,7 @@ class ORMBase(BaseModel):
         cls,
         delete_from: str,
         limit: Optional[int | str] = None,
-        order_by: Optional[Iterable[str | tuple[str, Literal["ASC", "DESC"]]]] = None,
+        order_by: Optional[Iterable[str | tuple[str, ORDER_DIRECTION]]] = None,
         returning: Optional[bool | str] = None,
         **col_values: Any,
     ) -> str:
