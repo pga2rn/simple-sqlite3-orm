@@ -11,10 +11,15 @@ from simple_sqlite3_orm._utils import (
     ConstrainRepr,
     SQLiteStorageClass,
     TypeAffinityRepr,
+    filter_with_order,
+    check_cols,
 )
 
 
 class ORMBase(BaseModel):
+    orm_check_cols = classmethod(check_cols)
+    _filter_with_order = classmethod(filter_with_order)
+
     @classmethod
     def orm_dump_column(cls, column_name: str) -> str:
         """Dump the column statement for table creation."""
@@ -199,7 +204,7 @@ class ORMBase(BaseModel):
         distinct: bool = False,
         function: Optional[str] = None,
         group_by: Optional[Iterable[str]] = None,
-        order_by: Optional[Iterable[str]] = None,
+        order_by: Optional[Iterable[str | tuple[str, Literal["ASC", "DESC"]]]] = None,
         limit: Optional[int | str] = None,
         **col_values: Any,
     ) -> str:
