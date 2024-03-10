@@ -146,45 +146,56 @@ class ORMBase(BaseModel):
 
     @classmethod
     def simple_insert_entry_stmt(
-        cls, table_name: str, *cols: str, or_replace: bool = False
+        cls,
+        table_name: str,
+        *cols: str,
+        insert_default: bool = False,
+        or_option: Optional[
+            Literal["abort", "fail", "ignore", "replace", "rollback"]
+        ] = None,
+        returning: bool | str = False,
+        schema_name: Optional[str] = None,
     ) -> str:
         """Get sql for inserting row(s) into <table_name>.
 
-        Args:
-            table_name: table to insert to.
-            *cols: which cols will be assigned values, non-assigned col will get default
-                value assigned(if no DEFAULT is defined, NULL will be assigned).
-                if cols is empty, by default expecting all cols to be assigned.
-
-        Returns:
-            SQL statement like the following:
-                INSERT [OR REPLACE] INTO <table_name>
-                    [(<col_1>[,<col_2>, ...])] VALUES
-                    (?[,?,...]);
+        Check https://www.sqlite.org/lang_insert.html for more details.
         """
         with StringIO() as buffer:
             buffer.write("INSERT ")
-            if or_replace:
-                buffer.write("OR REPLACE ")
-            buffer.write(f"INTO {table_name} ")
+            if or_option:
+                buffer.write(f"OR {or_option.upper()} ")
+
+            _table_name_stmt = table_name
+            if schema_name:
+                _table_name_stmt = f"{schema_name}.{table_name}"
+            buffer.write(f"INTO {_table_name_stmt} ")
+
+            _returning_stmt = ""
+            if returning:
+                _returning_stmt = (
+                    f"RETURNING {'*' if returning is True else returning} "
+                )
+
+            if insert_default:
+                buffer.write(f"DEFAULT VALUES {_returning_stmt};")
+                return buffer.getvalue()
 
             if cols:
                 _cols_set = set(cols)
-                _cols_list: list[str] = []  # preserve input order
-                for _col in cls.model_fields:
-                    if _col in _cols_set:
-                        _cols_list.append(_col)
+                _col_stmts = (
+                    _col for _col in filter(lambda x: x in _cols_set, cls.model_fields)
+                )
                 buffer.write("(")
-                buffer.write(",".join(_cols_list))
+                buffer.write(",".join(_col_stmts))
                 buffer.write(")")
 
-                num_of_placeholder = len(cols)
+                _col_value_placeholder = len(cols)
             else:
-                num_of_placeholder = len(cls.model_fields)
+                _col_value_placeholder = len(cls.model_fields)
 
             buffer.write(" VALUES (")
-            buffer.write(",".join(["?"] * num_of_placeholder))
-            buffer.write(");")
+            buffer.write(",".join(["?"] * _col_value_placeholder))
+            buffer.write(f") {_returning_stmt};")
             return buffer.getvalue()
 
     @classmethod
