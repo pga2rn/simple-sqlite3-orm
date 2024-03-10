@@ -66,7 +66,6 @@ class ORMBase(BaseModel):
         index_name: str,
         *cols: str | tuple[str, Literal["ASC", "DESC"]],
         if_not_exists: bool = False,
-        schema_name: Optional[str] = None,
         unique: bool = False,
     ) -> str:
         """Get index create statement for this table spec class.
@@ -75,34 +74,23 @@ class ORMBase(BaseModel):
         """
         assert cols, "at least one col should be specified for an index"
 
-        _indexed_col_stmts: list[str] = []
+        _indexed_cols: list[str] = []
         for _input in cols:
             if isinstance(_input, tuple):
                 _col, _order = _input
-                assert _col in cls.model_fields, f"{_col=} is not a valid column"
-                _indexed_col_stmts.append(f"{_col} {_order}")
+                cls.orm_check_cols(_col)
+                _indexed_cols.append(f"{_col} {_order}")
             else:
                 _col = _input
-                assert _col in cls.model_fields, f"{_col=} is not a valid column"
-                _indexed_col_stmts.append(_col)
-        _indexed_columns_stmt = ", ".join(_indexed_col_stmts)
+                cls.orm_check_cols(_col)
+                _indexed_cols.append(_col)
+        indexed_columns_stmt = f"({','.join(_indexed_cols)}) "
 
-        with StringIO() as buffer:
-            buffer.write("CREATE ")
-            if unique:
-                buffer.write("UNIQUE ")
-            buffer.write("INDEX ")
-            if if_not_exists:
-                buffer.write("IF NOT EXISTS ")
-
-            _index_name_stmt = f"{index_name}"
-            if schema_name:
-                _index_name_stmt = f"{schema_name}.{index_name}"
-            buffer.write(f"{_index_name_stmt} ")
-
-            buffer.write(f"ON {table_name} ")
-            buffer.write(f"({_indexed_columns_stmt});")
-            return buffer.getvalue()
+        return (
+            f"CREATE {'UNIQUE' if unique else ''} INDEX "
+            f"{'IF NOT EXISTS' if if_not_exists else ''} {index_name} "
+            f"ON {table_name} {indexed_columns_stmt};"
+        )
 
     @classmethod
     def row_factory(
