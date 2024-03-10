@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from enum import Enum
 from io import StringIO
-from typing import Any, Literal, get_args, get_origin, Optional
+from typing import Any, Iterable, Literal, Optional, get_args, get_origin
 
+from pydantic import BaseModel
 from typing_extensions import Self
 
 #
@@ -101,3 +102,14 @@ class ConstrainRepr(str):
                     _buffer.write(arg)
                 _buffer.write(" ")
             return str.__new__(cls, _buffer.getvalue().strip())
+
+
+def filter_with_order(table_spec: BaseModel, *cols: str) -> Iterable[str]:
+    """Return an Iterable of cols specified by <cols>, but in cols definition order."""
+    _cols_set = set(cols)
+    return (_col for _col in filter(lambda x: x in _cols_set, table_spec.model_fields))
+
+
+def check_cols(table_spec: BaseModel, *cols: str) -> bool:
+    """Ensure that all <cols> are defined in table_spec."""
+    return all(map(lambda x: x in table_spec.model_fields, cols))
