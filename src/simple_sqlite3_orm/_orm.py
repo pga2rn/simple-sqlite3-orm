@@ -54,7 +54,7 @@ class ORMBase(BaseModel):
         return (
             f"CREATE {'TEMPORARY ' if temporary else ''}"
             f"{'IF NOT EXISTS ' if if_not_exists else ''}"
-            f"TABLE {table_name} {cols_stmt}"
+            f"TABLE {table_name} ({cols_stmt}) "
             f"{'WITHOUT ROWID ' if without_rowid else ''}"
             f"{'STRICT ' if strict else ''};"
         )
@@ -184,7 +184,7 @@ class ORMBase(BaseModel):
         if function:
             _select_target = f"{function}({_select_target})"
         select_stmt = f"SELECT {'DISTINCT ' if distinct else ''}{_select_target} "
-        select_from_stmt = f"FROM {select_from} "
+        from_stmt = f"FROM {select_from} "
 
         where_stmt = ""
         if col_values:
@@ -212,7 +212,7 @@ class ORMBase(BaseModel):
 
         with StringIO() as buffer:
             buffer.write(select_stmt)
-            buffer.write(select_from_stmt)
+            buffer.write(from_stmt)
             buffer.write(where_stmt)
             buffer.write(group_by_stmt)
             buffer.write(order_by_stmt)
