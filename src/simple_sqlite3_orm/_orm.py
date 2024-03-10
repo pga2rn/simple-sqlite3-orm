@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from io import StringIO
-from typing import Any, Literal, Optional
+from typing import Any, Iterable, Literal, Optional
 
 from pydantic import BaseModel
 from typing_extensions import Self
@@ -249,41 +249,45 @@ class ORMBase(BaseModel):
     @classmethod
     def simple_delete_entry_stmt(
         cls,
-        table_name: str,
-        limit: int = -1,
-        order_by: str = "",
+        delete_from: str,
+        limit: Optional[int | str] = None,
+        order_by: Optional[Iterable[str | tuple[str, Literal["ASC", "DESC"]]]] = None,
+        returning: Optional[bool | str] = None,
         **col_values: Any,
     ) -> str:
         """Get sql for deleting row(s) from <table_name> with specifying col value(s).
 
-        Args:
-            table_name: table to delete from.
-            limit: will be appended to LIMIT keyword.
-            order_by: will be appended to ORDER BY keyword.
-            **col_values: WHERE condition to locate the target row(s).
-
-        Returns:
-            SQL statement like the following:
-                DELETE FROM <table_name>
-                    WHERE <col_1>=<col_values[col_1]>
-                        [AND <col_2>=<col_values[col_2]>[AND ...]]
-                    [ORDER BY <order_by>]
-                    [LIMIT <limit>]
+        Check https://www.sqlite.org/lang_delete.html for more details.
         """
-        with StringIO() as buffer:
-            buffer.write(f"DELETE FROM {table_name}")
-            if col_values:
-                _conditions: list[str] = []
-                for _col, _value in col_values.items():
-                    if _col not in cls.model_fields:
-                        continue
-                    _conditions.append(f"{_col}={_value}")
+        delete_from_stmt = f"DELETE {delete_from} "
+        where_stmt = ""
+        if col_values:
+            cls.orm_check_cols(*col_values)
+            _conditions = (f"{_col}={_value}" for _col, _value in col_values.items())
+            where_stmt = " AND ".join(_conditions)
 
-                buffer.write("WHERE ")
-                buffer.write(" AND ".join(_conditions))
-            if order_by:
-                buffer.write(f" ORDER BY {order_by} ")
-            if limit > 0:
-                buffer.write(f" LIMIT {limit} ")
+        order_by_stmt = ""
+        if order_by:
+            _order_by_stmts: list[str] = []
+            for _item in order_by:
+                if isinstance(_item, tuple):
+                    _col, _direction = _item
+                    cls.orm_check_cols(_col)
+                    _order_by_stmts.append(f"{_col} {_direction}")
+                else:
+                    _order_by_stmts.append(_item)
+            order_by_stmt = f"{','}.join(_order_by_stmts)"
+
+        limit_stmt = f"LIMIT {limit} " if limit is not None else ""
+        returning_stmt = (
+            f"RETURNING {'*' if returning is True else returning} " if returning else ""
+        )
+
+        with StringIO() as buffer:
+            buffer.write(delete_from_stmt)
+            buffer.write(where_stmt)
+            buffer.write(order_by_stmt)
+            buffer.write(limit_stmt)
+            buffer.write(returning_stmt)
             buffer.write(";")
             return buffer.getvalue()
