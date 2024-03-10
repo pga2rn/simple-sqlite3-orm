@@ -235,7 +235,7 @@ class ORMBase(BaseModel):
 
         Check https://www.sqlite.org/lang_delete.html for more details.
         """
-        delete_from_stmt = f"DELETE {delete_from} "
+        delete_from_stmt = f"DELETE FROM {delete_from} "
         where_stmt = ""
         if col_values:
             cls.orm_check_cols(*col_values)
