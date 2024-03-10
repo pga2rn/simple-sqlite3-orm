@@ -147,55 +147,47 @@ class ORMBase(BaseModel):
     @classmethod
     def simple_insert_entry_stmt(
         cls,
-        table_name: str,
+        insert_into: str,
         *cols: str,
         insert_default: bool = False,
+        insert_select: Optional[str] = None,
         or_option: Optional[
             Literal["abort", "fail", "ignore", "replace", "rollback"]
         ] = None,
         returning: bool | str = False,
-        schema_name: Optional[str] = None,
     ) -> str:
         """Get sql for inserting row(s) into <table_name>.
 
         Check https://www.sqlite.org/lang_insert.html for more details.
         """
+        _or_option_stmt = ""
+        if or_option:
+            _or_option_stmt = f"OR {or_option.upper()}"
+        insert_stmt = f"INSERT {_or_option_stmt} INTO {insert_into} "
+
+        if cols:
+            cols_specify_stmt = f"({','.join(cls._filter_with_order(*cols))}) "
+            values_specify_stmt = f"VALUES ({','.join(['?'] * len(cols))}) "
+        else:
+            cols_specify_stmt = ""
+            values_specify_stmt = f"VALUES ({','.join(['?'] * len(cls.model_fields))}) "
+
+        returning_stmt = (
+            f"RETURNING {'*' if returning is True else returning} " if returning else ""
+        )
+
         with StringIO() as buffer:
-            buffer.write("INSERT ")
-            if or_option:
-                buffer.write(f"OR {or_option.upper()} ")
-
-            _table_name_stmt = table_name
-            if schema_name:
-                _table_name_stmt = f"{schema_name}.{table_name}"
-            buffer.write(f"INTO {_table_name_stmt} ")
-
-            _returning_stmt = ""
-            if returning:
-                _returning_stmt = (
-                    f"RETURNING {'*' if returning is True else returning} "
-                )
+            buffer.write(insert_stmt)
+            buffer.write(cols_specify_stmt)
 
             if insert_default:
-                buffer.write(f"DEFAULT VALUES {_returning_stmt};")
-                return buffer.getvalue()
-
-            if cols:
-                _cols_set = set(cols)
-                _col_stmts = (
-                    _col for _col in filter(lambda x: x in _cols_set, cls.model_fields)
-                )
-                buffer.write("(")
-                buffer.write(",".join(_col_stmts))
-                buffer.write(")")
-
-                _col_value_placeholder = len(cols)
+                buffer.write(f"DEFAULT VALUES {returning_stmt} ")
+            if insert_select:
+                buffer.write(f"{insert_select} ")
             else:
-                _col_value_placeholder = len(cls.model_fields)
+                buffer.write(values_specify_stmt)
 
-            buffer.write(" VALUES (")
-            buffer.write(",".join(["?"] * _col_value_placeholder))
-            buffer.write(f") {_returning_stmt};")
+            buffer.write(f"{returning_stmt};")
             return buffer.getvalue()
 
     @classmethod
