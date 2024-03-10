@@ -142,12 +142,7 @@ class ORMBase(BaseModel):
         """
         if not cols:
             return tuple(getattr(self, _col) for _col in self.model_fields)
-
-        _input_cols = set(cols)
-        return tuple(
-            getattr(self, _col)
-            for _col in filter(lambda x: x in _input_cols, self.model_fields)
-        )
+        return tuple(getattr(self, _col) for _col in self._filter_with_order(*cols))
 
     @classmethod
     def simple_insert_entry_stmt(
