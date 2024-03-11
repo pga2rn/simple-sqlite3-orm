@@ -7,15 +7,20 @@ from weakref import WeakValueDictionary
 
 from typing_extensions import Self
 
-from simple_sqlite3_orm._table_spec import TableSpecType, TableSpec
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
+from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
 
-if sys.version_info >= (3, 9):  # Typing for weak dictionaries is available since 3.9
-    GenericTypesCache = WeakValueDictionary[type[TableSpec], type["ORMBase[Any]"]]
+_parameterized_orm_cache: WeakValueDictionary[type[TableSpec], type["ORMBase[Any]"]] = (
+    WeakValueDictionary()
+)
+
+
+if sys.version_info >= (3, 9):
+    from types import GenericAlias as _std_GenericAlias
 else:
-    GenericTypesCache = WeakValueDictionary
+    from typing import List
 
-_parameterized_orm_cache = GenericTypesCache()
+    _std_GenericAlias = type(List[int])
 
 
 class ORMBase(Generic[TableSpecType]):
@@ -42,7 +47,7 @@ class ORMBase(Generic[TableSpecType]):
             return super().__class_getitem__(params)  # type: ignore
 
         if _cached_type := _parameterized_orm_cache.get(params):
-            return _cached_type
+            return _std_GenericAlias(_cached_type, params)
 
         _new_parameterized_container: Any = type(
             f"{cls.__name__}[{params.__name__}]",
@@ -50,7 +55,7 @@ class ORMBase(Generic[TableSpecType]):
             {"table_spec": params},
         )
         _parameterized_orm_cache[params] = _new_parameterized_container
-        return _new_parameterized_container
+        return _std_GenericAlias(_new_parameterized_container, params)
 
     def _get_table_name(self) -> str:
         return (
