@@ -13,7 +13,7 @@ from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 ORMType = TypeVar("ORMType", bound="ORMBase")
 
 if sys.version_info >= (3, 9):  # Typing for weak dictionaries is available since 3.9
-    GenericTypesCache = WeakValueDictionary[tuple[type[ORMType]], type[TableSpecType]]
+    GenericTypesCache = WeakValueDictionary[type[TableSpec], type["ORMBase"]]
 else:
     GenericTypesCache = WeakValueDictionary
 
@@ -36,7 +36,7 @@ class ORMBase(Generic[TableSpecType]):
 
     def __class_getitem__(
         cls: type[Self], params: Any | type[TableSpecType]
-    ) -> type[Self]:
+    ) -> type[ORMBase]:
         if not (isinstance(params, type) and issubclass(params, TableSpec)):
             raise TypeError
 
@@ -75,9 +75,9 @@ class ORMBase(Generic[TableSpecType]):
     def create_index(
         self,
         index_name: str,
+        *cols: str,
         allow_existed: bool = False,
         unique: bool = False,
-        *cols: str,
     ) -> None:
         _index_create_stmt = self.table_spec.table_create_index_stmt(
             self._get_table_name(),
@@ -135,9 +135,17 @@ class ORMBase(Generic[TableSpecType]):
             returning=returning,
             **cols_value,
         )
-        with self._con as con:
-            _cur = con.execute(_delete_stmt, tuple(cols_value.values()))
-            if returning:
-                _cur.row_factory = self.table_spec.table_row_factory
-                yield from _cur.fetchall()
-            return _cur.rowcount
+
+        if returning:
+
+            def _gen():
+                with self._con as con:
+                    _cur = con.execute(_delete_stmt, tuple(cols_value.values()))
+                    _cur.row_factory = self.table_spec.table_row_factory
+                    yield from _cur.fetchall()
+
+            return _gen()
+        else:
+            with self._con as con:
+                _cur = con.execute(_delete_stmt, tuple(cols_value.values()))
+                return _cur.rowcount
