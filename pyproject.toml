@@ -55,11 +55,6 @@ show_missing = true
 skip_covered = true
 skip_empty = true
 
-[tool.hatch.envs.dev_py38]
-type = "virtual"
-python = "3.8"
-path = "./hatch_venv_dev_py38"
-
 [tool.hatch.version]
 source = "vcs"
 
