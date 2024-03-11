@@ -6,7 +6,7 @@ from typing import Any, Iterable, Literal, Optional, get_args, get_origin
 from pydantic import BaseModel
 from typing_extensions import Self
 
-from simple_sqlite3_orm._db import (
+from simple_sqlite3_orm._sqlite_spec import (
     ConstrainLiteral,
     SQLiteTypeAffinity,
     SQLiteTypeAffinityLiteral,
