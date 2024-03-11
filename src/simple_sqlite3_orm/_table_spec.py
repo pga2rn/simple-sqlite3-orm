@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from io import StringIO
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Optional, TypeVar
 
 from pydantic import BaseModel
 from typing_extensions import Self
@@ -275,3 +275,6 @@ class TableSpec(BaseModel):
             buffer.write(returning_stmt)
             buffer.write(";")
             return buffer.getvalue()
+
+
+TableSpecType = TypeVar("TableSpecType", bound=TableSpec)
