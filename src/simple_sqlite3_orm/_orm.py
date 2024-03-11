@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
-from typing import Any, Generator, Generic, Iterable, Optional, TypeVar
+from typing import Any, Generator, Generic, Iterable, Optional
 from weakref import WeakValueDictionary
 
 from typing_extensions import Self
@@ -10,10 +10,8 @@ from typing_extensions import Self
 from simple_sqlite3_orm._table_spec import TableSpecType, TableSpec
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 
-ORMType = TypeVar("ORMType", bound="ORMBase")
-
 if sys.version_info >= (3, 9):  # Typing for weak dictionaries is available since 3.9
-    GenericTypesCache = WeakValueDictionary[type[TableSpec], type["ORMBase"]]
+    GenericTypesCache = WeakValueDictionary[type[TableSpec], type["ORMBase[Any]"]]
 else:
     GenericTypesCache = WeakValueDictionary
 
@@ -35,10 +33,13 @@ class ORMBase(Generic[TableSpecType]):
         self._con = con
 
     def __class_getitem__(
-        cls: type[Self], params: Any | type[TableSpecType]
-    ) -> type[ORMBase]:
+        cls: type[Self], params: Any | type[Any] | type[TableSpecType]
+    ) -> Any:
+        # just for convienience, passthrough anything that is not type[TableSpecType]
+        #   to Generic's __class_getitem__ and return it.
+        # Typically this is for subscript ORMBase with TypeVar or another Generic.
         if not (isinstance(params, type) and issubclass(params, TableSpec)):
-            raise TypeError
+            return super().__class_getitem__(params)  # type: ignore
 
         if _cached_type := _parameterized_orm_cache.get(params):
             return _cached_type
@@ -138,7 +139,7 @@ class ORMBase(Generic[TableSpecType]):
 
         if returning:
 
-            def _gen():
+            def _gen() -> Generator[TableSpecType, None, None]:
                 with self._con as con:
                     _cur = con.execute(_delete_stmt, tuple(cols_value.values()))
                     _cur.row_factory = self.table_spec.table_row_factory
