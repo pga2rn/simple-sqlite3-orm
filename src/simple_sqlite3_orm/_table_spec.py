@@ -239,6 +239,13 @@ class TableSpec(BaseModel):
         """Get sql for deleting row(s) from <table_name> with specifying col value(s).
 
         Check https://www.sqlite.org/lang_delete.html for more details.
+
+        NOTE(20240311): DELETE operation without any condition(no WHERE statement) in
+            WITHOUT_ROWID table will result in rowcount=0, see
+            https://sqlite.org/forum/forumpost/07dedbf9a1 for more details.
+            For python, python version < 3.10 will be affected by this bug.
+            Althoug add any condition, even a dummy "WHERE 1=1" can resolve the above bug,
+            I will not add this hack here.
         """
         delete_from_stmt = f"DELETE FROM {delete_from} "
 
