@@ -1,25 +1,55 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Generator, Generic, Iterable, Optional
+import sys
+from typing import Any, Generator, Generic, Iterable, Optional, TypeVar
+from weakref import WeakValueDictionary
 
-from simple_sqlite3_orm._table_spec import TableSpecType
+from typing_extensions import Self
+
+from simple_sqlite3_orm._table_spec import TableSpecType, TableSpec
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
+
+ORMType = TypeVar("ORMType", bound="ORMBase")
+
+if sys.version_info >= (3, 9):  # Typing for weak dictionaries is available since 3.9
+    GenericTypesCache = WeakValueDictionary[tuple[type[ORMType]], type[TableSpecType]]
+else:
+    GenericTypesCache = WeakValueDictionary
+
+_parameterized_orm_cache = GenericTypesCache()
 
 
 class ORMBase(Generic[TableSpecType]):
+
+    table_spec: type[TableSpecType]
 
     def __init__(
         self,
         con: sqlite3.Connection,
         table_name: str,
-        table_spec: type[TableSpecType],
         schema_name: Optional[str] = None,
     ) -> None:
         self.table_name = table_name
         self.schema_name = schema_name
-        self.table_spec = table_spec
         self._con = con
+
+    def __class_getitem__(
+        cls: type[Self], params: Any | type[TableSpecType]
+    ) -> type[Self]:
+        if not (isinstance(params, type) and issubclass(params, TableSpec)):
+            raise TypeError
+
+        if _cached_type := _parameterized_orm_cache.get(params):
+            return _cached_type
+
+        _new_parameterized_container: Any = type(
+            f"{cls.__name__}[{params.__name__}]",
+            (cls,),
+            {"table_spec": params},
+        )
+        _parameterized_orm_cache[params] = _new_parameterized_container
+        return _new_parameterized_container
 
     def _get_table_name(self) -> str:
         return (
