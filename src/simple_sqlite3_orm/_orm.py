@@ -26,6 +26,13 @@ else:
 
 
 class ORMBase(Generic[TableSpecType]):
+    """ORM for <TableSpecType>.
+
+    Attributes:
+        con: the sqlite3 connection used by this ORM.
+        table_name: the name of the table in the database <con> connected to.
+        schema_name: the schema of the table if multiple databases are attached to <con>.
+    """
 
     table_spec: type[TableSpecType]
 
@@ -59,7 +66,12 @@ class ORMBase(Generic[TableSpecType]):
         _parameterized_orm_cache[params] = _new_parameterized_container
         return _std_GenericAlias(_new_parameterized_container, params)
 
-    def _get_table_name(self) -> str:
+    def get_table_name(self) -> str:
+        """Get the unique name for the table from <con>.
+
+        If multiple databases are attached to <con> and <schema_name> is availabe,
+            return "<schema_name>.<table_name>", otherwise return <table_name>.
+        """
         return (
             f"{self.schema_name}.{self.table_name}"
             if self.schema_name
@@ -74,7 +86,7 @@ class ORMBase(Generic[TableSpecType]):
         with self.con as con:
             con.execute(
                 self.table_spec.table_create_stmt(
-                    self._get_table_name(),
+                    self.get_table_name(),
                     if_not_exists=allow_existed,
                     without_rowid=without_rowid,
                 )
@@ -88,7 +100,7 @@ class ORMBase(Generic[TableSpecType]):
         unique: bool = False,
     ) -> None:
         index_create_stmt = self.table_spec.table_create_index_stmt(
-            self._get_table_name(),
+            self.get_table_name(),
             index_name,
             unique=unique,
             if_not_exists=allow_existed,
@@ -106,7 +118,7 @@ class ORMBase(Generic[TableSpecType]):
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
         table_select_stmt = self.table_spec.table_select_stmt(
-            self._get_table_name(),
+            self.get_table_name(),
             distinct=distinct,
             order_by=order_by,
             limit=limit,
@@ -120,7 +132,7 @@ class ORMBase(Generic[TableSpecType]):
             yield from _cur.fetchall()
 
     def insert_entries(self, _in: TableSpecType | Iterable[TableSpecType]) -> int:
-        insert_stmt = self.table_spec.table_insert_stmt(self._get_table_name())
+        insert_stmt = self.table_spec.table_insert_stmt(self.get_table_name())
         logger.debug(f"{insert_stmt=}")
 
         with self.con as con:
@@ -141,7 +153,7 @@ class ORMBase(Generic[TableSpecType]):
         **cols_value: Any,
     ) -> int | Generator[TableSpecType, None, None]:
         delete_stmt = self.table_spec.table_delete_stmt(
-            self._get_table_name(),
+            self.get_table_name(),
             limit=limit,
             order_by=order_by,
             returning=returning,
