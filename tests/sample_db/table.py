@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime
 from enum import Enum
 from functools import cached_property
 from hashlib import sha256
@@ -12,7 +11,14 @@ from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 from typing_extensions import Annotated
 
-from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr
+from simple_sqlite3_orm import (
+    ConstrainRepr,
+    TableSpec,
+    TypeAffinityRepr,
+    DatetimeISO8601,
+    DatetimeUnix,
+    DatetimeUnixNS,
+)
 
 
 class ChoiceABC(str, Enum):
@@ -63,9 +69,9 @@ class SampleTable(TableSpec):
     """This sample table contains as much different types of fields as possible."""
 
     # ------ datetime related ------ #
-    datetime_unix_sec: Annotated[datetime.datetime, TypeAffinityRepr(int)]
-    datetime_iso8601: Annotated[datetime.datetime, TypeAffinityRepr(str)]
-    datetime_unix_float: Annotated[datetime.datetime, TypeAffinityRepr(float)]
+    datetime_unix_sec: Annotated[DatetimeUnix, TypeAffinityRepr(int)]
+    datetime_iso8601: Annotated[DatetimeISO8601, TypeAffinityRepr(str)]
+    datetime_unix_float: Annotated[DatetimeUnixNS, TypeAffinityRepr(float)]
 
     # ------ enums ------ #
     choice_abc: Annotated[
