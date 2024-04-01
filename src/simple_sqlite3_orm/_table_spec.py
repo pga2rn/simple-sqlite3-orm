@@ -168,23 +168,25 @@ class TableSpec(BaseModel):
     def table_select_stmt(
         cls,
         select_from: str,
-        *select_cols: str,
+        select_cols: list[str] | str = "*",
         distinct: bool = False,
         function: Optional[SQLiteBuiltInFuncs] = None,
         group_by: Optional[Iterable[str]] = None,
         order_by: Optional[Iterable[str | tuple[str, ORDER_DIRECTION]]] = None,
         limit: Optional[int | str] = None,
         where: Optional[str] = None,
-        **col_values: Any,
+        where_cols: list[str] | None = None,
     ) -> str:
         """Get sql for getting row(s) from <table_name>, optionally with
             where condition specified by <col_values>.
 
         Check https://www.sqlite.org/lang_select.html for more details.
         """
-        _select_target = "*"
-        if select_cols:
+        if isinstance(select_cols, list):
             _select_target = cls._filter_with_order(*select_cols)
+        else:
+            _select_target = select_cols
+
         if function:
             _select_target = f"{function}({_select_target})"
         select_stmt = f"SELECT {'DISTINCT ' if distinct else ''}{_select_target} "
@@ -193,11 +195,11 @@ class TableSpec(BaseModel):
         where_stmt = ""
         if where:
             where_stmt = f"WHERE {where} "
-        elif col_values:
+        elif where_cols:
             _conditions: list[str] = []
-            for _col, _value in col_values.items():
+            for _col in where_cols:
                 if _col in cls.model_fields:
-                    _conditions.append(f"{_col}={_value}")
+                    _conditions.append(f"{_col}=?")
             where_stmt = f"WHERE {' AND '.join(_conditions)} "
 
         group_by_stmt = f"GROUP BY {','.join(group_by)} " if group_by else ""

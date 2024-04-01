@@ -122,12 +122,12 @@ class ORMBase(Generic[TableSpecType]):
             distinct=distinct,
             order_by=order_by,
             limit=limit,
-            **col_values,
+            where_cols=list(col_values),
         )
         logger.debug(f"{table_select_stmt=}")
 
         with self.con as con:
-            _cur = con.execute(table_select_stmt)
+            _cur = con.execute(table_select_stmt, tuple(col_values.values()))
             _cur.row_factory = self.table_spec.table_row_factory
             yield from _cur.fetchall()
 
