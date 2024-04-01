@@ -116,8 +116,10 @@ class TableSpec(BaseModel):
             A tuple of col values from this row.
         """
         if not cols:
-            return tuple(getattr(self, _col) for _col in self.model_fields)
-        return tuple(getattr(self, _col) for _col in self._filter_with_order(*cols))
+            return tuple(self.model_dump().values())
+
+        assert self.table_check_cols(*cols)
+        return tuple(self.model_dump(include=set(cols)).values())
 
     @classmethod
     def table_insert_stmt(
