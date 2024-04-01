@@ -104,7 +104,7 @@ class TableSpec(BaseModel):
     ) -> Self:
         """row_factory implement for used in sqlite3 connection."""
         _fields = [col[0] for col in _cursor.description]
-        return cls.model_construct(**dict(zip(_fields, _row)))
+        return cls.model_validate(dict(zip(_fields, _row)))
 
     def table_row_astuple(self, *cols: str) -> tuple[SQLiteStorageClass, ...]:
         """Dump self to a tuple of col values.
