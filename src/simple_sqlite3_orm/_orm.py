@@ -104,7 +104,7 @@ class ORMBase(Generic[TableSpecType]):
             index_name,
             unique=unique,
             if_not_exists=allow_existed,
-            *cols,
+            index_cols=list(cols),
         )
         logger.debug(f"{index_create_stmt=}")
         with self.con as con:

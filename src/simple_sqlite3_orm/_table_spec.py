@@ -70,7 +70,7 @@ class TableSpec(BaseModel):
         cls,
         table_name: str,
         index_name: str,
-        *cols: str | tuple[str, ORDER_DIRECTION],
+        index_cols: list[str | tuple[str, ORDER_DIRECTION]],
         if_not_exists: bool = False,
         unique: bool = False,
     ) -> str:
@@ -78,10 +78,10 @@ class TableSpec(BaseModel):
 
         Check https://www.sqlite.org/lang_createindex.html for more details.
         """
-        assert cols, "at least one col should be specified for an index"
+        assert index_cols, "at least one col should be specified for an index"
 
         _indexed_cols: list[str] = []
-        for _input in cols:
+        for _input in index_cols:
             if isinstance(_input, tuple):
                 _col, _order = _input
                 cls.table_check_cols(_col)
