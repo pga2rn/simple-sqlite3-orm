@@ -101,7 +101,7 @@ class SampleTable(TableSpec):
         ConstrainRepr(
             (
                 "CHECK",
-                r"(optional_num_literal is NULL OR optional_num_literal IN (7, 8, 9))",
+                r"(optional_num_literal is NULL OR optional_num_literal IN (123, 456, 789))",
             )
         ),
     ] = None
@@ -110,13 +110,16 @@ class SampleTable(TableSpec):
         TypeAffinityRepr(SomeStrLiteral),
         ConstrainRepr(
             "NOT NULL",
-            ("CHECK", r'(optional_num_literal IN ("H", "I", "J"))'),
+            (
+                "CHECK",
+                r'(str_literal IN ("H", "I", "J"))',
+            ),
             ("DEFAULT", "H"),
         ),
     ] = "H"
 
     # ------ built-in types ------ #
-    key_id: Annotated[int, TypeAffinityRepr(int), ConstrainRepr("PRIMARY KEY")]
+    key_id: Annotated[int, TypeAffinityRepr(int), ConstrainRepr("NOT NULL")]
     # Here for convenience, all prim_ prefixed field can be
     #   derived by prim_key, check MyStr's methods for mor details.
     prim_key: Annotated[
