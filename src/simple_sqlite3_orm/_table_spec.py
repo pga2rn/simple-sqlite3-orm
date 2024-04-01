@@ -257,7 +257,8 @@ class TableSpec(BaseModel):
         elif where_cols:
             cls.table_check_cols(*where_cols)
             _conditions = (f"{_col}=?" for _col in where_cols)
-            where_stmt = " AND ".join(_conditions)
+            _where_cols_stmt = " AND ".join(_conditions)
+            where_stmt = f"WHERE {_where_cols_stmt} "
 
         order_by_stmt = ""
         if order_by:
