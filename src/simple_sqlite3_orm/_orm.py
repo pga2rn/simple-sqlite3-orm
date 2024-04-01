@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 import sys
 from typing import Any, Generator, Generic, Iterable, Optional
@@ -14,6 +15,7 @@ _parameterized_orm_cache: WeakValueDictionary[type[TableSpec], type["ORMBase[Any
     WeakValueDictionary()
 )
 
+logger = logging.getLogger(__name__)
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias as _std_GenericAlias
@@ -35,7 +37,7 @@ class ORMBase(Generic[TableSpecType]):
     ) -> None:
         self.table_name = table_name
         self.schema_name = schema_name
-        self._con = con
+        self.con = con
 
     def __class_getitem__(
         cls: type[Self], params: Any | type[Any] | type[TableSpecType]
@@ -69,7 +71,7 @@ class ORMBase(Generic[TableSpecType]):
         allow_existed: bool = False,
         without_rowid: bool = False,
     ) -> None:
-        with self._con as con:
+        with self.con as con:
             con.execute(
                 self.table_spec.table_create_stmt(
                     self._get_table_name(),
@@ -85,15 +87,16 @@ class ORMBase(Generic[TableSpecType]):
         allow_existed: bool = False,
         unique: bool = False,
     ) -> None:
-        _index_create_stmt = self.table_spec.table_create_index_stmt(
+        index_create_stmt = self.table_spec.table_create_index_stmt(
             self._get_table_name(),
             index_name,
             unique=unique,
             if_not_exists=allow_existed,
             *cols,
         )
-        with self._con as con:
-            con.execute(_index_create_stmt)
+        logger.debug(f"{index_create_stmt=}")
+        with self.con as con:
+            con.execute(index_create_stmt)
 
     def select_entries(
         self,
@@ -102,28 +105,31 @@ class ORMBase(Generic[TableSpecType]):
         limit: Optional[int] = None,
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
-        with self._con as con:
-            _cur = con.execute(
-                self.table_spec.table_select_stmt(
-                    self._get_table_name(),
-                    distinct=distinct,
-                    order_by=order_by,
-                    limit=limit,
-                    **col_values,
-                )
-            )
+        table_select_stmt = self.table_spec.table_select_stmt(
+            self._get_table_name(),
+            distinct=distinct,
+            order_by=order_by,
+            limit=limit,
+            **col_values,
+        )
+        logger.debug(f"{table_select_stmt=}")
+
+        with self.con as con:
+            _cur = con.execute(table_select_stmt)
             _cur.row_factory = self.table_spec.table_row_factory
             yield from _cur.fetchall()
 
     def insert_entries(self, _in: TableSpecType | Iterable[TableSpecType]) -> int:
-        _insert_stmt = self.table_spec.table_insert_stmt(self._get_table_name())
-        with self._con as con:
+        insert_stmt = self.table_spec.table_insert_stmt(self._get_table_name())
+        logger.debug(f"{insert_stmt=}")
+
+        with self.con as con:
             if isinstance(_in, self.table_spec):
-                _cur = con.execute(_insert_stmt, _in.table_row_astuple())
+                _cur = con.execute(insert_stmt, _in.table_row_astuple())
                 return _cur.rowcount
 
             _cur = con.executemany(
-                _insert_stmt, tuple(_row.table_row_astuple() for _row in _in)
+                insert_stmt, tuple(_row.table_row_astuple() for _row in _in)
             )
             return _cur.rowcount
 
@@ -134,24 +140,25 @@ class ORMBase(Generic[TableSpecType]):
         returning: Optional[bool] = None,
         **cols_value: Any,
     ) -> int | Generator[TableSpecType, None, None]:
-        _delete_stmt = self.table_spec.table_delete_stmt(
+        delete_stmt = self.table_spec.table_delete_stmt(
             self._get_table_name(),
             limit=limit,
             order_by=order_by,
             returning=returning,
             **cols_value,
         )
+        logger.debug(f"{delete_stmt=}")
 
         if returning:
 
             def _gen() -> Generator[TableSpecType, None, None]:
-                with self._con as con:
-                    _cur = con.execute(_delete_stmt, tuple(cols_value.values()))
+                with self.con as con:
+                    _cur = con.execute(delete_stmt, tuple(cols_value.values()))
                     _cur.row_factory = self.table_spec.table_row_factory
                     yield from _cur.fetchall()
 
             return _gen()
         else:
-            with self._con as con:
-                _cur = con.execute(_delete_stmt, tuple(cols_value.values()))
+            with self.con as con:
+                _cur = con.execute(delete_stmt, tuple(cols_value.values()))
                 return _cur.rowcount
