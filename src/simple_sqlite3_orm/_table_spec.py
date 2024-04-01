@@ -123,7 +123,7 @@ class TableSpec(BaseModel):
     def table_insert_stmt(
         cls,
         insert_into: str,
-        *cols: str,
+        insert_cols: list[str] | None = None,
         insert_default: bool = False,
         insert_select: Optional[str] = None,
         or_option: Optional[INSERT_OR] = None,
@@ -138,9 +138,9 @@ class TableSpec(BaseModel):
             _or_option_stmt = f"OR {or_option.upper()}"
         insert_stmt = f"INSERT {_or_option_stmt} INTO {insert_into} "
 
-        if cols:
-            cols_specify_stmt = f"({','.join(cls._filter_with_order(*cols))}) "
-            values_specify_stmt = f"VALUES ({','.join(['?'] * len(cols))}) "
+        if insert_cols:
+            cols_specify_stmt = f"({','.join(cls._filter_with_order(*insert_cols))}) "
+            values_specify_stmt = f"VALUES ({','.join(['?'] * len(insert_cols))}) "
         else:
             cols_specify_stmt = ""
             values_specify_stmt = f"VALUES ({','.join(['?'] * len(cls.model_fields))}) "
@@ -236,7 +236,7 @@ class TableSpec(BaseModel):
         order_by: Optional[Iterable[str | tuple[str, ORDER_DIRECTION]]] = None,
         where: Optional[str] = None,
         returning: Optional[bool | str] = None,
-        **col_values: Any,
+        where_cols: list[str] | None = None,
     ) -> str:
         """Get sql for deleting row(s) from <table_name> with specifying col value(s).
 
@@ -254,9 +254,9 @@ class TableSpec(BaseModel):
         where_stmt = ""
         if where:
             where_stmt = f"WHERE {where} "
-        elif col_values:
-            cls.table_check_cols(*col_values)
-            _conditions = (f"{_col}={_value}" for _col, _value in col_values.items())
+        elif where_cols:
+            cls.table_check_cols(*where_cols)
+            _conditions = (f"{_col}=?" for _col in where_cols)
             where_stmt = " AND ".join(_conditions)
 
         order_by_stmt = ""

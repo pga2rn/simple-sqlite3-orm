@@ -157,7 +157,7 @@ class ORMBase(Generic[TableSpecType]):
             limit=limit,
             order_by=order_by,
             returning=returning,
-            **cols_value,
+            where_cols=list(cols_value),
         )
         logger.debug(f"{delete_stmt=}")
 
