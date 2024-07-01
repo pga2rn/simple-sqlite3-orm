@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 import sqlite3
 import sys
-from typing import Any, TYPE_CHECKING, Generator, Generic, Iterable
+from typing import TYPE_CHECKING, Any, Generator, Generic, Iterable, TypeVar
 from weakref import WeakValueDictionary
 
-from typing_extensions import Self, ParamSpec
+from typing_extensions import ParamSpec, Self
 
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
@@ -68,13 +68,12 @@ class ORMBase(Generic[TableSpecType]):
         if _cached_type := _parameterized_orm_cache.get(params):
             return _std_GenericAlias(_cached_type, params)
 
-        _new_parameterized_container: Any = type(
-            f"{cls.__name__}[{params.__name__}]",
-            (cls,),
-            {"table_spec": params},
+        new_parameterized_ormbase: type[ORMBaseType] = type(
+            f"{cls.__name__}[{params.__name__}]", (cls,), {}
         )
-        _parameterized_orm_cache[params] = _new_parameterized_container
-        return _std_GenericAlias(_new_parameterized_container, params)
+        new_parameterized_ormbase.orm_table_spec = params
+        _parameterized_orm_cache[params] = new_parameterized_ormbase
+        return _std_GenericAlias(new_parameterized_ormbase, params)
 
     @property
     def orm_con(self) -> sqlite3.Connection:
@@ -226,3 +225,6 @@ class ORMBase(Generic[TableSpecType]):
         """
         cursor.row_factory = self.orm_table_spec.table_row_factory
         yield from cursor.fetchall()
+
+
+ORMBaseType = TypeVar("ORMBaseType", bound=ORMBase)
