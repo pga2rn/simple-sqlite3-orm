@@ -6,7 +6,7 @@ import sys
 from typing import Any, TYPE_CHECKING, Generator, Generic, Iterable
 from weakref import WeakValueDictionary
 
-from typing_extensions import Self
+from typing_extensions import Self, ParamSpec
 
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
@@ -16,6 +16,8 @@ _parameterized_orm_cache: WeakValueDictionary[type[TableSpec], type["ORMBase[Any
 )
 
 logger = logging.getLogger(__name__)
+
+P = ParamSpec("P")
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias as _std_GenericAlias
@@ -198,7 +200,7 @@ class ORMBase(Generic[TableSpecType]):
             def _gen() -> Generator[TableSpecType, None, None]:
                 with self._con as con:
                     _cur = con.execute(delete_stmt, tuple(cols_value.values()))
-                    _cur.row_factory = self.table_spec.table_row_factory
+                    _cur.row_factory = self.orm_table_spec.table_row_factory
                     yield from _cur.fetchall()
 
             return _gen()
@@ -206,3 +208,21 @@ class ORMBase(Generic[TableSpecType]):
             with self._con as con:
                 _cur = con.execute(delete_stmt, tuple(cols_value.values()))
                 return _cur.rowcount
+
+    def orm_cursor_wrapper(
+        self, cursor: sqlite3.Cursor
+    ) -> Generator[TableSpecType, None, None]:
+        """A helper wrapper that setup row factory and yield from the <cursor>.
+
+        This decorator is for advanced database operation which is expected to return a cursor that
+            can be used to retrieve a list of entries from the table. User can use this wrapper to
+            convert the cursor into a generator that yields the converted entries.
+
+        Args:
+            cursor (sqlite3.Cursor): A cursor which can be used to retrieve entries from.
+
+        Returns:
+            Generator[TableSpec, None, None]: A generator that can yield converted entries.
+        """
+        cursor.row_factory = self.orm_table_spec.table_row_factory
+        yield from cursor.fetchall()
