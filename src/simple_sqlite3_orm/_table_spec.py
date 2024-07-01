@@ -263,12 +263,15 @@ class TableSpec(BaseModel):
     @classmethod
     def table_delete_stmt(
         cls,
+        *,
         delete_from: str,
         limit: int | str | None = None,
         order_by: Iterable[str | tuple[str, ORDER_DIRECTION]] | None = None,
-        where: str | None = None,
-        returning: bool | str | None = None,
+        order_by_stmt: str | None = None,
         where_cols: list[str] | None = None,
+        where_stmt: str | None = None,
+        returning: bool | str | None = None,
+        returning_cols: list[str] | None = None,
     ) -> str:
         """Get sql for deleting row(s) from <table_name> with specifying col value(s).
 
@@ -281,20 +284,39 @@ class TableSpec(BaseModel):
             A quick workaround is to add any condition in where statement, even a dummy
             "WHERE 1=1" can resolve the above bug.
             I will not add this hack here, and user can add this hack according to their needs.
+
+        Args:
+            delete_from (str): The table name for the generated statement.
+            limit (int | str | None, optional): The value for limit expr. Defaults to None.
+            order_by (Iterable[str  |  tuple[str, ORDER_DIRECTION]] | None, optional):
+                A list of cols for ordering result. Defaults to None.
+            order_by_stmt (str | None, optional): The order_by statement string, this
+                precedes the <order_by> param if set. Defaults to None.
+            where_cols (list[str] | None, optional): A list of cols to be compared in where
+                statement. Defaults to None.
+            where_stmt (str | None, optional): The full where statement string, this
+                precedes the <where_cols> param if set. Defaults to None.
+            returning (bool | str | None, optional): Whether returns the deleted entries. Defaults to None.
+            returning_cols (list[str] | None): Which cols are included in the returned entries. Defaults to None.
+
+        Returns:
+            str: The generated delete statement.
         """
         delete_from_stmt = f"DELETE FROM {delete_from} "
 
-        where_stmt = ""
-        if where:
-            where_stmt = f"WHERE {where} "
+        if where_stmt:
+            parsed_where_stmt = where_stmt
         elif where_cols:
             cls.table_check_cols(where_cols)
             _conditions = (f"{_col}=?" for _col in where_cols)
             _where_cols_stmt = " AND ".join(_conditions)
-            where_stmt = f"WHERE {_where_cols_stmt} "
+            parsed_where_stmt = f"WHERE {_where_cols_stmt} "
+        else:
+            parsed_where_stmt = ""
 
-        order_by_stmt = ""
-        if order_by:
+        if order_by_stmt:
+            parsed_order_by_stmt = order_by_stmt
+        elif order_by:
             _order_by_stmts: list[str] = []
             for _item in order_by:
                 if isinstance(_item, tuple):
@@ -303,17 +325,22 @@ class TableSpec(BaseModel):
                     _order_by_stmts.append(f"{_col} {_direction}")
                 else:
                     _order_by_stmts.append(_item)
-            order_by_stmt = f"{','}.join(_order_by_stmts)"
+            parsed_order_by_stmt = f"ORDER BY {','.join(_order_by_stmts)} "
+        else:
+            parsed_order_by_stmt = ""
 
         limit_stmt = f"LIMIT {limit} " if limit is not None else ""
-        returning_stmt = (
-            f"RETURNING {'*' if returning is True else returning} " if returning else ""
-        )
+
+        if returning:
+            returning_cols_stmt = ",".join(returning_cols) if returning_cols else "*"
+            returning_stmt = f"RETURNING {returning_cols_stmt} "
+        else:
+            returning_stmt = ""
 
         with StringIO() as buffer:
             buffer.write(delete_from_stmt)
-            buffer.write(where_stmt)
-            buffer.write(order_by_stmt)
+            buffer.write(parsed_where_stmt)
+            buffer.write(parsed_order_by_stmt)
             buffer.write(limit_stmt)
             buffer.write(returning_stmt)
             buffer.write(";")
