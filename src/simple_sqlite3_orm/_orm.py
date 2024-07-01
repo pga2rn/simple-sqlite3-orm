@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import sys
-from typing import Any, TYPE_CHECKING, Generator, Generic, Iterable, Optional
+from typing import Any, TYPE_CHECKING, Generator, Generic, Iterable
 from weakref import WeakValueDictionary
 
 from typing_extensions import Self
@@ -121,8 +121,8 @@ class ORMBase(Generic[TableSpecType]):
     def select_entries(
         self,
         distinct: bool = False,
-        order_by: Optional[Iterable[str]] = None,
-        limit: Optional[int] = None,
+        order_by: Iterable[str] | None = None,
+        limit: int | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
         table_select_stmt = self.table_spec.table_select_stmt(
@@ -171,9 +171,9 @@ class ORMBase(Generic[TableSpecType]):
 
     def delete_entries(
         self,
-        limit: Optional[int] = None,
-        order_by: Optional[Iterable[str | tuple[str, ORDER_DIRECTION]]] = None,
-        returning: Optional[bool] = None,
+        limit: int | None = None,
+        order_by: Iterable[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        returning: bool | None = None,
         **cols_value: Any,
     ) -> int | Generator[TableSpecType, None, None]:
         delete_stmt = self.table_spec.table_delete_stmt(
