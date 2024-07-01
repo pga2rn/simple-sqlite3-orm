@@ -147,12 +147,11 @@ class ORMBase(Generic[TableSpecType]):
             _cur.row_factory = self.orm_table_spec.table_row_factory
             yield from _cur.fetchall()
 
-    def orm_insert_entries(self, _in: TableSpecType | Iterable[TableSpecType]) -> int:
+    def orm_insert_entries(self, _in: Iterable[TableSpecType]) -> int:
         """Insert entry/entries into this table.
 
         Args:
-            _in (TableSpecType | Iterable[TableSpecType]): The instance of entry(or a list of entries)
-                to be inserted into the table.
+            _in (Iterable[TableSpecType]): A list of entries to insert.
 
         Raises:
             ValueError: On invalid types of _in.
@@ -162,24 +161,30 @@ class ORMBase(Generic[TableSpecType]):
         """
         insert_stmt = self.orm_table_spec.table_insert_stmt(insert_into=self.table_name)
         with self._con as con:
-            if isinstance(_in, tuple):
-                _cur = con.executemany(
-                    insert_stmt, tuple(_row.table_dump_astuple() for _row in _in)
-                )
-                return _cur.rowcount
-            elif isinstance(_in, self.orm_table_spec):
-                _cur = con.execute(insert_stmt, _in.table_dump_astuple())
-                return _cur.rowcount
-            else:
-                raise ValueError(
-                    "invalid input type, expects tuple or instance of TableSpecType"
-                )
+            _cur = con.executemany(
+                insert_stmt, tuple(_row.table_dump_astuple() for _row in _in)
+            )
+            return _cur.rowcount
+
+    def orm_insert_entry(self, _in: TableSpecType) -> int:
+        """Insert exactly one entry into this table.
+
+        Args:
+            _in (TableSpecType): The instance of entry to insert.
+
+        Returns:
+            int: Number of inserted entries.
+        """
+        insert_stmt = self.orm_table_spec.table_insert_stmt(insert_into=self.table_name)
+        with self._con as con:
+            _cur = con.execute(insert_stmt, _in.table_dump_astuple())
+            return _cur.rowcount
 
     def orm_delete_entries(
         self,
         *,
-        _limit: int | None = None,
         _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        _limit: int | None = None,
         _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         **cols_value: Any,
     ) -> int | Generator[TableSpecType, None, None]:
