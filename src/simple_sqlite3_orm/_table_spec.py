@@ -327,13 +327,13 @@ class TableSpec(BaseModel):
         cls,
         *,
         delete_from: str,
-        limit: int | str | None = None,
-        order_by: Iterable[str | tuple[str, ORDER_DIRECTION]] | None = None,
-        order_by_stmt: str | None = None,
         where_cols: list[str] | None = None,
         where_stmt: str | None = None,
-        returning: bool | str | None = None,
+        order_by: Iterable[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        order_by_stmt: str | None = None,
+        limit: int | str | None = None,
         returning_cols: list[str] | None = None,
+        returning_stmt: str | None = None,
     ) -> str:
         """Get sql for deleting row(s) from <table_name> with specifying col value(s).
 
@@ -358,55 +358,28 @@ class TableSpec(BaseModel):
                 statement. Defaults to None.
             where_stmt (str | None, optional): The full where statement string, this
                 precedes the <where_cols> param if set. Defaults to None.
-            returning (bool | str | None, optional): Whether returns the deleted entries. Defaults to None.
             returning_cols (list[str] | None): Which cols are included in the returned entries. Defaults to None.
+            returning_stmt (str | None, optional): The full returning statement string, this
+                precedes the <returning_cols> param. Defaults to None.
 
         Returns:
             str: The generated delete statement.
         """
-        delete_from_stmt = f"DELETE FROM {delete_from} "
+        gen_delete_from_stmt = f"DELETE FROM {delete_from}"
+        gen_where_stmt = cls._generate_where_stmt(where_cols, where_stmt)
+        gen_order_by_stmt = cls._generate_order_by_stmt(order_by, order_by_stmt)
+        gen_limit_stmt = f"LIMIT {limit}" if limit is not None else ""
+        gen_returning_stmt = cls._generate_returning_stmt(
+            returning_cols, returning_stmt
+        )
 
-        if where_stmt:
-            parsed_where_stmt = where_stmt
-        elif where_cols:
-            cls.table_check_cols(where_cols)
-            _conditions = (f"{_col}=?" for _col in where_cols)
-            _where_cols_stmt = " AND ".join(_conditions)
-            parsed_where_stmt = f"WHERE {_where_cols_stmt} "
-        else:
-            parsed_where_stmt = ""
-
-        if order_by_stmt:
-            parsed_order_by_stmt = order_by_stmt
-        elif order_by:
-            _order_by_stmts: list[str] = []
-            for _item in order_by:
-                if isinstance(_item, tuple):
-                    _col, _direction = _item
-                    cls.table_get_col_fieldinfo(_col)
-                    _order_by_stmts.append(f"{_col} {_direction}")
-                else:
-                    _order_by_stmts.append(_item)
-            parsed_order_by_stmt = f"ORDER BY {','.join(_order_by_stmts)} "
-        else:
-            parsed_order_by_stmt = ""
-
-        limit_stmt = f"LIMIT {limit} " if limit is not None else ""
-
-        if returning:
-            returning_cols_stmt = ",".join(returning_cols) if returning_cols else "*"
-            returning_stmt = f"RETURNING {returning_cols_stmt} "
-        else:
-            returning_stmt = ""
-
-        with StringIO() as buffer:
-            buffer.write(delete_from_stmt)
-            buffer.write(parsed_where_stmt)
-            buffer.write(parsed_order_by_stmt)
-            buffer.write(limit_stmt)
-            buffer.write(returning_stmt)
-            buffer.write(";")
-            return buffer.getvalue()
+        return _gen_stmt(
+            gen_delete_from_stmt,
+            gen_where_stmt,
+            gen_order_by_stmt,
+            gen_limit_stmt,
+            gen_returning_stmt,
+        )
 
 
 TableSpecType = TypeVar("TableSpecType", bound=TableSpec)
