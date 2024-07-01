@@ -189,7 +189,8 @@ class TableSpec(BaseModel):
 
             if insert_default:
                 buffer.write("DEFAULT VALUES ")
-            buffer.write(value_placeholder_stmt)
+            else:
+                buffer.write(value_placeholder_stmt)
 
             buffer.write(returning_stmt)
             buffer.write(";")
