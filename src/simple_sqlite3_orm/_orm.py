@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import sys
-from typing import Any, Generator, Generic, Iterable, Optional
+from typing import Any, TYPE_CHECKING, Generator, Generic, Iterable, Optional
 from weakref import WeakValueDictionary
 
 from typing_extensions import Self
@@ -22,7 +22,15 @@ if sys.version_info >= (3, 9):
 else:
     from typing import List
 
-    _std_GenericAlias = type(List[int])
+    if not TYPE_CHECKING:
+        _std_GenericAlias = type(List[int])
+    else:
+
+        class _std_GenericAlias(type(List)):
+            def __new__(
+                cls, _type: type[Any], _params: type[Any] | tuple[type[Any], ...]
+            ):
+                """For type check only, typing the _std_GenericAlias as GenericAlias."""
 
 
 class ORMBase(Generic[TableSpecType]):
@@ -40,7 +48,7 @@ class ORMBase(Generic[TableSpecType]):
         self,
         con: sqlite3.Connection,
         table_name: str,
-        schema_name: Optional[str] = None,
+        schema_name: str | None = None,
     ) -> None:
         self.table_name = table_name
         self.schema_name = schema_name
@@ -132,18 +140,34 @@ class ORMBase(Generic[TableSpecType]):
             yield from _cur.fetchall()
 
     def insert_entries(self, _in: TableSpecType | Iterable[TableSpecType]) -> int:
+        """Insert entry/entries into this table.
+
+        Args:
+            _in (TableSpecType | Iterable[TableSpecType]): The instance of entry(or a list of entries)
+                to be inserted into the table.
+
+        Raises:
+            ValueError: On invalid types of _in.
+
+        Returns:
+            int: Number of inserted entries.
+        """
         insert_stmt = self.table_spec.table_insert_stmt(self.get_table_name())
         logger.debug(f"{insert_stmt=}")
 
         with self.con as con:
-            if isinstance(_in, self.table_spec):
+            if isinstance(_in, tuple):
+                _cur = con.executemany(
+                    insert_stmt, tuple(_row.table_row_astuple() for _row in _in)
+                )
+                return _cur.rowcount
+            elif isinstance(_in, self.table_spec):
                 _cur = con.execute(insert_stmt, _in.table_row_astuple())
                 return _cur.rowcount
-
-            _cur = con.executemany(
-                insert_stmt, tuple(_row.table_row_astuple() for _row in _in)
-            )
-            return _cur.rowcount
+            else:
+                raise ValueError(
+                    "invalid input type, expects tuple or instance of TableSpecType"
+                )
 
     def delete_entries(
         self,
