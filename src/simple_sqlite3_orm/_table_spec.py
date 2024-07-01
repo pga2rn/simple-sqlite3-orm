@@ -23,10 +23,10 @@ def _gen_stmt(*stmts: str) -> str:
         for stmt in stmts:
             if not stmt:
                 continue
-            buffer.write(stmt)
             buffer.write(" ")
+            buffer.write(stmt)
         buffer.write(";")
-        return buffer.getvalue()
+        return buffer.getvalue().strip()
 
 
 class TableSpec(BaseModel):
@@ -181,11 +181,14 @@ class TableSpec(BaseModel):
                 _col = _input
                 cls.table_get_col_fieldinfo(_col)
                 indexed_cols.append(_col)
-        indexed_columns_stmt = f"({','.join(indexed_cols)}) "
+        indexed_columns_stmt = f"({','.join(indexed_cols)})"
 
         return _gen_stmt(
-            f"CREATE {'UNIQUE' if unique else ''} INDEX",
-            f"{'IF NOT EXISTS' if if_not_exists else ''} {index_name}",
+            "CREATE",
+            f"{'UNIQUE' if unique else ''}",
+            "INDEX",
+            f"{'IF NOT EXISTS' if if_not_exists else ''}",
+            f"{index_name}",
             f"ON {table_name} {indexed_columns_stmt}",
         )
 
