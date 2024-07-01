@@ -21,6 +21,56 @@ class TableSpec(BaseModel):
     """Define table as pydantic model, with specific APIs."""
 
     @classmethod
+    def _generate_where_stmt(
+        cls,
+        where_cols: list[str] | None = None,
+        where_stmt: str | None = None,
+    ) -> str:
+        if where_stmt:
+            return where_stmt
+        if where_cols:
+            cls.table_check_cols(where_cols)
+            _conditions = (f"{_col}=?" for _col in where_cols)
+            _where_cols_stmt = " AND ".join(_conditions)
+            return f"WHERE {_where_cols_stmt}"
+        return ""
+
+    @classmethod
+    def _generate_order_by_stmt(
+        cls,
+        order_by: Iterable[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        order_by_stmt: str | None = None,
+    ) -> str:
+        if order_by_stmt:
+            return order_by_stmt
+        if order_by:
+            _order_by_stmts: list[str] = []
+            for _item in order_by:
+                if isinstance(_item, tuple):
+                    _col, _direction = _item
+                    cls.table_get_col_fieldinfo(_col)
+                    _order_by_stmts.append(f"{_col} {_direction}")
+                else:
+                    _order_by_stmts.append(_item)
+            return f"ORDER BY {','.join(_order_by_stmts)}"
+        return ""
+
+    @classmethod
+    def _generate_returning_stmt(
+        cls,
+        returning_cols: list[str] | Literal["*"] | None = None,
+        returning_stmt: str | None = None,
+    ) -> str:
+        if returning_stmt:
+            return returning_stmt
+        if returning_cols == "*":
+            return "RETURNING *"
+        if isinstance(returning_cols, list):
+            cls.table_check_cols(returning_cols)
+            return f"RETURNING {','.join(returning_cols)}"
+        return ""
+
+    @classmethod
     def table_get_col_fieldinfo(cls, col: str) -> FieldInfo:
         """Check whether the <col> exists and returns the pydantic FieldInfo.
 
