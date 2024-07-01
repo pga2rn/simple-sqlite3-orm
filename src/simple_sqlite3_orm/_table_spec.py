@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import functools
 import sqlite3
-from functools import lru_cache
 from io import StringIO
 from typing import Any, Iterable, Literal, TypeVar
 
@@ -84,7 +84,7 @@ class TableSpec(BaseModel):
         return ""
 
     @classmethod
-    @lru_cache
+    @functools.lru_cache
     def table_get_col_fieldinfo(cls, col: str) -> FieldInfo:
         """Check whether the <col> exists and returns the pydantic FieldInfo.
 
@@ -107,7 +107,7 @@ class TableSpec(BaseModel):
                 raise ValueError(f"{col} is not defined in {cls=}")
 
     @classmethod
-    @lru_cache
+    @functools.lru_cache
     def table_dump_column(cls, column_name: str) -> str:
         """Dump the column statement for table creation.
 
@@ -125,7 +125,7 @@ class TableSpec(BaseModel):
         return f"{column_name} {datatype_name} {constrain}".strip()
 
     @classmethod
-    @lru_cache
+    @functools.lru_cache
     def table_create_stmt(
         cls,
         table_name: str,
@@ -152,7 +152,7 @@ class TableSpec(BaseModel):
         )
 
     @classmethod
-    @lru_cache
+    @functools.lru_cache
     def table_create_index_stmt(
         cls,
         *,
@@ -203,7 +203,7 @@ class TableSpec(BaseModel):
         return cls.model_validate(dict(zip(_fields, _row)))
 
     @classmethod
-    @lru_cache
+    @functools.lru_cache
     def table_insert_stmt(
         cls,
         *,
@@ -260,7 +260,7 @@ class TableSpec(BaseModel):
         )
 
     @classmethod
-    @lru_cache
+    @functools.lru_cache
     def table_select_stmt(
         cls,
         *,
@@ -325,7 +325,7 @@ class TableSpec(BaseModel):
         )
 
     @classmethod
-    @lru_cache
+    @functools.lru_cache
     def table_delete_stmt(
         cls,
         *,
