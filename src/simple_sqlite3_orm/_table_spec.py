@@ -213,50 +213,58 @@ class TableSpec(BaseModel):
     @classmethod
     def table_insert_stmt(
         cls,
+        *,
         insert_into: str,
         insert_cols: list[str] | None = None,
-        or_option: INSERT_OR | None = None,
-        *,
         insert_default: bool = False,
-        returning: bool | str = False,
-        retunring_cols: list[str] | None = None,
+        or_option: INSERT_OR | None = None,
+        returning_cols: list[str] | None = None,
+        returning_stmt: str | None = None,
     ) -> str:
         """Get sql for inserting row(s) into <table_name>.
 
         Check https://www.sqlite.org/lang_insert.html for more details.
-        """
-        or_option_stmt = ""
-        if or_option:
-            or_option_stmt = f"OR {or_option.upper()}"
-        insert_stmt = f"INSERT {or_option_stmt} INTO {insert_into} "
 
-        if insert_cols:
-            cls.table_check_cols(insert_cols)
-            cols_specify_stmt = f"({','.join(insert_cols)}) "
-            value_placeholder_stmt = f"VALUES ({','.join(['?'] * len(insert_cols))}) "
+        Args:
+            insert_into (str): The name of table insert into.
+            insert_cols (list[str] | None, optional): The cols to be assigned for entry to be inserted.
+                Defaults to None, means we will assign all cols of the row.
+            insert_default (bool, optional): No values will be assigned, all cols will be assigned with
+                default value, this precedes the <insert_cols> param. Defaults to False.
+            or_option (INSERT_OR | None, optional): The fallback operation if insert failed. Defaults to None.
+            returning_cols (list[str] | None): Which cols are included in the returned entries. Defaults to None.
+            returning_stmt (str | None, optional): The full returning statement string, this
+                precedes the <returning_cols> param. Defaults to None.
+
+        Returns:
+            str: The generated insert statement.
+        """
+        if or_option:
+            gen_or_option_stmt = f"OR {or_option.upper()}"
         else:
-            cols_specify_stmt = ""
-            value_placeholder_stmt = (
+            gen_or_option_stmt = ""
+
+        gen_insert_stmt = f"INSERT {gen_or_option_stmt} INTO {insert_into}"
+
+        if insert_default:
+            gen_insert_value_stmt = "DEFAULT VALUES"
+        elif insert_cols:
+            cls.table_check_cols(insert_cols)
+            gen_insert_value_stmt = f"VALUES ({','.join(['?'] * len(insert_cols))})"
+        else:
+            gen_insert_value_stmt = (
                 f"VALUES ({','.join(['?'] * len(cls.model_fields))}) "
             )
 
-        returning_stmt = ""
-        if returning:
-            returning_cols_stmt = ",".join(retunring_cols) if retunring_cols else "*"
-            returning_stmt = f"RETURNING {returning_cols_stmt} "
+        gen_returning_stmt = cls._generate_returning_stmt(
+            returning_cols, returning_stmt
+        )
 
-        with StringIO() as buffer:
-            buffer.write(insert_stmt)
-            buffer.write(cols_specify_stmt)
-
-            if insert_default:
-                buffer.write("DEFAULT VALUES ")
-            else:
-                buffer.write(value_placeholder_stmt)
-
-            buffer.write(returning_stmt)
-            buffer.write(";")
-            return buffer.getvalue()
+        return _gen_stmt(
+            gen_insert_stmt,
+            gen_insert_value_stmt,
+            gen_returning_stmt,
+        )
 
     @classmethod
     def table_select_stmt(
