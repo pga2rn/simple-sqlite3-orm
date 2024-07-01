@@ -131,7 +131,7 @@ class TableSpec(BaseModel):
         temporary: bool = False,
         without_rowid: bool = False,
     ) -> str:
-        """Get create table statement for this table spec class.
+        """Get create table statement with this table spec class.
 
         Check https://www.sqlite.org/lang_createtable.html for more details.
         """
@@ -139,52 +139,61 @@ class TableSpec(BaseModel):
         cols_spec = ",".join(
             cls.table_dump_column(col_name) for col_name in cls.model_fields
         )
-        return (
+        return _gen_stmt(
             f"CREATE {'TEMPORARY ' if temporary else ''}"
             f"{'IF NOT EXISTS ' if if_not_exists else ''}"
-            f"TABLE {table_name} ({cols_spec}) "
+            f"TABLE {table_name} ({cols_spec})"
             f"{'WITHOUT ROWID ' if without_rowid else ''}"
-            f"{'STRICT ' if strict else ''};"
+            f"{'STRICT ' if strict else ''}"
         )
 
     @classmethod
     def table_create_index_stmt(
         cls,
+        *,
         table_name: str,
         index_name: str,
         index_cols: list[str | tuple[str, ORDER_DIRECTION]],
         if_not_exists: bool = False,
         unique: bool = False,
     ) -> str:
-        """Get index create statement for this table spec class.
+        """Get index create statement with this table spec class.
+
+        Raises:
+            ValueError on <index_cols> not specified, or invalid <index_cols>.
 
         Check https://www.sqlite.org/lang_createindex.html for more details.
         """
-        assert index_cols, "at least one col should be specified for an index"
+        if not index_cols:
+            raise ValueError("at least one col should be specified for an index")
 
-        _indexed_cols: list[str] = []
+        indexed_cols: list[str] = []
         for _input in index_cols:
             if isinstance(_input, tuple):
                 _col, _order = _input
                 cls.table_get_col_fieldinfo(_col)
-                _indexed_cols.append(f"{_col} {_order}")
+                indexed_cols.append(f"{_col} {_order}")
             else:
                 _col = _input
                 cls.table_get_col_fieldinfo(_col)
-                _indexed_cols.append(_col)
-        indexed_columns_stmt = f"({','.join(_indexed_cols)}) "
+                indexed_cols.append(_col)
+        indexed_columns_stmt = f"({','.join(indexed_cols)}) "
 
-        return (
-            f"CREATE {'UNIQUE' if unique else ''} INDEX "
-            f"{'IF NOT EXISTS' if if_not_exists else ''} {index_name} "
-            f"ON {table_name} {indexed_columns_stmt};"
+        return _gen_stmt(
+            f"CREATE {'UNIQUE' if unique else ''} INDEX"
+            f"{'IF NOT EXISTS' if if_not_exists else ''} {index_name}"
+            f"ON {table_name} {indexed_columns_stmt}"
         )
 
     @classmethod
     def table_row_factory(
         cls, _cursor: sqlite3.Cursor, _row: tuple[Any, ...] | sqlite3.Row
     ) -> Self:
-        """row_factory implement for used in sqlite3 connection."""
+        """row_factory implement for used in sqlite3 connection.
+
+        Also see https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.description
+            for more details.
+        """
         _fields = [col[0] for col in _cursor.description]
         return cls.model_validate(dict(zip(_fields, _row)))
 
