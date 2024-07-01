@@ -5,6 +5,7 @@ from io import StringIO
 from typing import Any, Iterable, Literal, TypeVar
 
 from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 from typing_extensions import Self
 
 from simple_sqlite3_orm._sqlite_spec import (
@@ -20,14 +21,23 @@ class TableSpec(BaseModel):
     """Define table as pydantic model, with specific APIs."""
 
     @classmethod
-    def table_check_col(cls, col: str) -> None:
-        if col not in cls.model_fields:
-            raise ValueError(f"{col} is not defined in {cls=}")
+    def table_check_col(cls, col: str) -> FieldInfo:
+        """Check whether the <col> exists and returns the pydantic FieldInfo.
+
+        Raises:
+            ValueError on non-existed col.
+        """
+        if metadata := cls.model_fields.get(col):
+            return metadata
+        raise ValueError(f"{col} is not defined in {cls=}")
 
     @classmethod
-    def table_check_cols(cls, cols: Iterable[str]) -> None:
-        if isinstance(cols, str):
-            raise ValueError("expect a list of str, get str")
+    def table_check_cols(cls, cols: list[str]) -> None:
+        """Ensure all cols in <cols> existed in the table definition.
+
+        Raises:
+            ValueError if any of col doesn't exist in the table.
+        """
         for col in cols:
             if col not in cls.model_fields:
                 raise ValueError(f"{col} is not defined in {cls=}")
@@ -35,14 +45,14 @@ class TableSpec(BaseModel):
     @classmethod
     def table_dump_column(cls, column_name: str) -> str:
         """Dump the column statement for table creation."""
-        _datatype_name, _constrain = "", ""
-        for _metadata in cls.model_fields[column_name].metadata:
-            if isinstance(_metadata, TypeAffinityRepr):
-                _datatype_name = _metadata
-            elif isinstance(_metadata, ConstrainRepr):
-                _constrain = _metadata
-        assert _datatype_name, "data affinity must be set"
-        return f"{column_name} {_datatype_name} {_constrain}".strip()
+        datatype_name, constrain = "", ""
+        for metadata in cls.table_check_col(column_name).metadata:
+            if isinstance(metadata, TypeAffinityRepr):
+                datatype_name = metadata
+            elif isinstance(metadata, ConstrainRepr):
+                constrain = metadata
+        assert datatype_name, "data affinity must be set"
+        return f"{column_name} {datatype_name} {constrain}".strip()
 
     @classmethod
     def table_create_stmt(
@@ -126,7 +136,7 @@ class TableSpec(BaseModel):
         if not cols:
             return tuple(self.model_dump().values())
 
-        self.table_check_cols(cols)
+        self.table_check_cols(list(cols))
         return tuple(self.model_dump(include=set(cols)).values())
 
     @classmethod
@@ -193,14 +203,14 @@ class TableSpec(BaseModel):
 
         Check https://www.sqlite.org/lang_select.html for more details.
         """
-        _select_target = "*"
+        select_target = "*"
         if isinstance(select_cols, list):
             cls.table_check_cols(select_cols)
-            _select_target = ",".join(select_cols)
+            select_target = ",".join(select_cols)
 
         if function:
-            _select_target = f"{function}({_select_target})"
-        select_stmt = f"SELECT {'DISTINCT ' if distinct else ''}{_select_target} "
+            select_target = f"{function}({select_target})"
+        select_stmt = f"SELECT {'DISTINCT ' if distinct else ''}{select_target} "
         from_stmt = f"FROM {select_from} "
 
         where_stmt = ""
@@ -278,7 +288,7 @@ class TableSpec(BaseModel):
             for _item in order_by:
                 if isinstance(_item, tuple):
                     _col, _direction = _item
-                    cls.table_check_cols(_col)
+                    cls.table_check_col(_col)
                     _order_by_stmts.append(f"{_col} {_direction}")
                 else:
                     _order_by_stmts.append(_item)
