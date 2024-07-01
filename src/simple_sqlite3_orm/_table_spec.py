@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from io import StringIO
-from typing import Any, Iterable, Optional, TypeVar
+from typing import Any, Iterable, Literal, TypeVar
 
 from pydantic import BaseModel
 from typing_extensions import Self
@@ -13,19 +13,24 @@ from simple_sqlite3_orm._sqlite_spec import (
     SQLiteBuiltInFuncs,
     SQLiteStorageClass,
 )
-from simple_sqlite3_orm._utils import (
-    ConstrainRepr,
-    TypeAffinityRepr,
-    check_cols,
-    filter_with_order,
-)
+from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr
 
 
 class TableSpec(BaseModel):
     """Define table as pydantic model, with specific APIs."""
 
-    table_check_cols = classmethod(check_cols)
-    _filter_with_order = classmethod(filter_with_order)
+    @classmethod
+    def table_check_col(cls, col: str) -> None:
+        if col not in cls.model_fields:
+            raise ValueError(f"{col} is not defined in {cls=}")
+
+    @classmethod
+    def table_check_cols(cls, cols: Iterable[str]) -> None:
+        if isinstance(cols, str):
+            raise ValueError("expect a list of str, get str")
+        for col in cols:
+            if col not in cls.model_fields:
+                raise ValueError(f"{col} is not defined in {cls=}")
 
     @classmethod
     def table_dump_column(cls, column_name: str) -> str:
@@ -84,11 +89,11 @@ class TableSpec(BaseModel):
         for _input in index_cols:
             if isinstance(_input, tuple):
                 _col, _order = _input
-                cls.table_check_cols(_col)
+                cls.table_check_col(_col)
                 _indexed_cols.append(f"{_col} {_order}")
             else:
                 _col = _input
-                cls.table_check_cols(_col)
+                cls.table_check_col(_col)
                 _indexed_cols.append(_col)
         indexed_columns_stmt = f"({','.join(_indexed_cols)}) "
 
@@ -112,13 +117,16 @@ class TableSpec(BaseModel):
         Args:
             *cols: which cols to export, if not specified, export all cols.
 
+        Raises:
+            ValueError if <cols> contains invalid or undefined col.
+
         Returns:
             A tuple of col values from this row.
         """
         if not cols:
             return tuple(self.model_dump().values())
 
-        assert self.table_check_cols(*cols)
+        self.table_check_cols(cols)
         return tuple(self.model_dump(include=set(cols)).values())
 
     @classmethod
@@ -127,8 +135,8 @@ class TableSpec(BaseModel):
         insert_into: str,
         insert_cols: list[str] | None = None,
         insert_default: bool = False,
-        insert_select: Optional[str] = None,
-        or_option: Optional[INSERT_OR] = None,
+        insert_select: str | None = None,
+        or_option: INSERT_OR | None = None,
         returning: bool | str = False,
     ) -> str:
         """Get sql for inserting row(s) into <table_name>.
@@ -141,7 +149,8 @@ class TableSpec(BaseModel):
         insert_stmt = f"INSERT {_or_option_stmt} INTO {insert_into} "
 
         if insert_cols:
-            cols_specify_stmt = f"({','.join(cls._filter_with_order(*insert_cols))}) "
+            cls.table_check_cols(insert_cols)
+            cols_specify_stmt = f"({','.join(insert_cols)}) "
             values_specify_stmt = f"VALUES ({','.join(['?'] * len(insert_cols))}) "
         else:
             cols_specify_stmt = ""
@@ -170,13 +179,13 @@ class TableSpec(BaseModel):
     def table_select_stmt(
         cls,
         select_from: str,
-        select_cols: list[str] | str = "*",
+        select_cols: list[str] | Literal["*"] = "*",
         distinct: bool = False,
-        function: Optional[SQLiteBuiltInFuncs] = None,
-        group_by: Optional[Iterable[str]] = None,
-        order_by: Optional[Iterable[str | tuple[str, ORDER_DIRECTION]]] = None,
-        limit: Optional[int | str] = None,
-        where: Optional[str] = None,
+        function: SQLiteBuiltInFuncs | None = None,
+        group_by: list[str] | None = None,
+        order_by: list[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        limit: int | str | None = None,
+        where: str | None = None,
         where_cols: list[str] | None = None,
     ) -> str:
         """Get sql for getting row(s) from <table_name>, optionally with
@@ -184,10 +193,10 @@ class TableSpec(BaseModel):
 
         Check https://www.sqlite.org/lang_select.html for more details.
         """
+        _select_target = "*"
         if isinstance(select_cols, list):
-            _select_target = cls._filter_with_order(*select_cols)
-        else:
-            _select_target = select_cols
+            cls.table_check_cols(select_cols)
+            _select_target = ",".join(select_cols)
 
         if function:
             _select_target = f"{function}({_select_target})"
@@ -212,7 +221,7 @@ class TableSpec(BaseModel):
             for _item in order_by:
                 if isinstance(_item, tuple):
                     _col, _direction = _item
-                    cls.table_check_cols(_col)
+                    cls.table_check_col(_col)
                     _order_by_stmts.append(f"{_col} {_direction}")
                 else:
                     _order_by_stmts.append(_item)
@@ -234,10 +243,10 @@ class TableSpec(BaseModel):
     def table_delete_stmt(
         cls,
         delete_from: str,
-        limit: Optional[int | str] = None,
-        order_by: Optional[Iterable[str | tuple[str, ORDER_DIRECTION]]] = None,
-        where: Optional[str] = None,
-        returning: Optional[bool | str] = None,
+        limit: int | str | None = None,
+        order_by: Iterable[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        where: str | None = None,
+        returning: bool | str | None = None,
         where_cols: list[str] | None = None,
     ) -> str:
         """Get sql for deleting row(s) from <table_name> with specifying col value(s).
@@ -258,7 +267,7 @@ class TableSpec(BaseModel):
         if where:
             where_stmt = f"WHERE {where} "
         elif where_cols:
-            cls.table_check_cols(*where_cols)
+            cls.table_check_cols(where_cols)
             _conditions = (f"{_col}=?" for _col in where_cols)
             _where_cols_stmt = " AND ".join(_conditions)
             where_stmt = f"WHERE {_where_cols_stmt} "
