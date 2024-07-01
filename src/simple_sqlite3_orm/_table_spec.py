@@ -36,7 +36,7 @@ class TableSpec(BaseModel):
     @classmethod
     def _generate_where_stmt(
         cls,
-        where_cols: list[str] | None = None,
+        where_cols: Iterable[str] | None = None,
         where_stmt: str | None = None,
     ) -> str:
         if where_stmt:
@@ -71,14 +71,14 @@ class TableSpec(BaseModel):
     @classmethod
     def _generate_returning_stmt(
         cls,
-        returning_cols: list[str] | Literal["*"] | None = None,
+        returning_cols: Iterable[str] | Literal["*"] | None = None,
         returning_stmt: str | None = None,
     ) -> str:
         if returning_stmt:
             return returning_stmt
         if returning_cols == "*":
             return "RETURNING *"
-        if isinstance(returning_cols, list):
+        if isinstance(returning_cols, tuple):
             cls.table_check_cols(returning_cols)
             return f"RETURNING {','.join(returning_cols)}"
         return ""
@@ -96,7 +96,8 @@ class TableSpec(BaseModel):
         raise ValueError(f"{col} is not defined in {cls=}")
 
     @classmethod
-    def table_check_cols(cls, cols: list[str]) -> None:
+    @functools.lru_cache
+    def table_check_cols(cls, cols: tuple[str, ...]) -> None:
         """Ensure all cols in <cols> existed in the table definition.
 
         Raises:
@@ -220,12 +221,12 @@ class TableSpec(BaseModel):
 
         Args:
             insert_into (str): The name of table insert into.
-            insert_cols (list[str] | None, optional): The cols to be assigned for entry to be inserted.
+            insert_cols (tuple[str, ...] | None, optional): The cols to be assigned for entry to be inserted.
                 Defaults to None, means we will assign all cols of the row.
             insert_default (bool, optional): No values will be assigned, all cols will be assigned with
                 default value, this precedes the <insert_cols> param. Defaults to False.
             or_option (INSERT_OR | None, optional): The fallback operation if insert failed. Defaults to None.
-            returning_cols (list[str] | None): Which cols are included in the returned entries. Defaults to None.
+            returning_cols (tuple[str, ...] | None): Which cols are included in the returned entries. Defaults to None.
             returning_stmt (str | None, optional): The full returning statement string, this
                 precedes the <returning_cols> param. Defaults to None.
 
@@ -282,13 +283,13 @@ class TableSpec(BaseModel):
 
         Args:
             select_from (str): The table name for the generated statement.
-            select_cols (list[str] | Literal[, optional): A list of cols included in the result row. Defaults to "*".
+            select_cols (tuple[str, ...] | Literal[, optional): A list of cols included in the result row. Defaults to "*".
             function (SQLiteBuiltInFuncs | None, optional): The sqlite3 function used in the selection. Defaults to None.
-            where_cols (list[str] | None, optional): A list of cols to be compared in where
+            where_cols (tuple[str, ...] | None, optional): A list of cols to be compared in where
                 statement. Defaults to None.
             where_stmt (str | None, optional): The full where statement string, this
                 precedes the <where_cols> param if set. Defaults to None.
-            group_by (list[str] | None, optional): A list of cols for group_by statement. Defaults to None.
+            group_by (tuple[str, ...] | None, optional): A list of cols for group_by statement. Defaults to None.
             order_by (Iterable[str  |  tuple[str, ORDER_DIRECTION]] | None, optional):
                 A list of cols for ordering result. Defaults to None.
             order_by_stmt (str | None, optional): The order_by statement string, this
@@ -299,7 +300,7 @@ class TableSpec(BaseModel):
         Returns:
             str: The generated select statement.
         """
-        if isinstance(select_cols, list):
+        if isinstance(select_cols, tuple):
             cls.table_check_cols(select_cols)
             select_target = ",".join(select_cols)
         else:
@@ -357,11 +358,11 @@ class TableSpec(BaseModel):
                 A list of cols for ordering result. Defaults to None.
             order_by_stmt (str | None, optional): The order_by statement string, this
                 precedes the <order_by> param if set. Defaults to None.
-            where_cols (list[str] | None, optional): A list of cols to be compared in where
+            where_cols (tuple[str, ...] | None, optional): A list of cols to be compared in where
                 statement. Defaults to None.
             where_stmt (str | None, optional): The full where statement string, this
                 precedes the <where_cols> param if set. Defaults to None.
-            returning_cols (list[str] | None): Which cols are included in the returned entries. Defaults to None.
+            returning_cols (tuple[str, ...] | None): Which cols are included in the returned entries. Defaults to None.
             returning_stmt (str | None, optional): The full returning statement string, this
                 precedes the <returning_cols> param. Defaults to None.
 
