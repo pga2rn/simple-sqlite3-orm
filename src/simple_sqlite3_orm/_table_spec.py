@@ -126,23 +126,27 @@ class TableSpec(BaseModel):
         _fields = [col[0] for col in _cursor.description]
         return cls.model_validate(dict(zip(_fields, _row)))
 
-    def table_row_astuple(self, *cols: str) -> tuple[SQLiteStorageClass, ...]:
+    def table_dump_astuple(self, *cols: str) -> tuple[SQLiteStorageClass, ...]:
         """Dump self to a tuple of col values.
+
+        The dumped tuple can be used to directly insert into the table.
 
         Args:
             *cols: which cols to export, if not specified, export all cols.
 
         Raises:
-            ValueError if <cols> contains invalid or undefined col.
+            ValueError if failed to serialize the model, wrapping underlying
+                pydantic serialization error.
 
         Returns:
-            A tuple of col values from this row.
+            A tuple of dumped col values from this row.
         """
-        if not cols:
-            return tuple(self.model_dump().values())
-
-        self.table_check_cols(list(cols))
-        return tuple(self.model_dump(include=set(cols)).values())
+        try:
+            if not cols:
+                return tuple(self.model_dump().values())
+            return tuple(self.model_dump(include=set(cols)).values())
+        except Exception as e:
+            raise ValueError(f"failed to dump as tuple: {e!r}") from e
 
     @classmethod
     def table_insert_stmt(
