@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from functools import lru_cache
 from io import StringIO
 from typing import Any, Iterable, Literal, TypeVar
 
@@ -83,6 +84,7 @@ class TableSpec(BaseModel):
         return ""
 
     @classmethod
+    @lru_cache
     def table_get_col_fieldinfo(cls, col: str) -> FieldInfo:
         """Check whether the <col> exists and returns the pydantic FieldInfo.
 
@@ -105,6 +107,7 @@ class TableSpec(BaseModel):
                 raise ValueError(f"{col} is not defined in {cls=}")
 
     @classmethod
+    @lru_cache
     def table_dump_column(cls, column_name: str) -> str:
         """Dump the column statement for table creation.
 
@@ -122,6 +125,7 @@ class TableSpec(BaseModel):
         return f"{column_name} {datatype_name} {constrain}".strip()
 
     @classmethod
+    @lru_cache
     def table_create_stmt(
         cls,
         table_name: str,
@@ -148,6 +152,7 @@ class TableSpec(BaseModel):
         )
 
     @classmethod
+    @lru_cache
     def table_create_index_stmt(
         cls,
         *,
@@ -197,29 +202,8 @@ class TableSpec(BaseModel):
         _fields = [col[0] for col in _cursor.description]
         return cls.model_validate(dict(zip(_fields, _row)))
 
-    def table_dump_astuple(self, *cols: str) -> tuple[SQLiteStorageClass, ...]:
-        """Dump self to a tuple of col values.
-
-        The dumped tuple can be used to directly insert into the table.
-
-        Args:
-            *cols: which cols to export, if not specified, export all cols.
-
-        Raises:
-            ValueError if failed to serialize the model, wrapping underlying
-                pydantic serialization error.
-
-        Returns:
-            A tuple of dumped col values from this row.
-        """
-        try:
-            if not cols:
-                return tuple(self.model_dump().values())
-            return tuple(self.model_dump(include=set(cols)).values())
-        except Exception as e:
-            raise ValueError(f"failed to dump as tuple: {e!r}") from e
-
     @classmethod
+    @lru_cache
     def table_insert_stmt(
         cls,
         *,
@@ -276,6 +260,7 @@ class TableSpec(BaseModel):
         )
 
     @classmethod
+    @lru_cache
     def table_select_stmt(
         cls,
         *,
@@ -340,6 +325,7 @@ class TableSpec(BaseModel):
         )
 
     @classmethod
+    @lru_cache
     def table_delete_stmt(
         cls,
         *,
@@ -397,6 +383,28 @@ class TableSpec(BaseModel):
             gen_limit_stmt,
             gen_returning_stmt,
         )
+
+    def table_dump_astuple(self, *cols: str) -> tuple[SQLiteStorageClass, ...]:
+        """Dump self to a tuple of col values.
+
+        The dumped tuple can be used to directly insert into the table.
+
+        Args:
+            *cols: which cols to export, if not specified, export all cols.
+
+        Raises:
+            ValueError if failed to serialize the model, wrapping underlying
+                pydantic serialization error.
+
+        Returns:
+            A tuple of dumped col values from this row.
+        """
+        try:
+            if not cols:
+                return tuple(self.model_dump().values())
+            return tuple(self.model_dump(include=set(cols)).values())
+        except Exception as e:
+            raise ValueError(f"failed to dump as tuple: {e!r}") from e
 
 
 TableSpecType = TypeVar("TableSpecType", bound=TableSpec)
