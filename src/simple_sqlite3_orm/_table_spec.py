@@ -143,11 +143,11 @@ class TableSpec(BaseModel):
             cls.table_dump_column(col_name) for col_name in cls.model_fields
         )
         return _gen_stmt(
-            f"CREATE {'TEMPORARY ' if temporary else ''}"
-            f"{'IF NOT EXISTS ' if if_not_exists else ''}"
-            f"TABLE {table_name} ({cols_spec})"
-            f"{'WITHOUT ROWID ' if without_rowid else ''}"
-            f"{'STRICT ' if strict else ''}"
+            f"CREATE {'TEMPORARY ' if temporary else ''}",
+            f"{'IF NOT EXISTS ' if if_not_exists else ''}",
+            f"TABLE {table_name} ({cols_spec})",
+            f"{'WITHOUT ROWID ' if without_rowid else ''}",
+            f"{'STRICT ' if strict else ''}",
         )
 
     @classmethod
@@ -184,9 +184,9 @@ class TableSpec(BaseModel):
         indexed_columns_stmt = f"({','.join(indexed_cols)}) "
 
         return _gen_stmt(
-            f"CREATE {'UNIQUE' if unique else ''} INDEX"
-            f"{'IF NOT EXISTS' if if_not_exists else ''} {index_name}"
-            f"ON {table_name} {indexed_columns_stmt}"
+            f"CREATE {'UNIQUE' if unique else ''} INDEX",
+            f"{'IF NOT EXISTS' if if_not_exists else ''} {index_name}",
+            f"ON {table_name} {indexed_columns_stmt}",
         )
 
     @classmethod
