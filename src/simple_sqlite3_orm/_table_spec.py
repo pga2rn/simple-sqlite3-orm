@@ -153,31 +153,35 @@ class TableSpec(BaseModel):
         cls,
         insert_into: str,
         insert_cols: list[str] | None = None,
-        insert_default: bool = False,
-        insert_select: str | None = None,
         or_option: INSERT_OR | None = None,
+        *,
+        insert_default: bool = False,
         returning: bool | str = False,
+        retunring_cols: list[str] | None = None,
     ) -> str:
         """Get sql for inserting row(s) into <table_name>.
 
         Check https://www.sqlite.org/lang_insert.html for more details.
         """
-        _or_option_stmt = ""
+        or_option_stmt = ""
         if or_option:
-            _or_option_stmt = f"OR {or_option.upper()}"
-        insert_stmt = f"INSERT {_or_option_stmt} INTO {insert_into} "
+            or_option_stmt = f"OR {or_option.upper()}"
+        insert_stmt = f"INSERT {or_option_stmt} INTO {insert_into} "
 
         if insert_cols:
             cls.table_check_cols(insert_cols)
             cols_specify_stmt = f"({','.join(insert_cols)}) "
-            values_specify_stmt = f"VALUES ({','.join(['?'] * len(insert_cols))}) "
+            value_placeholder_stmt = f"VALUES ({','.join(['?'] * len(insert_cols))}) "
         else:
             cols_specify_stmt = ""
-            values_specify_stmt = f"VALUES ({','.join(['?'] * len(cls.model_fields))}) "
+            value_placeholder_stmt = (
+                f"VALUES ({','.join(['?'] * len(cls.model_fields))}) "
+            )
 
-        returning_stmt = (
-            f"RETURNING {'*' if returning is True else returning} " if returning else ""
-        )
+        returning_stmt = ""
+        if returning:
+            returning_cols_stmt = ",".join(retunring_cols) if retunring_cols else "*"
+            returning_stmt = f"RETURNING {returning_cols_stmt} "
 
         with StringIO() as buffer:
             buffer.write(insert_stmt)
@@ -185,10 +189,7 @@ class TableSpec(BaseModel):
 
             if insert_default:
                 buffer.write("DEFAULT VALUES ")
-            if insert_select:
-                buffer.write(f"{insert_select} ")
-            else:
-                buffer.write(values_specify_stmt)
+            buffer.write(value_placeholder_stmt)
 
             buffer.write(returning_stmt)
             buffer.write(";")
