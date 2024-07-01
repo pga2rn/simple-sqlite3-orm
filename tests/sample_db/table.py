@@ -82,7 +82,7 @@ class SampleTable(TableSpec):
     prim_key: Annotated[
         Mystr,
         TypeAffinityRepr(Mystr),
-        ConstrainRepr("PRIMARY KEY", ("CHECK", r"(length(prim_key) <= 128)")),
+        ConstrainRepr("PRIMARY KEY", ("CHECK", r"(length(prim_key) == 128)")),
     ]
     prim_key_sha256hash: Annotated[
         bytes, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL", "UNIQUE")

@@ -1,98 +1,134 @@
 from __future__ import annotations
 
+import logging
 import random
 import sqlite3
-from typing import Iterator
+from typing import Generator
 
 import pytest
 
+from tests.conftest import (
+    TABLE_NAME,
+    TEST_ENTRY_NUM,
+    TEST_LOOKUP_ENTRIES_NUM,
+    TEST_REMOVE_ENTRIES_NUM,
+    generate_test_data,
+)
+from tests.sample_db.db import SampleDB
 from tests.sample_db.table import SampleTable
-from tests.sample_db.db import generate_testdata, SampleDB
+
+logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="class")
+def setup_test_data():
+    return generate_test_data(TEST_ENTRY_NUM)
+
+
+@pytest.fixture(scope="class")
+def setup_test_db() -> Generator[SampleDB, None, None]:
+    with sqlite3.connect(":memory:") as con:
+        yield SampleDB(con, table_name=TABLE_NAME)
+
+
+@pytest.fixture(scope="class")
+def entries_to_lookup(setup_test_data: dict[str, SampleTable]) -> list[SampleTable]:
+    return random.sample(
+        list(setup_test_data.values()),
+        k=TEST_LOOKUP_ENTRIES_NUM,
+    )
+
+
+@pytest.fixture(scope="class")
+def entries_to_remove(setup_test_data: dict[str, SampleTable]) -> list[SampleTable]:
+    return random.sample(
+        list(setup_test_data.values()),
+        k=TEST_REMOVE_ENTRIES_NUM,
+    )
+
+
+INDEX_NAME = "key_id_prim_key_hash_idx"
+INDEX_KEYS = ("key_id", "prim_key_sha256hash")
 
 
 class TestWithSampleDB:
 
-    TEST_ENTRY_NUM = 4096
-    TABLE_NAME = "test_table"
+    @pytest.fixture(autouse=True)
+    def setup_test(
+        self,
+        setup_test_db: SampleDB,
+        setup_test_data: dict[str, SampleTable],
+        entries_to_lookup: list[SampleTable],
+        entries_to_remove: list[SampleTable],
+    ):
+        self.table_name = TABLE_NAME
 
-    @pytest.fixture(autouse=True, scope="class")
-    def setup_test(self):
-        self.data_for_test = generate_testdata(self.TEST_ENTRY_NUM)
+        self.data_for_test = setup_test_data
         self.table_spec = SampleTable
-        self.data_len = self.TEST_ENTRY_NUM
-        try:
-            with sqlite3.connect(":memory:") as con:
-                self.orm_inst = SampleDB(con, table_name=self.TABLE_NAME)
-                yield
-        except Exception:
-            pass
+        self.orm_inst = setup_test_db
+        self.data_len = len(setup_test_data)
+        self.entries_to_lookup = entries_to_lookup
+        self.entries_to_remove = entries_to_remove
 
     def test_prepare_db(self):
-        self.orm_inst.create_table(without_rowid=True)
+        self.orm_inst.orm_create_table(without_rowid=True)
 
     def test_create_index(self):
-        _index_name = "key_id_prim_key_hash_idx"
-        _cols = ["key_id", "prim_key_hash"]
-
-        self.orm_inst.create_index(_index_name, *_cols, unique=True)
+        self.orm_inst.orm_create_index(
+            index_name=INDEX_NAME,
+            index_keys=INDEX_KEYS,
+            unique=True,
+        )
 
     def test_insert_entries(self):
-        self.orm_inst.insert_entries(self.data_for_test.values())
+        self.orm_inst.orm_insert_entries(self.data_for_test.values())
 
         # confirm data written
-        for _row in self.orm_inst.select_entries():
-            _corresponding_item = self.data_for_test[_row.prim_key]
-            assert _corresponding_item == _row
+        for _entry in self.orm_inst.orm_select_entries():
+            _corresponding_item = self.data_for_test[_entry.prim_key]
+            assert _corresponding_item == _entry
 
         # confirm the num of inserted entries
-        with self.orm_inst.con as _con:
+        with self.orm_inst.orm_con as _con:
             _cur = _con.execute(
-                self.table_spec.table_select_stmt(self.TABLE_NAME, function="count")
+                self.table_spec.table_select_stmt(
+                    select_from=self.table_name, function="count"
+                )
             )
             _raw = _cur.fetchone()
             assert _raw[0] == self.data_len
 
+    def test_lookup_entries(self):
+        for _entry in self.entries_to_lookup:
+            _looked_up = self.orm_inst.orm_select_entries(
+                key_id=_entry.key_id,
+                prim_key_sha256hash=_entry.prim_key_sha256hash,
+            )
+            _looked_up = list(_looked_up)
+            assert len(_looked_up) == 1
+            assert _looked_up[0] == _entry
+
     def test_delete_entries(self):
-        num_of_entries_to_remove = 3
-        entries_to_be_removed = random.choices(
-            list(self.data_for_test.values()),
-            k=num_of_entries_to_remove,
-        )
-
         # remove the entries and confirm the removed entry is the expected one
-        for entry in entries_to_be_removed:
-            _res = self.orm_inst.delete_entries(
-                returning=True,
+        for entry in self.entries_to_remove:
+            logger.info(f"{entry.key_id=}")
+            _res = self.orm_inst.orm_delete_entries(
+                _returning_cols="*",
                 key_id=entry.key_id,
-                prim_key_hash=entry.prim_key_hash,
+                prim_key_sha256hash=entry.prim_key_sha256hash,
             )
-            assert isinstance(_res, Iterator)
-            assert next(_res) == entry
-            assert next(_res, None) is None
-            # also remove from the test date dict
-            self.data_for_test.pop(entry.prim_key)
+            assert isinstance(_res, Generator)
 
-        # confirm the num of leftover entries in the db
-        with self.orm_inst.con as _con:
+            _res = list(_res)
+            assert len(_res) == 1
+            assert _res[0] == entry
+
+        # confirm the remove
+        with self.orm_inst.orm_con as _con:
             _cur = _con.execute(
-                self.table_spec.table_select_stmt(self.TABLE_NAME, function="count")
+                self.table_spec.table_select_stmt(
+                    select_from=self.table_name, function="count"
+                )
             )
             _raw = _cur.fetchone()
-            assert _raw[0] == self.data_len - num_of_entries_to_remove
-        self.data_len -= num_of_entries_to_remove
-
-    def test_clear_db(self):
-        _returning = self.orm_inst.delete_entries(returning=True)
-        assert isinstance(_returning, Iterator)
-        # ensure the removed entries
-        for _row in _returning:
-            _corresponding_item = self.data_for_test[_row.prim_key]
-            assert _corresponding_item == _row
-
-        # ensure the database is empty now
-        with self.orm_inst.con as _con:
-            _cur = _con.execute(
-                self.table_spec.table_select_stmt(self.TABLE_NAME, function="count")
-            )
-            _raw = _cur.fetchone()
-            assert _raw[0] == 0
+            assert _raw[0] == self.data_len - len(self.entries_to_remove)
