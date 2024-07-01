@@ -157,7 +157,7 @@ class TableSpec(BaseModel):
         *,
         table_name: str,
         index_name: str,
-        index_cols: tuple[str | tuple[str, ORDER_DIRECTION]],
+        index_cols: tuple[str | tuple[str, ORDER_DIRECTION], ...],
         if_not_exists: bool = False,
         unique: bool = False,
     ) -> str:
@@ -270,7 +270,7 @@ class TableSpec(BaseModel):
         where_stmt: str | None = None,
         where_cols: tuple[str, ...] | None = None,
         group_by: tuple[str, ...] | None = None,
-        order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
         order_by_stmt: str | None = None,
         limit: int | None = None,
         distinct: bool = False,
@@ -289,7 +289,7 @@ class TableSpec(BaseModel):
             where_stmt (str | None, optional): The full where statement string, this
                 precedes the <where_cols> param if set. Defaults to None.
             group_by (tuple[str, ...] | None, optional): A list of cols for group_by statement. Defaults to None.
-            order_by (Iterable[str  |  tuple[str, ORDER_DIRECTION]] | None, optional):
+            order_by (Iterable[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
                 A list of cols for ordering result. Defaults to None.
             order_by_stmt (str | None, optional): The order_by statement string, this
                 precedes the <order_by> param if set. Defaults to None.

@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 import sqlite3
 import sys
-from typing import TYPE_CHECKING, Any, Generator, Generic, Iterable, TypeVar
+from typing import TYPE_CHECKING, Any, Generator, Generic, Iterable, Literal, TypeVar
 from weakref import WeakValueDictionary
 
-from typing_extensions import ParamSpec, Self
+from typing_extensions import ParamSpec
 
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
@@ -56,9 +56,7 @@ class ORMBase(Generic[TableSpecType]):
         self.schema_name = schema_name
         self._con = con
 
-    def __class_getitem__(
-        cls: type[Self], params: Any | type[Any] | type[TableSpecType]
-    ) -> Any:
+    def __class_getitem__(cls, params: Any | type[Any] | type[TableSpecType]) -> Any:
         # just for convienience, passthrough anything that is not type[TableSpecType]
         #   to Generic's __class_getitem__ and return it.
         # Typically this is for subscript ORMBase with TypeVar or another Generic.
@@ -68,10 +66,10 @@ class ORMBase(Generic[TableSpecType]):
         if _cached_type := _parameterized_orm_cache.get(params):
             return _std_GenericAlias(_cached_type, params)
 
-        new_parameterized_ormbase: type[ORMBaseType] = type(
+        new_parameterized_ormbase: type[ORMBase] = type(
             f"{cls.__name__}[{params.__name__}]", (cls,), {}
         )
-        new_parameterized_ormbase.orm_table_spec = params
+        new_parameterized_ormbase.orm_table_spec = params  # type: ignore
         _parameterized_orm_cache[params] = new_parameterized_ormbase
         return _std_GenericAlias(new_parameterized_ormbase, params)
 
@@ -97,6 +95,7 @@ class ORMBase(Generic[TableSpecType]):
 
     def orm_create_table(
         self,
+        *,
         allow_existed: bool = False,
         without_rowid: bool = False,
     ) -> None:
@@ -111,37 +110,37 @@ class ORMBase(Generic[TableSpecType]):
 
     def orm_create_index(
         self,
+        *,
         index_name: str,
-        *cols: str,
+        index_keys: tuple[str, ...],
         allow_existed: bool = False,
         unique: bool = False,
     ) -> None:
         index_create_stmt = self.orm_table_spec.table_create_index_stmt(
-            self.orm_get_table_name(),
-            index_name,
+            table_name=self.table_name,
+            index_name=index_name,
             unique=unique,
             if_not_exists=allow_existed,
-            index_cols=list(cols),
+            index_cols=index_keys,
         )
-        logger.debug(f"{index_create_stmt=}")
         with self._con as con:
             con.execute(index_create_stmt)
 
     def orm_select_entries(
         self,
-        distinct: bool = False,
-        order_by: Iterable[str] | None = None,
-        limit: int | None = None,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
+        _limit: int | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
         table_select_stmt = self.orm_table_spec.table_select_stmt(
-            self.orm_get_table_name(),
-            distinct=distinct,
-            order_by=order_by,
-            limit=limit,
-            where_cols=list(col_values),
+            select_from=self.table_name,
+            distinct=_distinct,
+            order_by=_order_by,
+            limit=_limit,
+            where_cols=tuple(col_values),
         )
-        logger.debug(f"{table_select_stmt=}")
 
         with self._con as con:
             _cur = con.execute(table_select_stmt, tuple(col_values.values()))
@@ -161,17 +160,15 @@ class ORMBase(Generic[TableSpecType]):
         Returns:
             int: Number of inserted entries.
         """
-        insert_stmt = self.orm_table_spec.table_insert_stmt(self.orm_get_table_name())
-        logger.debug(f"{insert_stmt=}")
-
+        insert_stmt = self.orm_table_spec.table_insert_stmt(insert_into=self.table_name)
         with self._con as con:
             if isinstance(_in, tuple):
                 _cur = con.executemany(
-                    insert_stmt, tuple(_row.table_row_astuple() for _row in _in)
+                    insert_stmt, tuple(_row.table_dump_astuple() for _row in _in)
                 )
                 return _cur.rowcount
             elif isinstance(_in, self.orm_table_spec):
-                _cur = con.execute(insert_stmt, _in.table_row_astuple())
+                _cur = con.execute(insert_stmt, _in.table_dump_astuple())
                 return _cur.rowcount
             else:
                 raise ValueError(
@@ -180,21 +177,21 @@ class ORMBase(Generic[TableSpecType]):
 
     def orm_delete_entries(
         self,
-        limit: int | None = None,
-        order_by: Iterable[str | tuple[str, ORDER_DIRECTION]] | None = None,
-        returning: bool | None = None,
+        *,
+        _limit: int | None = None,
+        _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         **cols_value: Any,
     ) -> int | Generator[TableSpecType, None, None]:
         delete_stmt = self.orm_table_spec.table_delete_stmt(
-            self.orm_get_table_name(),
-            limit=limit,
-            order_by=order_by,
-            returning=returning,
-            where_cols=list(cols_value),
+            delete_from=self.table_name,
+            limit=_limit,
+            order_by=_order_by,
+            returning_cols=_returning_cols,
+            where_cols=tuple(cols_value),
         )
-        logger.debug(f"{delete_stmt=}")
 
-        if returning:
+        if _returning_cols:
 
             def _gen() -> Generator[TableSpecType, None, None]:
                 with self._con as con:
