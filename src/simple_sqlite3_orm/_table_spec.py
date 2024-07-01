@@ -261,66 +261,66 @@ class TableSpec(BaseModel):
     @classmethod
     def table_select_stmt(
         cls,
+        *,
         select_from: str,
         select_cols: list[str] | Literal["*"] = "*",
-        distinct: bool = False,
         function: SQLiteBuiltInFuncs | None = None,
+        where_stmt: str | None = None,
+        where_cols: list[str] | None = None,
         group_by: list[str] | None = None,
         order_by: list[str | tuple[str, ORDER_DIRECTION]] | None = None,
-        limit: int | str | None = None,
-        where: str | None = None,
-        where_cols: list[str] | None = None,
+        order_by_stmt: str | None = None,
+        limit: int | None = None,
+        distinct: bool = False,
     ) -> str:
         """Get sql for getting row(s) from <table_name>, optionally with
             where condition specified by <col_values>.
 
         Check https://www.sqlite.org/lang_select.html for more details.
+
+        Args:
+            select_from (str): The table name for the generated statement.
+            select_cols (list[str] | Literal[, optional): A list of cols included in the result row. Defaults to "*".
+            function (SQLiteBuiltInFuncs | None, optional): The sqlite3 function used in the selection. Defaults to None.
+            where_cols (list[str] | None, optional): A list of cols to be compared in where
+                statement. Defaults to None.
+            where_stmt (str | None, optional): The full where statement string, this
+                precedes the <where_cols> param if set. Defaults to None.
+            group_by (list[str] | None, optional): A list of cols for group_by statement. Defaults to None.
+            order_by (Iterable[str  |  tuple[str, ORDER_DIRECTION]] | None, optional):
+                A list of cols for ordering result. Defaults to None.
+            order_by_stmt (str | None, optional): The order_by statement string, this
+                precedes the <order_by> param if set. Defaults to None.
+            limit (int | None, optional): Limit the number of result entries. Defaults to None.
+            distinct (bool, optional): Whether filters the duplicated entries. Defaults to False.
+
+        Returns:
+            str: The generated select statement.
         """
-        select_target = "*"
         if isinstance(select_cols, list):
             cls.table_check_cols(select_cols)
             select_target = ",".join(select_cols)
+        else:
+            select_target = "*"
 
         if function:
             select_target = f"{function}({select_target})"
-        select_stmt = f"SELECT {'DISTINCT ' if distinct else ''}{select_target} "
-        from_stmt = f"FROM {select_from} "
 
-        where_stmt = ""
-        if where:
-            where_stmt = f"WHERE {where} "
-        elif where_cols:
-            _conditions: list[str] = []
-            for _col in where_cols:
-                if _col in cls.model_fields:
-                    _conditions.append(f"{_col}=?")
-            where_stmt = f"WHERE {' AND '.join(_conditions)} "
+        gen_select_stmt = f"SELECT {'DISTINCT ' if distinct else ''}"
+        gen_select_from_stmt = f"{select_target} FROM {select_from}"
+        gen_where_stmt = cls._generate_where_stmt(where_cols, where_stmt)
+        gen_group_by_stmt = f"GROUP BY {','.join(group_by)}" if group_by else ""
+        gen_order_by_stmt = cls._generate_order_by_stmt(order_by, order_by_stmt)
+        gen_limit_stmt = f"LIMIT {limit}" if limit is not None else ""
 
-        group_by_stmt = f"GROUP BY {','.join(group_by)} " if group_by else ""
-
-        order_by_stmt = ""
-        if order_by:
-            _order_by_stmts: list[str] = []
-            for _item in order_by:
-                if isinstance(_item, tuple):
-                    _col, _direction = _item
-                    cls.table_get_col_fieldinfo(_col)
-                    _order_by_stmts.append(f"{_col} {_direction}")
-                else:
-                    _order_by_stmts.append(_item)
-            order_by_stmt = f"{','}.join(_order_by_stmts)"
-
-        limit_stmt = f"LIMIT {limit} " if limit is not None else ""
-
-        with StringIO() as buffer:
-            buffer.write(select_stmt)
-            buffer.write(from_stmt)
-            buffer.write(where_stmt)
-            buffer.write(group_by_stmt)
-            buffer.write(order_by_stmt)
-            buffer.write(limit_stmt)
-            buffer.write(";")
-            return buffer.getvalue()
+        return _gen_stmt(
+            gen_select_stmt,
+            gen_select_from_stmt,
+            gen_where_stmt,
+            gen_group_by_stmt,
+            gen_order_by_stmt,
+            gen_limit_stmt,
+        )
 
     @classmethod
     def table_delete_stmt(
