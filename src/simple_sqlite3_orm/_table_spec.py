@@ -210,7 +210,7 @@ class TableSpec(BaseModel):
         insert_cols: tuple[str, ...] | None = None,
         insert_default: bool = False,
         or_option: INSERT_OR | None = None,
-        returning_cols: tuple[str, ...] | None = None,
+        returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         returning_stmt: str | None = None,
     ) -> str:
         """Get sql for inserting row(s) into <table_name>.
@@ -224,7 +224,8 @@ class TableSpec(BaseModel):
             insert_default (bool, optional): No values will be assigned, all cols will be assigned with
                 default value, this precedes the <insert_cols> param. Defaults to False.
             or_option (INSERT_OR | None, optional): The fallback operation if insert failed. Defaults to None.
-            returning_cols (tuple[str, ...] | None): Which cols are included in the returned entries. Defaults to None.
+            returning_cols (tuple[str, ...] | Literal["*"] | None): Which cols are included in the returned entries.
+                Defaults to None.
             returning_stmt (str | None, optional): The full returning statement string, this
                 precedes the <returning_cols> param. Defaults to None.
 
@@ -334,7 +335,7 @@ class TableSpec(BaseModel):
         order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
         order_by_stmt: str | None = None,
         limit: int | str | None = None,
-        returning_cols: tuple[str, ...] | None = None,
+        returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         returning_stmt: str | None = None,
     ) -> str:
         """Get sql for deleting row(s) from <table_name> with specifying col value(s).
@@ -360,7 +361,8 @@ class TableSpec(BaseModel):
                 statement. Defaults to None.
             where_stmt (str | None, optional): The full where statement string, this
                 precedes the <where_cols> param if set. Defaults to None.
-            returning_cols (tuple[str, ...] | None): Which cols are included in the returned entries. Defaults to None.
+            returning_cols (tuple[str, ...] | Literal["*"] | None): Which cols are included in the returned entries.
+                Defaults to None.
             returning_stmt (str | None, optional): The full returning statement string, this
                 precedes the <returning_cols> param. Defaults to None.
 
