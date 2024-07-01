@@ -2,76 +2,34 @@
 
 from __future__ import annotations
 
-from enum import Enum
-from functools import cached_property
-from hashlib import sha256
-from typing import Any, Literal, Optional
+from typing import Optional
 
-from pydantic import GetCoreSchemaHandler
-from pydantic_core import core_schema
 from typing_extensions import Annotated
 
 from simple_sqlite3_orm import (
     ConstrainRepr,
+    DatetimeISO8601,
+    DatetimeUnixTimestamp,
+    DatetimeUnixTimestampInt,
     TableSpec,
     TypeAffinityRepr,
-    DatetimeISO8601,
-    DatetimeUnix,
-    DatetimeUnixNS,
 )
-
-
-class ChoiceABC(str, Enum):
-    """A choice includes 'A', 'B' and 'C'."""
-
-    A = "A"
-    B = "B"
-    C = "C"
-
-
-class Choice123(int, Enum):
-    """A choice includes 1, 2 and 3."""
-
-    ONE = 1
-    TWO = 2
-    THREE = 3
-
-
-class Mystr(str):
-    """Custom str type that wraps built-in str."""
-
-    @cached_property
-    def hash(self) -> bytes:
-        return sha256(self.encode()).digest()
-
-    @cached_property
-    def magicf(self) -> float:
-        return self.hash[-1]
-
-    @cached_property
-    def bool(self) -> bool:
-        return bool(self.hash[-1] & 0x01)
-
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source: Any, handler: GetCoreSchemaHandler
-    ) -> core_schema.CoreSchema:
-        """Allow pydantic to support validating our str."""
-        # NOTE: let pydantic treat this wrapper as str
-        return core_schema.no_info_after_validator_function(cls, handler(str))
-
-
-SomeIntLiteral = Literal[123, 456, 789]
-SomeStrLiteral = Literal["H", "I", "J"]
+from tests.sample_db._types import (
+    Choice123,
+    ChoiceABC,
+    Mystr,
+    SomeIntLiteral,
+    SomeStrLiteral,
+)
 
 
 class SampleTable(TableSpec):
     """This sample table contains as much different types of fields as possible."""
 
     # ------ datetime related ------ #
-    datetime_unix_sec: Annotated[DatetimeUnix, TypeAffinityRepr(int)]
+    unix_timestamp: Annotated[DatetimeUnixTimestamp, TypeAffinityRepr(float)]
+    unix_timestamp_int: Annotated[DatetimeUnixTimestampInt, TypeAffinityRepr(int)]
     datetime_iso8601: Annotated[DatetimeISO8601, TypeAffinityRepr(str)]
-    datetime_unix_float: Annotated[DatetimeUnixNS, TypeAffinityRepr(float)]
 
     # ------ enums ------ #
     choice_abc: Annotated[
@@ -90,7 +48,8 @@ class SampleTable(TableSpec):
             (
                 "CHECK",
                 r"(optional_choice_123 is NULL OR optional_choice_123 IN (1, 2, 3))",
-            )
+            ),
+            ("DEFAULT", "NULL"),
         ),
     ] = None
 
@@ -102,7 +61,8 @@ class SampleTable(TableSpec):
             (
                 "CHECK",
                 r"(optional_num_literal is NULL OR optional_num_literal IN (123, 456, 789))",
-            )
+            ),
+            ("DEFAULT", "NULL"),
         ),
     ] = None
     str_literal: Annotated[
@@ -110,10 +70,7 @@ class SampleTable(TableSpec):
         TypeAffinityRepr(SomeStrLiteral),
         ConstrainRepr(
             "NOT NULL",
-            (
-                "CHECK",
-                r'(str_literal IN ("H", "I", "J"))',
-            ),
+            ("CHECK", r'(str_literal IN ("H", "I", "J"))'),
             ("DEFAULT", "H"),
         ),
     ] = "H"
@@ -125,9 +82,9 @@ class SampleTable(TableSpec):
     prim_key: Annotated[
         Mystr,
         TypeAffinityRepr(Mystr),
-        ConstrainRepr("PRIMARY KEY", ("CHECK", r"(length(prim_key) <= 32)")),
+        ConstrainRepr("PRIMARY KEY", ("CHECK", r"(length(prim_key) <= 128)")),
     ]
-    prim_key_hash: Annotated[
+    prim_key_sha256hash: Annotated[
         bytes, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL", "UNIQUE")
     ]
     prim_key_magicf: Annotated[
