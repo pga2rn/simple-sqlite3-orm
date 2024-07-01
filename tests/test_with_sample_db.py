@@ -71,9 +71,11 @@ class TestWithSampleDB:
         self.entries_to_remove = entries_to_remove
 
     def test_prepare_db(self):
+        logger.info("test create table")
         self.orm_inst.orm_create_table(without_rowid=True)
 
     def test_create_index(self):
+        logger.info("test create index")
         self.orm_inst.orm_create_index(
             index_name=INDEX_NAME,
             index_keys=INDEX_KEYS,
@@ -81,14 +83,15 @@ class TestWithSampleDB:
         )
 
     def test_insert_entries(self):
+        logger.info("test insert entries")
         self.orm_inst.orm_insert_entries(self.data_for_test.values())
 
-        # confirm data written
+        logger.info("confirm data written")
         for _entry in self.orm_inst.orm_select_entries():
             _corresponding_item = self.data_for_test[_entry.prim_key]
             assert _corresponding_item == _entry
 
-        # confirm the num of inserted entries
+        logger.info("confirm the num of inserted entries")
         with self.orm_inst.orm_con as _con:
             _cur = _con.execute(
                 self.table_spec.table_select_stmt(
@@ -99,6 +102,7 @@ class TestWithSampleDB:
             assert _raw[0] == self.data_len
 
     def test_lookup_entries(self):
+        logger.info("test lookup entries")
         for _entry in self.entries_to_lookup:
             _looked_up = self.orm_inst.orm_select_entries(
                 key_id=_entry.key_id,
@@ -109,9 +113,8 @@ class TestWithSampleDB:
             assert _looked_up[0] == _entry
 
     def test_delete_entries(self):
-        # remove the entries and confirm the removed entry is the expected one
+        logger.info("test remove and confirm the removed entries")
         for entry in self.entries_to_remove:
-            logger.info(f"{entry.key_id=}")
             _res = self.orm_inst.orm_delete_entries(
                 _returning_cols="*",
                 key_id=entry.key_id,
@@ -123,7 +126,7 @@ class TestWithSampleDB:
             assert len(_res) == 1
             assert _res[0] == entry
 
-        # confirm the remove
+        logger.info("confirm the remove")
         with self.orm_inst.orm_con as _con:
             _cur = _con.execute(
                 self.table_spec.table_select_stmt(
