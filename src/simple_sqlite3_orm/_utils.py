@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from io import StringIO
-from typing import Any, Iterable, Literal, Optional, get_args, get_origin
+from typing import Any, Literal, Optional, get_args, get_origin
 
-from pydantic import BaseModel
 from typing_extensions import Self
 
 from simple_sqlite3_orm._sqlite_spec import (
@@ -63,20 +62,3 @@ class ConstrainRepr(str):
                     _buffer.write(arg)
                 _buffer.write(" ")
             return str.__new__(cls, _buffer.getvalue().strip())
-
-
-def filter_with_order(table_spec: type[BaseModel], *cols: str) -> Iterable[str]:
-    """Return an Iterable of cols specified by <cols>, but in cols definition order."""
-    _cols_set = set(cols)
-    return (_col for _col in filter(lambda x: x in _cols_set, table_spec.model_fields))
-
-
-def check_cols(table_spec: type[BaseModel], *cols: str) -> None:
-    """Ensure that all <cols> are defined in table_spec.
-
-    Raises:
-        ValueError on first <col> that is not defined in <table_spec>.
-    """
-    for col in cols:
-        if col not in table_spec.model_fields:
-            raise ValueError(f"{col} is not defined in {table_spec=}")
