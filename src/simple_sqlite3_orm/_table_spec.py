@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import functools
 import sqlite3
 from io import StringIO
-from typing import Any, Iterable, Literal, TypeVar
+from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -15,7 +14,7 @@ from simple_sqlite3_orm._sqlite_spec import (
     SQLiteBuiltInFuncs,
     SQLiteStorageClass,
 )
-from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr
+from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr, lru_cache
 
 
 def _gen_stmt(*stmts: str) -> str:
@@ -36,7 +35,7 @@ class TableSpec(BaseModel):
     @classmethod
     def _generate_where_stmt(
         cls,
-        where_cols: Iterable[str] | None = None,
+        where_cols: tuple[str, ...] | None = None,
         where_stmt: str | None = None,
     ) -> str:
         if where_stmt:
@@ -51,7 +50,7 @@ class TableSpec(BaseModel):
     @classmethod
     def _generate_order_by_stmt(
         cls,
-        order_by: Iterable[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
         order_by_stmt: str | None = None,
     ) -> str:
         if order_by_stmt:
@@ -71,7 +70,7 @@ class TableSpec(BaseModel):
     @classmethod
     def _generate_returning_stmt(
         cls,
-        returning_cols: Iterable[str] | Literal["*"] | None = None,
+        returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         returning_stmt: str | None = None,
     ) -> str:
         if returning_stmt:
@@ -84,7 +83,6 @@ class TableSpec(BaseModel):
         return ""
 
     @classmethod
-    @functools.lru_cache
     def table_get_col_fieldinfo(cls, col: str) -> FieldInfo:
         """Check whether the <col> exists and returns the pydantic FieldInfo.
 
@@ -96,7 +94,7 @@ class TableSpec(BaseModel):
         raise ValueError(f"{col} is not defined in {cls=}")
 
     @classmethod
-    @functools.lru_cache
+    @lru_cache
     def table_check_cols(cls, cols: tuple[str, ...]) -> None:
         """Ensure all cols in <cols> existed in the table definition.
 
@@ -108,7 +106,7 @@ class TableSpec(BaseModel):
                 raise ValueError(f"{col} is not defined in {cls=}")
 
     @classmethod
-    @functools.lru_cache
+    @lru_cache
     def table_dump_column(cls, column_name: str) -> str:
         """Dump the column statement for table creation.
 
@@ -126,7 +124,7 @@ class TableSpec(BaseModel):
         return f"{column_name} {datatype_name} {constrain}".strip()
 
     @classmethod
-    @functools.lru_cache
+    @lru_cache
     def table_create_stmt(
         cls,
         table_name: str,
@@ -153,7 +151,7 @@ class TableSpec(BaseModel):
         )
 
     @classmethod
-    @functools.lru_cache
+    @lru_cache
     def table_create_index_stmt(
         cls,
         *,
@@ -204,7 +202,7 @@ class TableSpec(BaseModel):
         return cls.model_validate(dict(zip(_fields, _row)))
 
     @classmethod
-    @functools.lru_cache
+    @lru_cache
     def table_insert_stmt(
         cls,
         *,
@@ -261,7 +259,7 @@ class TableSpec(BaseModel):
         )
 
     @classmethod
-    @functools.lru_cache
+    @lru_cache
     def table_select_stmt(
         cls,
         *,
@@ -326,7 +324,7 @@ class TableSpec(BaseModel):
         )
 
     @classmethod
-    @functools.lru_cache
+    @lru_cache
     def table_delete_stmt(
         cls,
         *,

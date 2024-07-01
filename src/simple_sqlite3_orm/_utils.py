@@ -1,15 +1,36 @@
 from __future__ import annotations
 
 from io import StringIO
-from typing import Any, Literal, Optional, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    TypeVar,
+    get_args,
+    get_origin,
+)
 
-from typing_extensions import Self
+from typing_extensions import ParamSpec, Self
 
 from simple_sqlite3_orm._sqlite_spec import (
     ConstrainLiteral,
     SQLiteTypeAffinity,
     SQLiteTypeAffinityLiteral,
 )
+
+P = ParamSpec("P")
+RT = TypeVar("RT")
+
+if TYPE_CHECKING:
+
+    def lru_cache(_func: Callable[P, RT], /) -> Callable[P, RT]:
+        """typeshed doesn't use ParamSpec for lru_cache typing currently."""
+        raise NotImplementedError
+
+else:
+    from functools import lru_cache  # noqa: F401
 
 
 class TypeAffinityRepr(str):
