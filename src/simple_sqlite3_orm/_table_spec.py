@@ -17,6 +17,18 @@ from simple_sqlite3_orm._sqlite_spec import (
 from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr
 
 
+def _gen_stmt(*stmts: str) -> str:
+    """Generate statement with input statement strings."""
+    with StringIO() as buffer:
+        for stmt in stmts:
+            if not stmt:
+                continue
+            buffer.write(stmt)
+            buffer.write(" ")
+        buffer.write(";")
+        return buffer.getvalue()
+
+
 class TableSpec(BaseModel):
     """Define table as pydantic model, with specific APIs."""
 
