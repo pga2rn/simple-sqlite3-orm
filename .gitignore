@@ -162,3 +162,9 @@ cython_debug/
 
 # generated version file
 src/simple_sqlite3_orm/_version.py
+
+# vscode config
+.vscode
+
+# local hatch config
+hatch.toml
