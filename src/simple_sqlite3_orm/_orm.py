@@ -52,7 +52,7 @@ class ORMBase(Generic[TableSpecType]):
     ) -> None:
         self.table_name = table_name
         self.schema_name = schema_name
-        self.con = con
+        self._con = con
 
     def __class_getitem__(
         cls: type[Self], params: Any | type[Any] | type[TableSpecType]
@@ -74,6 +74,14 @@ class ORMBase(Generic[TableSpecType]):
         _parameterized_orm_cache[params] = _new_parameterized_container
         return _std_GenericAlias(_new_parameterized_container, params)
 
+    @property
+    def con(self) -> sqlite3.Connection:
+        """A reference to the underlying sqlite3.Connection.
+
+        This is for advanced database execution.
+        """
+        return self._con
+
     def get_table_name(self) -> str:
         """Get the unique name for the table from <con>.
 
@@ -91,7 +99,7 @@ class ORMBase(Generic[TableSpecType]):
         allow_existed: bool = False,
         without_rowid: bool = False,
     ) -> None:
-        with self.con as con:
+        with self._con as con:
             con.execute(
                 self.table_spec.table_create_stmt(
                     self.get_table_name(),
@@ -115,7 +123,7 @@ class ORMBase(Generic[TableSpecType]):
             index_cols=list(cols),
         )
         logger.debug(f"{index_create_stmt=}")
-        with self.con as con:
+        with self._con as con:
             con.execute(index_create_stmt)
 
     def select_entries(
@@ -134,7 +142,7 @@ class ORMBase(Generic[TableSpecType]):
         )
         logger.debug(f"{table_select_stmt=}")
 
-        with self.con as con:
+        with self._con as con:
             _cur = con.execute(table_select_stmt, tuple(col_values.values()))
             _cur.row_factory = self.table_spec.table_row_factory
             yield from _cur.fetchall()
@@ -155,7 +163,7 @@ class ORMBase(Generic[TableSpecType]):
         insert_stmt = self.table_spec.table_insert_stmt(self.get_table_name())
         logger.debug(f"{insert_stmt=}")
 
-        with self.con as con:
+        with self._con as con:
             if isinstance(_in, tuple):
                 _cur = con.executemany(
                     insert_stmt, tuple(_row.table_row_astuple() for _row in _in)
@@ -188,13 +196,13 @@ class ORMBase(Generic[TableSpecType]):
         if returning:
 
             def _gen() -> Generator[TableSpecType, None, None]:
-                with self.con as con:
+                with self._con as con:
                     _cur = con.execute(delete_stmt, tuple(cols_value.values()))
                     _cur.row_factory = self.table_spec.table_row_factory
                     yield from _cur.fetchall()
 
             return _gen()
         else:
-            with self.con as con:
+            with self._con as con:
                 _cur = con.execute(delete_stmt, tuple(cols_value.values()))
                 return _cur.rowcount
