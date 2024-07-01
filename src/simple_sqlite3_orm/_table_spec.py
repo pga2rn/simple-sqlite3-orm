@@ -248,8 +248,9 @@ class TableSpec(BaseModel):
             WITHOUT_ROWID table will result in rowcount=0, see
             https://sqlite.org/forum/forumpost/07dedbf9a1 for more details.
             For python, python version < 3.10 will be affected by this bug.
-            Althoug add any condition, even a dummy "WHERE 1=1" can resolve the above bug,
-            I will not add this hack here.
+            A quick workaround is to add any condition in where statement, even a dummy
+            "WHERE 1=1" can resolve the above bug.
+            I will not add this hack here, and user can add this hack according to their needs.
         """
         delete_from_stmt = f"DELETE FROM {delete_from} "
 
