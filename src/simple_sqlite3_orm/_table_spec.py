@@ -21,7 +21,7 @@ class TableSpec(BaseModel):
     """Define table as pydantic model, with specific APIs."""
 
     @classmethod
-    def table_check_col(cls, col: str) -> FieldInfo:
+    def table_get_col_fieldinfo(cls, col: str) -> FieldInfo:
         """Check whether the <col> exists and returns the pydantic FieldInfo.
 
         Raises:
@@ -44,14 +44,19 @@ class TableSpec(BaseModel):
 
     @classmethod
     def table_dump_column(cls, column_name: str) -> str:
-        """Dump the column statement for table creation."""
+        """Dump the column statement for table creation.
+
+        Raises:
+            ValueError on col doesn't exist or invalid col definition.
+        """
         datatype_name, constrain = "", ""
-        for metadata in cls.table_check_col(column_name).metadata:
+        for metadata in cls.table_get_col_fieldinfo(column_name).metadata:
             if isinstance(metadata, TypeAffinityRepr):
                 datatype_name = metadata
             elif isinstance(metadata, ConstrainRepr):
                 constrain = metadata
-        assert datatype_name, "data affinity must be set"
+        if not datatype_name:
+            raise ValueError("data affinity must be set")
         return f"{column_name} {datatype_name} {constrain}".strip()
 
     @classmethod
@@ -99,11 +104,11 @@ class TableSpec(BaseModel):
         for _input in index_cols:
             if isinstance(_input, tuple):
                 _col, _order = _input
-                cls.table_check_col(_col)
+                cls.table_get_col_fieldinfo(_col)
                 _indexed_cols.append(f"{_col} {_order}")
             else:
                 _col = _input
-                cls.table_check_col(_col)
+                cls.table_get_col_fieldinfo(_col)
                 _indexed_cols.append(_col)
         indexed_columns_stmt = f"({','.join(_indexed_cols)}) "
 
@@ -231,7 +236,7 @@ class TableSpec(BaseModel):
             for _item in order_by:
                 if isinstance(_item, tuple):
                     _col, _direction = _item
-                    cls.table_check_col(_col)
+                    cls.table_get_col_fieldinfo(_col)
                     _order_by_stmts.append(f"{_col} {_direction}")
                 else:
                     _order_by_stmts.append(_item)
@@ -288,7 +293,7 @@ class TableSpec(BaseModel):
             for _item in order_by:
                 if isinstance(_item, tuple):
                     _col, _direction = _item
-                    cls.table_check_col(_col)
+                    cls.table_get_col_fieldinfo(_col)
                     _order_by_stmts.append(f"{_col} {_direction}")
                 else:
                     _order_by_stmts.append(_item)
