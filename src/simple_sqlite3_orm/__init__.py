@@ -9,7 +9,11 @@ from simple_sqlite3_orm._sqlite_spec import (
     SQLiteTypeAffinityLiteral,
 )
 from simple_sqlite3_orm._table_spec import TableSpec
-from simple_sqlite3_orm._types import DatetimeISO8601, DatetimeUnix, DatetimeUnixNS
+from simple_sqlite3_orm._types import (
+    DatetimeISO8601,
+    DatetimeUnixTimestamp,
+    DatetimeUnixTimestampInt,
+)
 from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr
 
 __all__ = [
@@ -23,6 +27,6 @@ __all__ = [
     "TableSpec",
     "ORMBase",
     "DatetimeISO8601",
-    "DatetimeUnix",
-    "DatetimeUnixNS",
+    "DatetimeUnixTimestamp",
+    "DatetimeUnixTimestampInt",
 ]
