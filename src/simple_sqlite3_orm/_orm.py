@@ -4,7 +4,7 @@ import logging
 import sqlite3
 import sys
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from functools import cached_property, wraps
 from typing import TYPE_CHECKING, Any, Generator, Generic, Iterable, Literal, TypeVar
 from weakref import WeakValueDictionary
@@ -293,7 +293,7 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
 
                 @wraps(attr)
                 def _inner(*args, **kwargs):
-                    return pool.submit(bound_attr, *args, **kwargs).result()
+                    return pool.submit(bound_attr, *args, **kwargs)
 
                 setattr(new_obj, attr_name, _inner)
         return new_obj
@@ -317,3 +317,43 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
             con.close()
         self._cons = []
         self._thread_id_cons_id_map = {}
+
+    if TYPE_CHECKING:
+
+        def orm_delete_entries(
+            self,
+            *,
+            _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
+            _limit: int | None = None,
+            _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
+            **cols_value: Any,
+        ) -> Future[int | Generator[TableSpecType, None, None]]: ...
+
+        def orm_insert_entry(self, _in: TableSpecType) -> Future[int]: ...
+
+        def orm_insert_entries(self, _in: Iterable[TableSpecType]) -> Future[int]: ...
+
+        def orm_select_entries(
+            self,
+            *,
+            _distinct: bool = False,
+            _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
+            _limit: int | None = None,
+            **col_values: Any,
+        ) -> Future[Generator[TableSpecType, None, None]]: ...
+
+        def orm_create_index(
+            self,
+            *,
+            index_name: str,
+            index_keys: tuple[str, ...],
+            allow_existed: bool = False,
+            unique: bool = False,
+        ) -> Future[None]: ...
+
+        def orm_create_table(
+            self,
+            *,
+            allow_existed: bool = False,
+            without_rowid: bool = False,
+        ) -> Future[None]: ...
