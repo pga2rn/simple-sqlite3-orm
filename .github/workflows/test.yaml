@@ -1,0 +1,93 @@
+name: test CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    # only trigger unit test CI when src or tests changed
+    paths:
+      - "src/**"
+      - "tests/**"
+      - ".github/workflows/test.yaml"
+  # allow the test CI to be manually triggerred
+  workflow_dispatch:
+
+jobs:
+  pytest_with_coverage_with_supported_python_version:
+    strategy:
+      fail-fast: true
+      matrix:
+        python_version:
+          - "3.8"
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout commit
+        uses: actions/checkout@v4
+        with:
+          # sonarcloud needs main branch's ref
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python_version }}
+          cache: "pip"
+
+      - name: Install package
+        run: |
+          python -m pip install -q -U pip
+          pip install -q .[dev]
+
+      - name: Execute pytest with coverage
+        run: |
+          coverage run -m pytest --junit-xml=test_result/pytest.xml
+          coverage xml -o test_result/coverage.xml
+
+      # export the coverage report to the comment!
+      - name: Add coverage report to PR comment
+        continue-on-error: true
+        uses: MishaKav/pytest-coverage-comment@v1.1.51
+        with:
+          pytest-xml-coverage-path: test_result/coverage.xml
+          junitxml-path: test_result/pytest.xml
+
+  pytest_on_supported_python_vers:
+    strategy:
+      fail-fast: true
+      matrix:
+        os: 
+          - ubuntu-20.04
+          - ubuntu-22.04
+          - ubuntu-24.04
+        include:
+          - os: ubuntu-20.04
+            python_version: "3.8"
+          - os: ubuntu-22.04
+            python_version: "3.10"
+          - os: ubuntu-24.04
+            python_version: "3.12"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout commit
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python_version }} 
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python_version }}
+          cache: "pip"
+
+      - name: Install package
+        run: |
+          python -m pip install -q -U pip
+          pip install -q .[dev]
+
+      - name: Execute pytest
+        run: pytest
