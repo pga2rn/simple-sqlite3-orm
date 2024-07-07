@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from typing import Any, overload
+from typing import Any, overload, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -51,20 +51,20 @@ def enable_mmap(con: sqlite3.Connection, mmap_size: int = DEFAULT_MMAP_SIZE):
 #
 
 
-def check_db_integrity(con: sqlite3.Connection, table_name: str | None = None):
+def check_db_integrity(con: sqlite3.Connection, table_name: str | None = None) -> bool:
     """
     See https://www.sqlite.org/pragma.html#pragma_integrity_check.
     """
-    query = "PRAGMA integrity_check;"
-    if table_name:
-        query = f"PRAGMA integrity_check({table_name});"
-
     with con as con:
-        cur = con.execute(query)
+        if table_name:
+            cur = con.execute("PRAGMA integrity_check(?);", (table_name,))
+        else:
+            cur = con.execute("PRAGMA integrity_check;")
+
         res = cur.fetchall()
         if len(res) == 1 and res[0] == ("ok",):
             return True
-        logger.warning(f"database integrity check({query=}) finds problem: {res}")
+        logger.warning(f"database integrity check finds problem: {res}")
         return False
 
 
@@ -73,6 +73,15 @@ def lookup_table(con: sqlite3.Connection, table_name: str) -> bool:
     with con as con:
         cur = con.execute(query, (table_name,))
         return bool(cur.fetchone())
+
+
+def attach_database(
+    con: sqlite3.Connection, database: str | Literal[":memory:"], schema_name: str
+) -> str:
+    query = "ATTACH DATABASE ? AS ?"
+    with con as con:
+        con.execute(query, (database, schema_name))
+    return schema_name
 
 
 FLAG_OPTION = object()
