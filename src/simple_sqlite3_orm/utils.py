@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from typing import Any, overload
 
 logger = logging.getLogger(__name__)
 
@@ -72,3 +73,40 @@ def lookup_table(con: sqlite3.Connection, table_name: str) -> bool:
     with con as con:
         cur = con.execute(query, (table_name,))
         return bool(cur.fetchone())
+
+
+FLAG_OPTION = object()
+
+
+@overload
+def check_pragma_compile_time_options(
+    con: sqlite3.Connection, option_name: str
+) -> tuple[str, Any] | None: ...
+
+
+@overload
+def check_pragma_compile_time_options(
+    con: sqlite3.Connection, option_name: None = None
+) -> list[tuple[str, Any]]: ...
+
+
+def check_pragma_compile_time_options(
+    con: sqlite3.Connection, option_name: str | None = None
+) -> tuple[str, Any] | None | list[tuple[str, Any]]:
+    query = "SELECT * FROM pragma_compile_options"
+    with con as con:
+        cur = con.execute(query)
+        all_res: list[tuple[str]] = cur.fetchall()
+
+        res: list[tuple[str, Any]] = []
+        for raw_option in all_res:
+            splitted = raw_option[0].split("=", maxsplit=1)
+            _op_name, _op_value, *_ = *splitted, FLAG_OPTION
+
+            if option_name == _op_name:
+                return _op_name, _op_value
+            res.append((_op_name, _op_value))
+
+        if option_name:
+            return
+        return res
