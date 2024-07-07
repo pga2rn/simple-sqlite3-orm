@@ -58,7 +58,7 @@ jobs:
           pytest-xml-coverage-path: test_result/coverage.xml
           junitxml-path: test_result/pytest.xml
 
-  pytest_on_supported_python_vers:
+  pytest_on_supported_os_version:
     strategy:
       fail-fast: true
       matrix:
