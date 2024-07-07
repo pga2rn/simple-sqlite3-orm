@@ -3,11 +3,13 @@ from __future__ import annotations
 import logging
 import sqlite3
 import sys
-from functools import cached_property
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from functools import cached_property, wraps
 from typing import TYPE_CHECKING, Any, Generator, Generic, Iterable, Literal, TypeVar
 from weakref import WeakValueDictionary
 
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec, Self
 
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
@@ -236,3 +238,67 @@ class ORMBase(Generic[TableSpecType]):
 
 
 ORMBaseType = TypeVar("ORMBaseType", bound=ORMBase)
+
+
+_WRAPPED_METHODS = set(
+    [
+        "orm_delete_entries",
+        "orm_insert_entries",
+        "orm_insert_entry",
+        "orm_select_entries",
+        "orm_create_index",
+        "orm_create_table",
+    ]
+)
+
+
+class ORMConnectionThreadPool(ORMBase[TableSpecType]):
+
+    _thread_id_cons_id_map: dict[int, int]
+    _cons: list[sqlite3.Connection]
+
+    @property
+    def _con(self) -> sqlite3.Connection:
+        """Get thread-specific sqlite3 connection."""
+        return self._cons[self._thread_id_cons_id_map[threading.get_native_id()]]
+
+    def __new__(
+        cls, *_, cons: list[sqlite3.Connection], thread_name_prefix: str = ""
+    ) -> Self:
+        new_obj = object.__new__(cls)
+
+        worker_threads_num = len(cons)
+        new_obj._thread_id_cons_id_map = thread_id_cons_id_map = {}
+        new_obj._cons = cons.copy()
+
+        def _thread_initializer():
+            thread_id = threading.get_native_id()
+            thread_id_cons_id_map[thread_id] = len(thread_id_cons_id_map)
+
+        pool = ThreadPoolExecutor(
+            max_workers=worker_threads_num,
+            initializer=_thread_initializer,
+            thread_name_prefix=thread_name_prefix,
+        )
+
+        for attr_name in dir(cls):
+            if attr_name not in _WRAPPED_METHODS:
+                continue
+
+            attr = getattr(cls, attr_name)
+            if callable(attr):
+
+                def _inner(*args, **kwargs):
+                    return pool.submit(attr, *args, **kwargs).result()
+
+                setattr(new_obj, attr_name, wraps(attr)(_inner.__get__(new_obj)))
+        return new_obj
+
+    def __init__(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        **_,
+    ) -> None:
+        self._table_name = table_name
+        self._schema_name = schema_name
