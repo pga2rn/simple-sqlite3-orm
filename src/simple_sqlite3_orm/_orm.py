@@ -305,7 +305,7 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
 
                     @wraps(_attr)
                     def _inner(*args, **kwargs):
-                        return _pool.submit(_bound_attr, *args, **kwargs)
+                        return _pool.submit(_bound_attr, *args, **kwargs).result()
 
                     return _inner
 
