@@ -14,9 +14,9 @@ from typing_extensions import ParamSpec, Self
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
 
-_parameterized_orm_cache: WeakValueDictionary[type[TableSpec], type["ORMBase[Any]"]] = (
-    WeakValueDictionary()
-)
+_parameterized_orm_cache: WeakValueDictionary[
+    tuple[type[ORMBase], type[TableSpec]], type[ORMBase[Any]]
+] = WeakValueDictionary()
 
 logger = logging.getLogger(__name__)
 
@@ -66,14 +66,15 @@ class ORMBase(Generic[TableSpecType]):
         if not (isinstance(params, type) and issubclass(params, TableSpec)):
             return super().__class_getitem__(params)  # type: ignore
 
-        if _cached_type := _parameterized_orm_cache.get(params):
+        key = (cls, params)
+        if _cached_type := _parameterized_orm_cache.get(key):
             return _std_GenericAlias(_cached_type, params)
 
         new_parameterized_ormbase: type[ORMBase] = type(
             f"{cls.__name__}[{params.__name__}]", (cls,), {}
         )
         new_parameterized_ormbase.orm_table_spec = params  # type: ignore
-        _parameterized_orm_cache[params] = new_parameterized_ormbase
+        _parameterized_orm_cache[key] = new_parameterized_ormbase
         return _std_GenericAlias(new_parameterized_ormbase, params)
 
     @property
