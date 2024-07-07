@@ -254,30 +254,31 @@ _WRAPPED_METHODS = set(
 
 class ORMConnectionThreadPool(ORMBase[TableSpecType]):
 
-    _thread_id_cons_id_map: dict[int, int]
-    _cons: list[sqlite3.Connection]
+    _pool: ThreadPoolExecutor
 
     @property
     def _con(self) -> sqlite3.Connection:
         """Get thread-specific sqlite3 connection."""
         return self._cons[self._thread_id_cons_id_map[threading.get_native_id()]]
 
+    def _thread_initializer(self):
+        thread_id = threading.get_native_id()
+        self._thread_id_cons_id_map[thread_id] = len(self._thread_id_cons_id_map)
+
     def __new__(
-        cls, *_, cons: list[sqlite3.Connection], thread_name_prefix: str = ""
+        cls,
+        table_name: str,
+        schema_name: str | None = None,
+        *,
+        cons: list[sqlite3.Connection],
+        thread_name_prefix: str = "",
     ) -> Self:
         new_obj = object.__new__(cls)
 
         worker_threads_num = len(cons)
-        new_obj._thread_id_cons_id_map = thread_id_cons_id_map = {}
-        new_obj._cons = cons.copy()
-
-        def _thread_initializer():
-            thread_id = threading.get_native_id()
-            thread_id_cons_id_map[thread_id] = len(thread_id_cons_id_map)
-
-        pool = ThreadPoolExecutor(
+        new_obj._pool = pool = ThreadPoolExecutor(
             max_workers=worker_threads_num,
-            initializer=_thread_initializer,
+            initializer=new_obj._thread_initializer,
             thread_name_prefix=thread_name_prefix,
         )
 
@@ -288,17 +289,31 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
             attr = getattr(cls, attr_name)
             if callable(attr):
 
-                def _inner(*args, **kwargs):
-                    return pool.submit(attr, *args, **kwargs).result()
+                bound_attr = attr.__get__(new_obj)
 
-                setattr(new_obj, attr_name, wraps(attr)(_inner.__get__(new_obj)))
+                @wraps(attr)
+                def _inner(*args, **kwargs):
+                    return pool.submit(bound_attr, *args, **kwargs).result()
+
+                setattr(new_obj, attr_name, _inner)
         return new_obj
 
     def __init__(
         self,
         table_name: str,
         schema_name: str | None = None,
-        **_,
+        *,
+        cons: list[sqlite3.Connection],
+        thread_name_prefix: str = "",
     ) -> None:
         self._table_name = table_name
         self._schema_name = schema_name
+        self._cons = cons.copy()
+        self._thread_id_cons_id_map: dict[int, int] = {}
+
+    def orm_pool_shutdown(self, *, wait=True):
+        self._pool.shutdown(wait=wait)
+        for con in self._cons:
+            con.close()
+        self._cons = []
+        self._thread_id_cons_id_map = {}
