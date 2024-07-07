@@ -130,17 +130,33 @@ class TestWithSampleDB:
 
     def test_delete_entries(self):
         logger.info("test remove and confirm the removed entries")
-        for entry in self.entries_to_remove:
-            _res = self.orm_inst.orm_delete_entries(
-                _returning_cols="*",
-                key_id=entry.key_id,
-                prim_key_sha256hash=entry.prim_key_sha256hash,
+        if sqlite3.sqlite_version_info < (3, 35, 0):
+            logger.warning(
+                (
+                    "Current runtime sqlite3 lib version doesn't support RETURNING statement:"
+                    f"{sqlite3.version_info=}, needs 3.35 and above. "
+                    "The test of RETURNING statement will be skipped here."
+                )
             )
-            assert isinstance(_res, Generator)
 
-            _res = list(_res)
-            assert len(_res) == 1
-            assert _res[0] == entry
+            for entry in self.entries_to_remove:
+                _res = self.orm_inst.orm_delete_entries(
+                    key_id=entry.key_id,
+                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                )
+                assert _res == 1
+        else:
+            for entry in self.entries_to_remove:
+                _res = self.orm_inst.orm_delete_entries(
+                    _returning_cols="*",
+                    key_id=entry.key_id,
+                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                )
+                assert isinstance(_res, Generator)
+
+                _res = list(_res)
+                assert len(_res) == 1
+                assert _res[0] == entry
 
         logger.info("confirm the remove")
         with self.orm_inst.orm_con as _con:
