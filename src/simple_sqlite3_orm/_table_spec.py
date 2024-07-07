@@ -389,10 +389,10 @@ class TableSpec(BaseModel):
             gen_returning_stmt,
         )
 
-    def table_dump_astuple(self, *cols: str) -> tuple[SQLiteStorageClass, ...]:
-        """Dump self to a tuple of col values.
+    def table_dump_asdict(self, *cols: str) -> dict[str, SQLiteStorageClass]:
+        """Dump self to a dict containing all col values.
 
-        The dumped tuple can be used to directly insert into the table.
+        The dumped dict can be used to directly insert into the table.
 
         Args:
             *cols: which cols to export, if not specified, export all cols.
@@ -402,14 +402,13 @@ class TableSpec(BaseModel):
                 pydantic serialization error.
 
         Returns:
-            A tuple of dumped col values from this row.
+            A dict of dumped col values from this row.
         """
         try:
-            if not cols:
-                return tuple(self.model_dump().values())
-            return tuple(self.model_dump(include=set(cols)).values())
+            _included_cols = set(cols) if cols else None
+            return self.model_dump(include=_included_cols)
         except Exception as e:
-            raise ValueError(f"failed to dump as tuple: {e!r}") from e
+            raise ValueError(f"failed to dump as dict: {e!r}") from e
 
 
 TableSpecType = TypeVar("TableSpecType", bound=TableSpec)
