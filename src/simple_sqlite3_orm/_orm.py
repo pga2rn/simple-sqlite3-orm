@@ -6,7 +6,16 @@ import sys
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
 from functools import cached_property, wraps
-from typing import TYPE_CHECKING, Any, Generator, Generic, Iterable, Literal, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generator,
+    Generic,
+    Iterable,
+    Literal,
+    TypeVar,
+)
 from weakref import WeakValueDictionary
 
 from typing_extensions import ParamSpec, Self
@@ -290,13 +299,17 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
             attr = getattr(cls, attr_name)
             if callable(attr):
 
-                bound_attr = attr.__get__(new_obj)
+                def _wrapper(_new_object, _pool: ThreadPoolExecutor, _attr: Callable):
+                    """Wrap the closure namespace."""
+                    _bound_attr = _attr.__get__(_new_object)
 
-                @wraps(attr)
-                def _inner(*args, **kwargs):
-                    return pool.submit(bound_attr, *args, **kwargs)
+                    @wraps(_attr)
+                    def _inner(*args, **kwargs):
+                        return _pool.submit(_bound_attr, *args, **kwargs)
 
-                setattr(new_obj, attr_name, _inner)
+                    return _inner
+
+                setattr(new_obj, attr_name, _wrapper(new_obj, pool, attr))
         return new_obj
 
     def __init__(
