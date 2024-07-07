@@ -1,3 +1,5 @@
+"""Test with single thread and single connection."""
+
 from __future__ import annotations
 
 import logging
@@ -7,6 +9,7 @@ from typing import Generator
 
 import pytest
 
+from simple_sqlite3_orm import utils
 from tests.conftest import (
     TABLE_NAME,
     TEST_ENTRY_NUM,
@@ -14,7 +17,7 @@ from tests.conftest import (
     TEST_REMOVE_ENTRIES_NUM,
     generate_test_data,
 )
-from tests.sample_db.db import SampleDB
+from tests.sample_db.orm import SampleDB
 from tests.sample_db.table import SampleTable
 
 logger = logging.getLogger(__name__)
@@ -26,9 +29,21 @@ def setup_test_data():
 
 
 @pytest.fixture(scope="class")
-def setup_test_db() -> Generator[SampleDB, None, None]:
-    with sqlite3.connect(":memory:") as con:
-        yield SampleDB(con, table_name=TABLE_NAME)
+def setup_test_db(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Generator[SampleDB, None, None]:
+    tmp_path = tmp_path_factory.mktemp("tmp_db_path")
+    db_file = tmp_path / "test_db_file.sqlite3"
+
+    con = sqlite3.connect(db_file)
+
+    # enable optimization
+    utils.enable_wal_mode(con, relax_sync_mode=True)
+    utils.enable_mmap(con)
+    utils.enable_tmp_store_at_memory(con)
+    yield SampleDB(con, table_name=TABLE_NAME)
+    # finally, do a database integrity check after test operations
+    assert utils.check_db_integrity(con)
 
 
 @pytest.fixture(scope="class")
@@ -70,9 +85,10 @@ class TestWithSampleDB:
         self.entries_to_lookup = entries_to_lookup
         self.entries_to_remove = entries_to_remove
 
-    def test_prepare_db(self):
+    def test_create_table(self):
         logger.info("test create table")
         self.orm_inst.orm_create_table(without_rowid=True)
+        assert utils.lookup_table(self.orm_inst.orm_con, self.table_name)
 
     def test_create_index(self):
         logger.info("test create index")
