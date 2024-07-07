@@ -145,7 +145,7 @@ class ORMBase(Generic[TableSpecType]):
         )
 
         with self._con as con:
-            _cur = con.execute(table_select_stmt, tuple(col_values.values()))
+            _cur = con.execute(table_select_stmt, col_values)
             _cur.row_factory = self.orm_table_spec.table_row_factory
             yield from _cur.fetchall()
 
@@ -166,7 +166,7 @@ class ORMBase(Generic[TableSpecType]):
         )
         with self._con as con:
             _cur = con.executemany(
-                insert_stmt, tuple(_row.table_dump_astuple() for _row in _in)
+                insert_stmt, (_row.table_dump_asdict() for _row in _in)
             )
             return _cur.rowcount
 
@@ -183,7 +183,7 @@ class ORMBase(Generic[TableSpecType]):
             insert_into=self.orm_table_name
         )
         with self._con as con:
-            _cur = con.execute(insert_stmt, _in.table_dump_astuple())
+            _cur = con.execute(insert_stmt, _in.table_dump_asdict())
             return _cur.rowcount
 
     def orm_delete_entries(
@@ -206,7 +206,7 @@ class ORMBase(Generic[TableSpecType]):
 
             def _gen() -> Generator[TableSpecType, None, None]:
                 with self._con as con:
-                    _cur = con.execute(delete_stmt, tuple(cols_value.values()))
+                    _cur = con.execute(delete_stmt, cols_value)
                     _cur.row_factory = self.orm_table_spec.table_row_factory
                     yield from _cur.fetchall()
 
