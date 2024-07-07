@@ -42,7 +42,7 @@ class TableSpec(BaseModel):
             return where_stmt
         if where_cols:
             cls.table_check_cols(where_cols)
-            _conditions = (f"{_col}=?" for _col in where_cols)
+            _conditions = (f"{_col}=:{_col}" for _col in where_cols)
             _where_cols_stmt = " AND ".join(_conditions)
             return f"WHERE {_where_cols_stmt}"
         return ""
@@ -246,11 +246,12 @@ class TableSpec(BaseModel):
             gen_insert_value_stmt = "DEFAULT VALUES"
         elif insert_cols:
             cls.table_check_cols(insert_cols)
-            gen_insert_value_stmt = f"VALUES ({','.join(['?'] * len(insert_cols))})"
+
+            _cols_named_placeholder = (f":{_col}" for _col in insert_cols)
+            gen_insert_value_stmt = f"VALUES ({','.join(_cols_named_placeholder)})"
         else:
-            gen_insert_value_stmt = (
-                f"VALUES ({','.join(['?'] * len(cls.model_fields))}) "
-            )
+            _cols_named_placeholder = (f":{_col}" for _col in cls.model_fields)
+            gen_insert_value_stmt = f"VALUES ({','.join(_cols_named_placeholder)}) "
 
         gen_returning_stmt = cls._generate_returning_stmt(
             returning_cols, returning_stmt
