@@ -4,13 +4,12 @@ import logging
 import sqlite3
 import sys
 import threading
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property, wraps
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Generator,
     Generic,
     Iterable,
     Literal,
@@ -147,7 +146,7 @@ class ORMBase(Generic[TableSpecType]):
         _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
         _limit: int | None = None,
         **col_values: Any,
-    ) -> Generator[TableSpecType, None, None]:
+    ) -> list[TableSpecType]:
         table_select_stmt = self.orm_table_spec.table_select_stmt(
             select_from=self.orm_table_name,
             distinct=_distinct,
@@ -159,7 +158,7 @@ class ORMBase(Generic[TableSpecType]):
         with self._con as con:
             _cur = con.execute(table_select_stmt, col_values)
             _cur.row_factory = self.orm_table_spec.table_row_factory
-            yield from _cur.fetchall()
+            return _cur.fetchall()
 
     def orm_insert_entries(self, _in: Iterable[TableSpecType]) -> int:
         """Insert entry/entries into this table.
@@ -205,7 +204,7 @@ class ORMBase(Generic[TableSpecType]):
         _limit: int | None = None,
         _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         **cols_value: Any,
-    ) -> int | Generator[TableSpecType, None, None]:
+    ) -> int | list[TableSpecType]:
         delete_stmt = self.orm_table_spec.table_delete_stmt(
             delete_from=self.orm_table_name,
             limit=_limit,
@@ -216,35 +215,30 @@ class ORMBase(Generic[TableSpecType]):
 
         if _returning_cols:
 
-            def _gen() -> Generator[TableSpecType, None, None]:
-                with self._con as con:
-                    _cur = con.execute(delete_stmt, cols_value)
-                    _cur.row_factory = self.orm_table_spec.table_row_factory
-                    yield from _cur.fetchall()
+            with self._con as con:
+                _cur = con.execute(delete_stmt, cols_value)
+                _cur.row_factory = self.orm_table_spec.table_row_factory
+                return _cur.fetchall()
 
-            return _gen()
         else:
             with self._con as con:
                 _cur = con.execute(delete_stmt, tuple(cols_value.values()))
                 return _cur.rowcount
 
-    def orm_cursor_wrapper(
-        self, cursor: sqlite3.Cursor
-    ) -> Generator[TableSpecType, None, None]:
-        """A helper wrapper that setup row factory and yield from the <cursor>.
+    def orm_cursor_wrapper(self, cursor: sqlite3.Cursor) -> list[TableSpecType]:
+        """A helper wrapper that setup row factory and for the <cursor>.
 
         This decorator is for advanced database operation which is expected to return a cursor that
-            can be used to retrieve a list of entries from the table. User can use this wrapper to
-            convert the cursor into a generator that yields the converted entries.
+            can be used to retrieve a list of entries from the table.
 
         Args:
             cursor (sqlite3.Cursor): A cursor which can be used to retrieve entries from.
 
         Returns:
-            Generator[TableSpec, None, None]: A generator that can yield converted entries.
+            list[TableSpec]: A list of converted entries.
         """
         cursor.row_factory = self.orm_table_spec.table_row_factory
-        yield from cursor.fetchall()
+        return cursor.fetchall()
 
 
 ORMBaseType = TypeVar("ORMBaseType", bound=ORMBase)
