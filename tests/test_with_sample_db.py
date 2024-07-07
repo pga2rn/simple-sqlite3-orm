@@ -3,63 +3,17 @@
 from __future__ import annotations
 
 import logging
-import random
 import sqlite3
 from typing import Generator
 
 import pytest
 
 from simple_sqlite3_orm import utils
-from tests.conftest import (
-    TABLE_NAME,
-    TEST_ENTRY_NUM,
-    TEST_LOOKUP_ENTRIES_NUM,
-    TEST_REMOVE_ENTRIES_NUM,
-    generate_test_data,
-)
+from tests.conftest import TABLE_NAME
 from tests.sample_db.orm import SampleDB
 from tests.sample_db.table import SampleTable
 
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="class")
-def setup_test_data():
-    return generate_test_data(TEST_ENTRY_NUM)
-
-
-@pytest.fixture(scope="class")
-def setup_test_db(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> Generator[SampleDB, None, None]:
-    tmp_path = tmp_path_factory.mktemp("tmp_db_path")
-    db_file = tmp_path / "test_db_file.sqlite3"
-
-    con = sqlite3.connect(db_file)
-
-    # enable optimization
-    utils.enable_wal_mode(con, relax_sync_mode=True)
-    utils.enable_mmap(con)
-    utils.enable_tmp_store_at_memory(con)
-    yield SampleDB(con, table_name=TABLE_NAME)
-    # finally, do a database integrity check after test operations
-    assert utils.check_db_integrity(con)
-
-
-@pytest.fixture(scope="class")
-def entries_to_lookup(setup_test_data: dict[str, SampleTable]) -> list[SampleTable]:
-    return random.sample(
-        list(setup_test_data.values()),
-        k=TEST_LOOKUP_ENTRIES_NUM,
-    )
-
-
-@pytest.fixture(scope="class")
-def entries_to_remove(setup_test_data: dict[str, SampleTable]) -> list[SampleTable]:
-    return random.sample(
-        list(setup_test_data.values()),
-        k=TEST_REMOVE_ENTRIES_NUM,
-    )
 
 
 INDEX_NAME = "key_id_prim_key_hash_idx"
