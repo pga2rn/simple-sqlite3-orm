@@ -46,6 +46,14 @@ def enable_mmap(con: sqlite3.Connection, mmap_size: int = DEFAULT_MMAP_SIZE):
         con.execute(f"PRAGMA mmap_size = {mmap_size};")
 
 
+def optimize_db(con: sqlite3.Connection):
+    """
+    See https://www.sqlite.org/pragma.html#pragma_optimize.
+    """
+    with con as con:
+        con.execute("PRAGMA optimize;")
+
+
 #
 # ------ General DB operation ------ #
 #
