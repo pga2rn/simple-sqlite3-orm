@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import queue
 import sqlite3
 import sys
 import threading
@@ -15,6 +17,7 @@ from typing import (
     Iterable,
     Literal,
     TypeVar,
+    overload,
 )
 from weakref import WeakValueDictionary
 
@@ -22,6 +25,7 @@ from typing_extensions import ParamSpec, Self
 
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
+from simple_sqlite3_orm._typing import copy_callable_typehint
 
 _parameterized_orm_cache: WeakValueDictionary[
     tuple[type[ORMBase], type[TableSpec]], type[ORMBase[Any]]
@@ -248,18 +252,6 @@ class ORMBase(Generic[TableSpecType]):
 ORMBaseType = TypeVar("ORMBaseType", bound=ORMBase)
 
 
-_WRAPPED_METHODS = set(
-    [
-        "orm_delete_entries",
-        "orm_insert_entries",
-        "orm_insert_entry",
-        "orm_select_entries",
-        "orm_create_index",
-        "orm_create_table",
-    ]
-)
-
-
 class ORMConnectionThreadPool(ORMBase[TableSpecType]):
 
     _pool: ThreadPoolExecutor
@@ -268,47 +260,6 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
     def _con(self) -> sqlite3.Connection:
         """Get thread-specific sqlite3 connection."""
         return self._cons[self._thread_id_cons_id_map[threading.get_native_id()]]
-
-    def _thread_initializer(self):
-        thread_id = threading.get_native_id()
-        self._thread_id_cons_id_map[thread_id] = len(self._thread_id_cons_id_map)
-
-    def __new__(
-        cls,
-        table_name: str,
-        schema_name: str | None = None,
-        *,
-        cons: list[sqlite3.Connection],
-        thread_name_prefix: str = "",
-    ) -> Self:
-        new_obj = object.__new__(cls)
-
-        worker_threads_num = len(cons)
-        new_obj._pool = pool = ThreadPoolExecutor(
-            max_workers=worker_threads_num,
-            initializer=new_obj._thread_initializer,
-            thread_name_prefix=thread_name_prefix,
-        )
-
-        for attr_name in dir(cls):
-            if attr_name not in _WRAPPED_METHODS:
-                continue
-
-            attr = getattr(cls, attr_name)
-            if callable(attr):
-
-                def _wrapper(_new_object, _pool: ThreadPoolExecutor, _attr: Callable):
-                    """Wrap the closure namespace."""
-                    _bound_attr = _attr.__get__(_new_object)
-
-                    @wraps(_attr)
-                    def _inner(*args, **kwargs):
-                        return _pool.submit(_bound_attr, *args, **kwargs).result()
-
-                    return _inner
-
-                setattr(new_obj, attr_name, _wrapper(new_obj, pool, attr))
-        return new_obj
 
     def __init__(
         self,
@@ -320,8 +271,20 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
     ) -> None:
         self._table_name = table_name
         self._schema_name = schema_name
+
         self._cons = cons.copy()
-        self._thread_id_cons_id_map: dict[int, int] = {}
+        self._thread_id_cons_id_map = thread_cons_map = {}
+        worker_threads_num = len(cons)
+
+        def _thread_initializer():
+            thread_id = threading.get_native_id()
+            thread_cons_map[thread_id] = len(thread_cons_map)
+
+        self._pool = ThreadPoolExecutor(
+            max_workers=worker_threads_num,
+            initializer=_thread_initializer,
+            thread_name_prefix=thread_name_prefix,
+        )
 
     def orm_pool_shutdown(self, *, wait=True):
         self._pool.shutdown(wait=wait)
@@ -330,42 +293,163 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
         self._cons = []
         self._thread_id_cons_id_map = {}
 
-    if TYPE_CHECKING:
+    @copy_callable_typehint(ORMBase.orm_create_table)
+    def orm_create_table(self, *args, **kwargs) -> None:
+        self._pool.submit(super().orm_create_table, *args, **kwargs).result()
 
-        def orm_delete_entries(
-            self,
-            *,
-            _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
-            _limit: int | None = None,
-            _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
-            **cols_value: Any,
-        ) -> Future[int | Generator[TableSpecType, None, None]]: ...
+    @copy_callable_typehint(ORMBase.orm_create_index)
+    def orm_create_index(self, *args, **kwargs) -> None:
+        self._pool.submit(super().orm_create_index, *args, **kwargs).result()
 
-        def orm_insert_entry(self, _in: TableSpecType) -> Future[int]: ...
+    @overload
+    def orm_select_entries(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
+        _limit: int | None = None,
+        _return_generator: bool = False,
+        **col_values: Any,
+    ) -> list[TableSpecType]: ...
 
-        def orm_insert_entries(self, _in: Iterable[TableSpecType]) -> Future[int]: ...
+    @overload
+    def orm_select_entries(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
+        _limit: int | None = None,
+        _return_generator: bool = True,
+        **col_values: Any,
+    ) -> Generator[TableSpecType, None, None]: ...
 
-        def orm_select_entries(
-            self,
-            *,
-            _distinct: bool = False,
-            _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
-            _limit: int | None = None,
-            **col_values: Any,
-        ) -> Future[Generator[TableSpecType, None, None]]: ...
+    def orm_select_entries(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
+        _limit: int | None = None,
+        _return_as_generator: bool = False,
+        **col_values: Any,
+    ) -> Generator[TableSpecType, None, None] | list[TableSpecType]:
+        if _return_as_generator:
 
-        def orm_create_index(
-            self,
-            *,
-            index_name: str,
-            index_keys: tuple[str, ...],
-            allow_existed: bool = False,
-            unique: bool = False,
-        ) -> Future[None]: ...
+            _queue: queue.SimpleQueue[TableSpecType | None] = queue.SimpleQueue()
 
-        def orm_create_table(
-            self,
-            *,
-            allow_existed: bool = False,
-            without_rowid: bool = False,
-        ) -> Future[None]: ...
+            def _inner():
+                gen = super().orm_select_entries(
+                    _distinct=_distinct,
+                    _order_by=_order_by,
+                    _limit=_limit,
+                    **col_values,
+                )
+
+                for entry in gen:
+                    _queue.put(entry)
+                _queue.put(None)
+
+            self._pool.submit(_inner)
+
+            def _gen():
+                while entry := _queue.get():
+                    yield entry
+
+            return _gen()
+
+        else:
+            return list(
+                self._pool.submit(
+                    super().orm_select_entries,
+                    _distinct=_distinct,
+                    _order_by=_order_by,
+                    _limit=_limit,
+                    **col_values,
+                ).result()
+            )
+
+    @copy_callable_typehint(ORMBase.orm_insert_entries)
+    def orm_insert_entries(self, *args, **kwargs) -> int:
+        return self._pool.submit(super().orm_insert_entries, *args, **kwargs).result()
+
+    @copy_callable_typehint(ORMBase.orm_insert_entry)
+    def orm_insert_entry(self, *args, **kwargs) -> int:
+        return self._pool.submit(super().orm_insert_entry, *args, **kwargs).result()
+
+    @overload
+    def orm_delete_entries(
+        self,
+        *,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]]] | None = None,
+        _limit: int | None = None,
+        _return_as_generator: bool = True,
+        _returning_cols: tuple[str, ...] | Literal["*"],
+        **cols_value: Any,
+    ) -> Generator[TableSpecType, None, None]: ...
+
+    @overload
+    def orm_delete_entries(
+        self,
+        *,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]]] | None = None,
+        _limit: int | None = None,
+        _return_as_generator: bool = False,
+        _returning_cols: tuple[str, ...] | None | Literal["*"],
+        **cols_value: Any,
+    ) -> list[TableSpecType]: ...
+
+    @overload
+    def orm_delete_entries(
+        self,
+        *,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]]] | None = None,
+        _limit: int | None = None,
+        _return_as_generator: bool = False,
+        _returning_cols: tuple[str, ...] | None | Literal["*"] = None,
+        **cols_value: Any,
+    ) -> int: ...
+
+    def orm_delete_entries(
+        self,
+        *,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]]] | None = None,
+        _limit: int | None = None,
+        _returning_cols: tuple[str, ...] | None | Literal["*"] = None,
+        _return_as_generator: bool = False,
+        **cols_value: Any,
+    ) -> int | Generator[TableSpecType, None, None] | list[TableSpecType]:
+        if _return_as_generator and _returning_cols:
+
+            _queue: queue.SimpleQueue[TableSpecType | None] = queue.SimpleQueue()
+
+            def _inner():
+                gen = super().orm_delete_entries(
+                    _order_by=_order_by,
+                    _limit=_limit,
+                    _returning_cols=_returning_cols,
+                    **cols_value,
+                )
+                assert isinstance(gen, Generator)
+
+                for entry in gen:
+                    _queue.put(entry)
+                _queue.put(None)
+
+            self._pool.submit(_inner)
+
+            def _gen():
+                while entry := _queue.get():
+                    yield entry
+
+            return _gen()
+
+        res = self._pool.submit(
+            super().orm_delete_entries,
+            _order_by=_order_by,
+            _limit=_limit,
+            _returning_cols=_returning_cols,
+            **cols_value,
+        ).result()
+
+        if isinstance(res, Generator):
+            return list(res)
+        return res
