@@ -194,14 +194,18 @@ class TableSpec(BaseModel):
 
     @classmethod
     def table_row_factory(
-        cls, _cursor: sqlite3.Cursor, _row: tuple[Any, ...] | sqlite3.Row
-    ) -> Self:
+        cls, _cursor: sqlite3.Cursor, _row: tuple[Any, ...]
+    ) -> Self | tuple[Any, ...]:
         """row_factory implement for used in sqlite3 connection.
 
         Also see https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.description
             for more details.
         """
         _fields = [col[0] for col in _cursor.description]
+
+        # when we realize that the input is not a row, but something like function call's output.
+        if not all(col in cls.model_fields for col in _fields):
+            return _row
         return cls.model_validate(dict(zip(_fields, _row)))
 
     @classmethod
