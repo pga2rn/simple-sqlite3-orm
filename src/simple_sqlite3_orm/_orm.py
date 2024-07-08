@@ -10,7 +10,16 @@ import threading
 import weakref
 from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Generator, Generic, Iterable, Literal, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Generator,
+    Generic,
+    Iterable,
+    Literal,
+    TypeVar,
+)
 from weakref import WeakValueDictionary
 
 from typing_extensions import ParamSpec
@@ -382,3 +391,95 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
         if isinstance(res, Generator):
             return list(res)
         return res
+
+
+class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
+
+    def __init__(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        *,
+        cons: list[sqlite3.Connection],
+        thread_name_prefix: str = "",
+    ) -> None:
+        super().__init__(
+            table_name,
+            schema_name,
+            cons=cons,
+            thread_name_prefix=thread_name_prefix,
+        )
+        self._loop = asyncio.get_running_loop()
+
+    def orm_select_entries(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
+        _limit: int | None = None,
+        _return_as_generator: bool = False,
+        **col_values: Any,
+    ) -> (
+        AsyncGenerator[TableSpecType, Any]
+        | asyncio.Future[Generator[TableSpecType, None, None] | list[TableSpecType]]
+    ):
+        if _return_as_generator:
+            _async_queue: asyncio.Queue[TableSpecType | None] = asyncio.Queue()
+
+            def _inner():
+                gen = super().orm_select_entries(
+                    _distinct=_distinct,
+                    _order_by=_order_by,
+                    _limit=_limit,
+                    **col_values,
+                )
+
+                global _global_shutdown
+                for entry in gen:
+                    if _global_shutdown:
+                        break
+                    self._loop.call_soon_threadsafe(_async_queue.put, entry)
+                self._loop.call_soon_threadsafe(_async_queue.put, None)
+
+            self._pool.submit(_inner)
+
+            async def _gen():
+                while entry := await _async_queue.get():
+                    yield entry
+
+            return _gen()
+
+        else:
+
+            return asyncio.wrap_future(
+                self._pool.submit(
+                    super().orm_select_entries,
+                    _distinct=_distinct,
+                    _order_by=_order_by,
+                    _limit=_limit,
+                    **col_values,
+                )
+            )
+
+    def orm_delete_entries(
+        self,
+        *,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]]] | None = None,
+        _limit: int | None = None,
+        _returning_cols: tuple[str, ...] | None | Literal["*"] = None,
+        **cols_value: Any,
+    ) -> asyncio.Future[list[TableSpecType] | int]:
+        # NOTE(20240708): currently we don't support async generator for delete with RETURNING statement
+        def _inner():
+            res = super().orm_delete_entries(
+                _order_by=_order_by,
+                _limit=_limit,
+                _returning_cols=_returning_cols,
+                **cols_value,
+            )
+
+            if isinstance(res, Generator):
+                return list(res)
+            return res
+
+        return asyncio.wrap_future(self._pool.submit(_inner))
