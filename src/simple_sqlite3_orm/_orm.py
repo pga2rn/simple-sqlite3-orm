@@ -1,27 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import atexit
 import logging
 import queue
 import sqlite3
 import sys
 import threading
+import weakref
 from concurrent.futures import ThreadPoolExecutor
-from functools import cached_property, wraps
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Generic,
-    Generator,
-    Iterable,
-    Literal,
-    TypeVar,
-    overload,
-)
+from functools import cached_property
+from typing import TYPE_CHECKING, Any, Generator, Generic, Iterable, Literal, TypeVar
 from weakref import WeakValueDictionary
 
-from typing_extensions import ParamSpec, Self
+from typing_extensions import ParamSpec
 
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
@@ -251,6 +243,23 @@ class ORMBase(Generic[TableSpecType]):
 
 ORMBaseType = TypeVar("ORMBaseType", bound=ORMBase)
 
+_global_shutdown = False
+_queues: weakref.WeakKeyDictionary[queue.SimpleQueue, None] = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _python_exit():
+    global _global_shutdown
+    _global_shutdown = True
+
+    # wake up any pending queue at interpreter shutdown
+    for _queue in list(_queues):
+        _queue.put_nowait(None)
+
+
+atexit.register(_python_exit)
+
 
 class ORMConnectionThreadPool(ORMBase[TableSpecType]):
 
@@ -301,28 +310,6 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
     def orm_create_index(self, *args, **kwargs) -> None:
         self._pool.submit(super().orm_create_index, *args, **kwargs).result()
 
-    @overload
-    def orm_select_entries(
-        self,
-        *,
-        _distinct: bool = False,
-        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
-        _limit: int | None = None,
-        _return_generator: bool = False,
-        **col_values: Any,
-    ) -> list[TableSpecType]: ...
-
-    @overload
-    def orm_select_entries(
-        self,
-        *,
-        _distinct: bool = False,
-        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
-        _limit: int | None = None,
-        _return_generator: bool = True,
-        **col_values: Any,
-    ) -> Generator[TableSpecType, None, None]: ...
-
     def orm_select_entries(
         self,
         *,
@@ -333,8 +320,9 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None] | list[TableSpecType]:
         if _return_as_generator:
-
             _queue: queue.SimpleQueue[TableSpecType | None] = queue.SimpleQueue()
+            global _queues
+            _queues[_queue] = None
 
             def _inner():
                 gen = super().orm_select_entries(
@@ -375,73 +363,14 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
     def orm_insert_entry(self, *args, **kwargs) -> int:
         return self._pool.submit(super().orm_insert_entry, *args, **kwargs).result()
 
-    @overload
-    def orm_delete_entries(
-        self,
-        *,
-        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]]] | None = None,
-        _limit: int | None = None,
-        _return_as_generator: bool = True,
-        _returning_cols: tuple[str, ...] | Literal["*"],
-        **cols_value: Any,
-    ) -> Generator[TableSpecType, None, None]: ...
-
-    @overload
-    def orm_delete_entries(
-        self,
-        *,
-        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]]] | None = None,
-        _limit: int | None = None,
-        _return_as_generator: bool = False,
-        _returning_cols: tuple[str, ...] | None | Literal["*"],
-        **cols_value: Any,
-    ) -> list[TableSpecType]: ...
-
-    @overload
-    def orm_delete_entries(
-        self,
-        *,
-        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]]] | None = None,
-        _limit: int | None = None,
-        _return_as_generator: bool = False,
-        _returning_cols: tuple[str, ...] | None | Literal["*"] = None,
-        **cols_value: Any,
-    ) -> int: ...
-
     def orm_delete_entries(
         self,
         *,
         _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]]] | None = None,
         _limit: int | None = None,
         _returning_cols: tuple[str, ...] | None | Literal["*"] = None,
-        _return_as_generator: bool = False,
         **cols_value: Any,
-    ) -> int | Generator[TableSpecType, None, None] | list[TableSpecType]:
-        if _return_as_generator and _returning_cols:
-
-            _queue: queue.SimpleQueue[TableSpecType | None] = queue.SimpleQueue()
-
-            def _inner():
-                gen = super().orm_delete_entries(
-                    _order_by=_order_by,
-                    _limit=_limit,
-                    _returning_cols=_returning_cols,
-                    **cols_value,
-                )
-                assert isinstance(gen, Generator)
-
-                for entry in gen:
-                    _queue.put(entry)
-                _queue.put(None)
-
-            self._pool.submit(_inner)
-
-            def _gen():
-                while entry := _queue.get():
-                    yield entry
-
-            return _gen()
-
+    ) -> int | list[TableSpecType]:
         res = self._pool.submit(
             super().orm_delete_entries,
             _order_by=_order_by,
