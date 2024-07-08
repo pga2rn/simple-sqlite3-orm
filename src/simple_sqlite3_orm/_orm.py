@@ -11,6 +11,7 @@ from typing import (
     Any,
     Callable,
     Generic,
+    Generator,
     Iterable,
     Literal,
     TypeVar,
@@ -146,7 +147,7 @@ class ORMBase(Generic[TableSpecType]):
         _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
         _limit: int | None = None,
         **col_values: Any,
-    ) -> list[TableSpecType]:
+    ) -> Generator[TableSpecType, None, None]:
         table_select_stmt = self.orm_table_spec.table_select_stmt(
             select_from=self.orm_table_name,
             distinct=_distinct,
@@ -158,7 +159,7 @@ class ORMBase(Generic[TableSpecType]):
         with self._con as con:
             _cur = con.execute(table_select_stmt, col_values)
             _cur.row_factory = self.orm_table_spec.table_row_factory
-            return _cur.fetchall()
+            yield from _cur
 
     def orm_insert_entries(self, _in: Iterable[TableSpecType]) -> int:
         """Insert entry/entries into this table.
@@ -204,7 +205,7 @@ class ORMBase(Generic[TableSpecType]):
         _limit: int | None = None,
         _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         **cols_value: Any,
-    ) -> int | list[TableSpecType]:
+    ) -> int | Generator[TableSpecType, None, None]:
         delete_stmt = self.orm_table_spec.table_delete_stmt(
             delete_from=self.orm_table_name,
             limit=_limit,
@@ -218,27 +219,27 @@ class ORMBase(Generic[TableSpecType]):
             with self._con as con:
                 _cur = con.execute(delete_stmt, cols_value)
                 _cur.row_factory = self.orm_table_spec.table_row_factory
-                return _cur.fetchall()
+                yield from _cur
 
         else:
             with self._con as con:
                 _cur = con.execute(delete_stmt, tuple(cols_value.values()))
                 return _cur.rowcount
 
-    def orm_cursor_wrapper(self, cursor: sqlite3.Cursor) -> list[TableSpecType]:
-        """A helper wrapper that setup row factory and for the <cursor>.
+    def orm_cursor_adaptor(self, cursor: sqlite3.Cursor) -> sqlite3.Cursor:
+        """A helper wrapper that setup row_factory for the <cursor>.
 
         This decorator is for advanced database operation which is expected to return a cursor that
             can be used to retrieve a list of entries from the table.
 
         Args:
-            cursor (sqlite3.Cursor): A cursor which can be used to retrieve entries from.
+            cursor (sqlite3.Cursor): The cursor object.
 
         Returns:
-            list[TableSpec]: A list of converted entries.
+            sqlite3.Cursor: The original cursor object, with row_factory set to <tablespec>.table_row_factory.
         """
         cursor.row_factory = self.orm_table_spec.table_row_factory
-        return cursor.fetchall()
+        return cursor
 
 
 ORMBaseType = TypeVar("ORMBaseType", bound=ORMBase)
