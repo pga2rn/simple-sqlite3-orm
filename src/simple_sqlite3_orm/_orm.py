@@ -216,10 +216,13 @@ class ORMBase(Generic[TableSpecType]):
 
         if _returning_cols:
 
-            with self._con as con:
-                _cur = con.execute(delete_stmt, cols_value)
-                _cur.row_factory = self.orm_table_spec.table_row_factory
-                yield from _cur
+            def _gen():
+                with self._con as con:
+                    _cur = con.execute(delete_stmt, cols_value)
+                    _cur.row_factory = self.orm_table_spec.table_row_factory
+                    yield from _cur
+
+            return _gen()
 
         else:
             with self._con as con:
