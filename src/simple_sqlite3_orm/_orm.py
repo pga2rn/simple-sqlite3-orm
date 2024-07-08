@@ -56,6 +56,8 @@ else:
 class ORMBase(Generic[TableSpecType]):
     """ORM for <TableSpecType>.
 
+    NOTE that ORMBase will set the connection scope row_factory to <tablespec>'s table_row_factory.
+
     Attributes:
         con: the sqlite3 connection used by this ORM.
         table_name: the name of the table in the database <con> connected to.

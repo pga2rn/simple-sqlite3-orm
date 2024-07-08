@@ -198,6 +198,9 @@ class TableSpec(BaseModel):
     ) -> Self | tuple[Any, ...]:
         """row_factory implement for used in sqlite3 connection.
 
+        When the input <_row> is not a row but something like function output,
+            this method will return the raw input tuple as it.
+
         Also see https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.description
             for more details.
         """
