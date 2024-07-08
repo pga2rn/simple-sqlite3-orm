@@ -73,6 +73,7 @@ class ORMBase(Generic[TableSpecType]):
         self._table_name = table_name
         self._schema_name = schema_name
         self._con = con
+        con.row_factory = self.orm_table_spec.table_row_factory
 
     def __class_getitem__(cls, params: Any | type[Any] | type[TableSpecType]) -> Any:
         # just for convienience, passthrough anything that is not type[TableSpecType]
@@ -164,7 +165,6 @@ class ORMBase(Generic[TableSpecType]):
 
         with self._con as con:
             _cur = con.execute(table_select_stmt, col_values)
-            _cur.row_factory = self.orm_table_spec.table_row_factory
             yield from _cur
 
     def orm_insert_entries(self, _in: Iterable[TableSpecType]) -> int:
@@ -225,7 +225,6 @@ class ORMBase(Generic[TableSpecType]):
             def _gen():
                 with self._con as con:
                     _cur = con.execute(delete_stmt, cols_value)
-                    _cur.row_factory = self.orm_table_spec.table_row_factory
                     yield from _cur
 
             return _gen()
@@ -234,21 +233,6 @@ class ORMBase(Generic[TableSpecType]):
             with self._con as con:
                 _cur = con.execute(delete_stmt, tuple(cols_value.values()))
                 return _cur.rowcount
-
-    def orm_cursor_adaptor(self, cursor: sqlite3.Cursor) -> sqlite3.Cursor:
-        """A helper wrapper that setup row_factory for the <cursor>.
-
-        This decorator is for advanced database operation which is expected to return a cursor that
-            can be used to retrieve a list of entries from the table.
-
-        Args:
-            cursor (sqlite3.Cursor): The cursor object.
-
-        Returns:
-            sqlite3.Cursor: The original cursor object, with row_factory set to <tablespec>.table_row_factory.
-        """
-        cursor.row_factory = self.orm_table_spec.table_row_factory
-        return cursor
 
 
 ORMBaseType = TypeVar("ORMBaseType", bound=ORMBase)
@@ -292,7 +276,8 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
 
         def _thread_initializer():
             thread_id = threading.get_native_id()
-            thread_cons_map[thread_id] = con_factory()
+            thread_cons_map[thread_id] = con = con_factory()
+            con.row_factory = self.orm_table_spec.table_row_factory
 
         self._pool = ThreadPoolExecutor(
             max_workers=number_of_cons,
