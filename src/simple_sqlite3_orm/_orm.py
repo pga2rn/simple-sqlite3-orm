@@ -13,6 +13,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     AsyncGenerator,
+    Callable,
     Generator,
     Generic,
     Iterable,
@@ -264,45 +265,46 @@ atexit.register(_python_exit)
 
 
 class ORMConnectionThreadPool(ORMBase[TableSpecType]):
+    """
+    See https://www.sqlite.org/wal.html#concurrency for more details.
+    """
 
     _pool: ThreadPoolExecutor
 
     @property
     def _con(self) -> sqlite3.Connection:
         """Get thread-specific sqlite3 connection."""
-        return self._cons[self._thread_id_cons_id_map[threading.get_native_id()]]
+        return self._thread_id_cons[threading.get_native_id()]
 
     def __init__(
         self,
         table_name: str,
         schema_name: str | None = None,
         *,
-        cons: list[sqlite3.Connection],
+        con_factory: Callable[[], sqlite3.Connection],
+        number_of_cons: int,
         thread_name_prefix: str = "",
     ) -> None:
         self._table_name = table_name
         self._schema_name = schema_name
 
-        self._cons = cons.copy()
-        self._thread_id_cons_id_map = thread_cons_map = {}
-        worker_threads_num = len(cons)
+        self._thread_id_cons = thread_cons_map = {}
 
         def _thread_initializer():
             thread_id = threading.get_native_id()
-            thread_cons_map[thread_id] = len(thread_cons_map)
+            thread_cons_map[thread_id] = con_factory()
 
         self._pool = ThreadPoolExecutor(
-            max_workers=worker_threads_num,
+            max_workers=number_of_cons,
             initializer=_thread_initializer,
             thread_name_prefix=thread_name_prefix,
         )
 
     def orm_pool_shutdown(self, *, wait=True):
         self._pool.shutdown(wait=wait)
-        for con in self._cons:
+        for con in self._thread_id_cons.values():
             con.close()
-        self._cons = []
-        self._thread_id_cons_id_map = {}
+        self._thread_id_cons = {}
 
     @copy_callable_typehint(ORMBase.orm_create_table)
     def orm_create_table(self, *args, **kwargs) -> None:
@@ -418,13 +420,15 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         table_name: str,
         schema_name: str | None = None,
         *,
-        cons: list[sqlite3.Connection],
+        con_factory: Callable[[], sqlite3.Connection],
+        number_of_cons: int,
         thread_name_prefix: str = "",
     ) -> None:
         super().__init__(
             table_name,
             schema_name,
-            cons=cons,
+            con_factory=con_factory,
+            number_of_cons=number_of_cons,
             thread_name_prefix=thread_name_prefix,
         )
         self._loop = asyncio.get_running_loop()
