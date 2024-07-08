@@ -7,7 +7,6 @@ import queue
 import sqlite3
 import sys
 import threading
-import weakref
 from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property
 from typing import (
@@ -19,6 +18,7 @@ from typing import (
     Iterable,
     Literal,
     TypeVar,
+    overload,
 )
 from weakref import WeakValueDictionary
 
@@ -253,18 +253,11 @@ class ORMBase(Generic[TableSpecType]):
 ORMBaseType = TypeVar("ORMBaseType", bound=ORMBase)
 
 _global_shutdown = False
-_queues: weakref.WeakKeyDictionary[queue.SimpleQueue, None] = (
-    weakref.WeakKeyDictionary()
-)
 
 
 def _python_exit():
     global _global_shutdown
     _global_shutdown = True
-
-    # wake up any pending queue at interpreter shutdown
-    for _queue in list(_queues):
-        _queue.put_nowait(None)
 
 
 atexit.register(_python_exit)
@@ -319,6 +312,28 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
     def orm_create_index(self, *args, **kwargs) -> None:
         self._pool.submit(super().orm_create_index, *args, **kwargs).result()
 
+    @overload
+    def orm_select_entries(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
+        _limit: int | None = None,
+        _return_as_generator: bool = False,
+        **col_values: Any,
+    ) -> list[TableSpecType]: ...
+
+    @overload
+    def orm_select_entries(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
+        _limit: int | None = None,
+        _return_as_generator: bool = True,
+        **col_values: Any,
+    ) -> Generator[TableSpecType, None, None]: ...
+
     def orm_select_entries(
         self,
         *,
@@ -330,20 +345,21 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
     ) -> Generator[TableSpecType, None, None] | list[TableSpecType]:
         if _return_as_generator:
             _queue: queue.SimpleQueue[TableSpecType | None] = queue.SimpleQueue()
-            global _queues
-            _queues[_queue] = None
 
             def _inner():
-                gen = super().orm_select_entries(
-                    _distinct=_distinct,
-                    _order_by=_order_by,
-                    _limit=_limit,
-                    **col_values,
-                )
-
-                for entry in gen:
-                    _queue.put(entry)
-                _queue.put(None)
+                global _global_shutdown
+                try:
+                    for entry in super().orm_select_entries(
+                        _distinct=_distinct,
+                        _order_by=_order_by,
+                        _limit=_limit,
+                        **col_values,
+                    ):
+                        if _global_shutdown:
+                            break
+                        _queue.put(entry)
+                finally:
+                    _queue.put(None)
 
             self._pool.submit(_inner)
 
@@ -380,6 +396,7 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
         _returning_cols: tuple[str, ...] | None | Literal["*"] = None,
         **cols_value: Any,
     ) -> int | list[TableSpecType]:
+        # NOTE(20240708): currently we don't support generator for delete with RETURNING statement
         res = self._pool.submit(
             super().orm_delete_entries,
             _order_by=_order_by,
@@ -411,7 +428,7 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         )
         self._loop = asyncio.get_running_loop()
 
-    def orm_select_entries(
+    async def orm_select_entries(
         self,
         *,
         _distinct: bool = False,
@@ -419,27 +436,26 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         _limit: int | None = None,
         _return_as_generator: bool = False,
         **col_values: Any,
-    ) -> (
-        AsyncGenerator[TableSpecType, Any]
-        | asyncio.Future[Generator[TableSpecType, None, None] | list[TableSpecType]]
-    ):
+    ) -> AsyncGenerator[TableSpecType, Any] | list[TableSpecType]:
         if _return_as_generator:
             _async_queue: asyncio.Queue[TableSpecType | None] = asyncio.Queue()
 
             def _inner():
-                gen = super().orm_select_entries(
-                    _distinct=_distinct,
-                    _order_by=_order_by,
-                    _limit=_limit,
-                    **col_values,
-                )
-
                 global _global_shutdown
-                for entry in gen:
-                    if _global_shutdown:
-                        break
-                    self._loop.call_soon_threadsafe(_async_queue.put, entry)
-                self._loop.call_soon_threadsafe(_async_queue.put, None)
+                try:
+                    for entry in super(
+                        ORMConnectionThreadPool, self
+                    ).orm_select_entries(
+                        _distinct=_distinct,
+                        _order_by=_order_by,
+                        _limit=_limit,
+                        **col_values,
+                    ):
+                        if _global_shutdown:
+                            break
+                        self._loop.call_soon_threadsafe(_async_queue.put, entry)
+                finally:
+                    self._loop.call_soon_threadsafe(_async_queue.put, None)
 
             self._pool.submit(_inner)
 
@@ -451,24 +467,26 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
 
         else:
 
-            return asyncio.wrap_future(
+            return await asyncio.wrap_future(
                 self._pool.submit(
                     super().orm_select_entries,
                     _distinct=_distinct,
                     _order_by=_order_by,
                     _limit=_limit,
+                    _return_as_generator=False,
                     **col_values,
-                )
+                ),
+                loop=self._loop,
             )
 
-    def orm_delete_entries(
+    async def orm_delete_entries(
         self,
         *,
         _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]]] | None = None,
         _limit: int | None = None,
         _returning_cols: tuple[str, ...] | None | Literal["*"] = None,
         **cols_value: Any,
-    ) -> asyncio.Future[list[TableSpecType] | int]:
+    ) -> list[TableSpecType] | int:
         # NOTE(20240708): currently we don't support async generator for delete with RETURNING statement
         def _inner():
             res = super().orm_delete_entries(
@@ -482,4 +500,56 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
                 return list(res)
             return res
 
-        return asyncio.wrap_future(self._pool.submit(_inner))
+        return await asyncio.wrap_future(self._pool.submit(_inner), loop=self._loop)
+
+    async def orm_create_table(
+        self,
+        *,
+        allow_existed: bool = False,
+        without_rowid: bool = False,
+    ) -> None:
+        return await asyncio.wrap_future(
+            self._pool.submit(
+                super(ORMConnectionThreadPool, self).orm_create_table,
+                allow_existed=allow_existed,
+                without_rowid=without_rowid,
+            ),
+            loop=self._loop,
+        )
+
+    async def orm_create_index(
+        self,
+        *,
+        index_name: str,
+        index_keys: tuple[str, ...],
+        allow_existed: bool = False,
+        unique: bool = False,
+    ) -> None:
+        return await asyncio.wrap_future(
+            self._pool.submit(
+                super(ORMConnectionThreadPool, self).orm_create_index,
+                index_name=index_name,
+                index_keys=index_keys,
+                allow_existed=allow_existed,
+                unique=unique,
+            ),
+            loop=self._loop,
+        )
+
+    async def orm_insert_entries(self, _in: Iterable[TableSpecType]) -> int:
+        return await asyncio.wrap_future(
+            self._pool.submit(
+                super(ORMConnectionThreadPool, self).orm_insert_entries,
+                _in,
+            ),
+            loop=self._loop,
+        )
+
+    async def orm_insert_entry(self, _in: TableSpecType) -> int:
+        return await asyncio.wrap_future(
+            self._pool.submit(
+                super(ORMConnectionThreadPool, self).orm_insert_entry,
+                _in,
+            ),
+            loop=self._loop,
+        )
