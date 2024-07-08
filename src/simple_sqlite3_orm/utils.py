@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from typing import Any, overload, Literal
+import sys
+from itertools import islice
+from typing import Any, Generator, Iterable, Literal, overload
 
 logger = logging.getLogger(__name__)
 
@@ -127,3 +129,23 @@ def check_pragma_compile_time_options(
         if option_name:
             return
         return res
+
+
+#
+# ------ other tools ------ #
+#
+
+if sys.version_info >= (3, 12):
+    from itertools import batched
+
+else:
+
+    def batched(
+        iterable: Iterable[Any], n: int
+    ) -> Generator[tuple[Any, ...], Any, None]:
+        """Backport batched from py3.12."""
+        if n < 1:
+            raise ValueError("n must be at least one")
+        iterator = iter(iterable)
+        while batch := tuple(islice(iterator, n)):
+            yield batch
