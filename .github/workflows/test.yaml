@@ -17,6 +17,11 @@ on:
 
 jobs:
   pytest_with_coverage_with_supported_python_version:
+    # this is for coverage result comment
+    permissions:
+      contents: write
+      checks: write
+      pull-requests: write
     strategy:
       fail-fast: true
       matrix:
