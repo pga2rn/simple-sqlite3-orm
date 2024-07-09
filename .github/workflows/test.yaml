@@ -60,6 +60,7 @@ jobs:
       # export the coverage report to the comment!
       - name: Add coverage report to PR comment
         continue-on-error: true
+        if: ${{ matrix.python_version == '3.12' }}
         uses: MishaKav/pytest-coverage-comment@v1.1.51
         with:
           pytest-xml-coverage-path: test_result/coverage.xml
