@@ -7,7 +7,6 @@ import datetime
 from pydantic import BeforeValidator, PlainSerializer
 from typing_extensions import Annotated
 
-
 #
 # ------ datetime related ------ #
 #

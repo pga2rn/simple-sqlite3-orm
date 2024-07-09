@@ -68,7 +68,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: 
+        os:
           - ubuntu-20.04
           - ubuntu-22.04
           - ubuntu-24.04
@@ -84,7 +84,7 @@ jobs:
       - name: Checkout commit
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python_version }} 
+      - name: Set up Python ${{ matrix.python_version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python_version }}
