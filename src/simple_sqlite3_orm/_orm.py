@@ -38,19 +38,19 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 
 if sys.version_info >= (3, 9):
-    from types import GenericAlias as _std_GenericAlias
+    from types import GenericAlias as _GenericAlias
 else:
     from typing import List
 
     if not TYPE_CHECKING:
-        _std_GenericAlias = type(List[int])
+        _GenericAlias = type(List[int])
     else:
 
-        class _std_GenericAlias(type(List)):
+        class _GenericAlias(type(List)):
             def __new__(
                 cls, _type: type[Any], _params: type[Any] | tuple[type[Any], ...]
             ):
-                """For type check only, typing the _std_GenericAlias as GenericAlias."""
+                """For type check only, typing the _GenericAlias as GenericAlias."""
 
 
 class ORMBase(Generic[TableSpecType]):
@@ -86,14 +86,14 @@ class ORMBase(Generic[TableSpecType]):
 
         key = (cls, params)
         if _cached_type := _parameterized_orm_cache.get(key):
-            return _std_GenericAlias(_cached_type, params)
+            return _GenericAlias(_cached_type, params)
 
         new_parameterized_ormbase: type[ORMBase] = type(
             f"{cls.__name__}[{params.__name__}]", (cls,), {}
         )
         new_parameterized_ormbase.orm_table_spec = params  # type: ignore
         _parameterized_orm_cache[key] = new_parameterized_ormbase
-        return _std_GenericAlias(new_parameterized_ormbase, params)
+        return _GenericAlias(new_parameterized_ormbase, params)
 
     @property
     def orm_con(self) -> sqlite3.Connection:
