@@ -89,25 +89,25 @@ class TestWithSampleDBAndThreadPool:
         futs = []
         # simulating multiple worker threads submitting to database with access serialized.
         with ThreadPoolExecutor(max_workers=WORKER_NUM) as pool:
-            for count, entry in enumerate(
+            for _batch_count, entry in enumerate(
                 batched(self.data_for_test.values(), _BATCH_SIZE),
                 start=1,
             ):
                 futs.append(pool.submit(self.pool.orm_insert_entries, entry))
 
             logger.info(
-                f"all insert tasks are dispatched: {count} batches with {_BATCH_SIZE=}"
+                f"all insert tasks are dispatched: {_batch_count} batches with {_BATCH_SIZE=}"
             )
             for fut in as_completed(futs):
                 fut.result()
 
         logger.info("confirm data written")
-        for _count, _entry in enumerate(
+        for _selected_entry_count, _entry in enumerate(
             self.pool.orm_select_entries(_return_as_generator=True), start=1
         ):
             _corresponding_item = self.data_for_test[_entry.prim_key]
             assert _corresponding_item == _entry
-        assert _count == len(self.data_for_test)
+        assert _selected_entry_count == len(self.data_for_test)
 
     def test_create_index(self):
         logger.info("test create index")
