@@ -1,10 +1,7 @@
 [build-system]
 build-backend = "hatchling.build"
 
-requires = [
-  "hatch-vcs",
-  "hatchling>=1.20",
-]
+requires = ["hatch-vcs", "hatchling>=1.20"]
 
 [project]
 name = "simple-sqlite3-orm"
@@ -24,13 +21,8 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
 ]
-dynamic = [
-  "version",
-]
-dependencies = [
-  "pydantic==2.6",
-  "typing-extensions>=4",
-]
+dynamic = ["version"]
+dependencies = ["pydantic==2.6", "typing-extensions>=4"]
 optional-dependencies.dev = [
   "black==24.1.1",
   "coverage==7.4.1",
@@ -48,54 +40,35 @@ source = "vcs"
 version-file = "src/simple_sqlite3_orm/_version.py"
 
 [tool.hatch.build.targets.sdist]
-exclude = [
-  "/.github",
-  "/docs",
-]
+exclude = ["/.github", "/docs"]
 
 [tool.hatch.build.targets.wheel]
-only-include = [
-  "src",
-]
-sources = [
-  "src",
-]
+only-include = ["src"]
+sources = ["src"]
 
 [tool.black]
 line-length = 88
-target-version = [
-  'py38',
-  'py39',
-  'py310',
-  'py311',
-]
+target-version = ['py38', 'py39', 'py310', 'py311']
 
 [tool.isort]
 atomic = true
 profile = "black"
 line_length = 88
 skip_gitignore = true
-known_first_party = [
-  "simple_sqlite3_orm",
-]
+known_first_party = ["simple_sqlite3_orm"]
 
 [tool.pytest.ini_options]
 log_auto_indent = true
 log_format = "%(asctime)s %(levelname)s %(filename)s %(funcName)s,%(lineno)d %(message)s"
 log_cli = true
 log_cli_level = "INFO"
-pythonpath = [
-  "src",
-]
-testpaths = [
-  "./tests",
-]
+pythonpath = ["src"]
+testpaths = ["./tests"]
 
 [tool.coverage.run]
 branch = false
-include = [
-  "src/**/*.py",
-]
+relative_files = true
+source = ["simple_sqlite3_orm"]
 
 [tool.coverage.report]
 exclude_also = [
