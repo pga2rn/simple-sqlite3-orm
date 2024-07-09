@@ -53,6 +53,7 @@ jobs:
       - name: SonarCloud code scanning
         uses: SonarSource/sonarcloud-github-action@master
         continue-on-error: true
+        if: ${{ matrix.python_version == '3.12' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
