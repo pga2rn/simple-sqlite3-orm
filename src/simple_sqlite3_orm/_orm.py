@@ -8,7 +8,7 @@ import sqlite3
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from functools import cached_property, partial
+from functools import cached_property
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -321,11 +321,11 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
                 ):
                     if _global_shutdown:
                         break
-                    _queue.put(entry)
+                    _queue.put_nowait(entry)
             except Exception as e:
-                _queue.put(e)
+                _queue.put_nowait(e)
             finally:
-                _queue.put(None)
+                _queue.put_nowait(None)
 
         self._pool.submit(_inner)
 
@@ -394,6 +394,9 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
         return self._pool.submit(_inner).result()
 
 
+DEFAULT_GET_INTERVAL = 0.1
+
+
 class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
 
     def __init__(
@@ -415,10 +418,6 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         )
 
         self._loop = asyncio.get_running_loop()
-        self._run_coro_threadsafe = partial(
-            asyncio.run_coroutine_threadsafe, loop=self._loop
-        )
-        """Run coroutine from thread and track result async."""
 
     def _run_in_pool(
         self, func: Callable[P, RT], *args: P.args, **kwargs: P.kwargs
@@ -437,7 +436,7 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> AsyncGenerator[TableSpecType, Any]:
-        _async_queue = asyncio.Queue()
+        _queue = queue.SimpleQueue()
 
         def _inner():
             global _global_shutdown
@@ -451,16 +450,25 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
                 ):
                     if _global_shutdown:
                         break
-                    self._run_coro_threadsafe(_async_queue.put(entry))
+                    _queue.put_nowait(entry)
             except Exception as e:
-                self._run_coro_threadsafe(_async_queue.put(e))
+                _queue.put_nowait(e)
             finally:
-                self._run_coro_threadsafe(_async_queue.put(None))
+                _queue.put_nowait(None)
 
         self._pool.submit(_inner)
 
         async def _gen():
-            while entry := await _async_queue.get():
+            while True:
+                try:
+                    entry = _queue.get_nowait()
+                except queue.Empty:
+                    await asyncio.sleep(DEFAULT_GET_INTERVAL)
+                    continue
+
+                if entry is None:
+                    return
+
                 if isinstance(entry, Exception):
                     try:
                         raise entry from None
