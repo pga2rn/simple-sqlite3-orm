@@ -8,7 +8,7 @@ import sqlite3
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from functools import cached_property
+from functools import cached_property, partial
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -36,6 +36,7 @@ _parameterized_orm_cache: WeakValueDictionary[
 logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
+RT = TypeVar("RT")
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias as _GenericAlias
@@ -417,7 +418,21 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
             number_of_cons=number_of_cons,
             thread_name_prefix=thread_name_prefix,
         )
+
         self._loop = asyncio.get_running_loop()
+        self._run_coro_threadsafe = partial(
+            asyncio.run_coroutine_threadsafe, loop=self._loop
+        )
+        """Run coroutine from thread and track result async."""
+
+    async def _run_in_pool(
+        self, func: Callable[P, RT], *args: P.args, **kwargs: P.kwargs
+    ) -> RT:
+        """Run normal function in threadpool and track the result async."""
+        return await asyncio.wrap_future(
+            self._pool.submit(func, *args, **kwargs),
+            loop=self._loop,
+        )
 
     def orm_select_entries_gen(
         self,
@@ -441,9 +456,9 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
                 ):
                     if _global_shutdown:
                         break
-                    self._loop.call_soon_threadsafe(_async_queue.put, entry)
+                    self._run_coro_threadsafe(_async_queue.put(entry))
             finally:
-                self._loop.call_soon_threadsafe(_async_queue.put, None)
+                self._run_coro_threadsafe(_async_queue.put(None))
 
         self._pool.submit(_inner)
 
@@ -472,7 +487,7 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
                 )
             )
 
-        return await asyncio.wrap_future(self._pool.submit(_inner), loop=self._loop)
+        return await self._run_in_pool(_inner)
 
     async def orm_delete_entries(
         self,
@@ -496,7 +511,7 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
                 return res
             return list(res)
 
-        return await asyncio.wrap_future(self._pool.submit(_inner), loop=self._loop)
+        return await self._run_in_pool(_inner)
 
     async def orm_create_table(
         self,
@@ -504,14 +519,11 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         allow_existed: bool = False,
         without_rowid: bool = False,
     ) -> None:
-        return await asyncio.wrap_future(
-            self._pool.submit(
-                ORMBase.orm_create_table,
-                self,
-                allow_existed=allow_existed,
-                without_rowid=without_rowid,
-            ),
-            loop=self._loop,
+        return await self._run_in_pool(
+            ORMBase.orm_create_table,
+            self,
+            allow_existed=allow_existed,
+            without_rowid=without_rowid,
         )
 
     async def orm_create_index(
@@ -522,26 +534,17 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         allow_existed: bool = False,
         unique: bool = False,
     ) -> None:
-        return await asyncio.wrap_future(
-            self._pool.submit(
-                ORMBase.orm_create_index,
-                self,
-                index_name=index_name,
-                index_keys=index_keys,
-                allow_existed=allow_existed,
-                unique=unique,
-            ),
-            loop=self._loop,
+        return await self._run_in_pool(
+            ORMBase.orm_create_index,
+            self,
+            index_name=index_name,
+            index_keys=index_keys,
+            allow_existed=allow_existed,
+            unique=unique,
         )
 
     async def orm_insert_entries(self, _in: Iterable[TableSpecType]) -> int:
-        return await asyncio.wrap_future(
-            self._pool.submit(ORMBase.orm_insert_entries, self, _in),
-            loop=self._loop,
-        )
+        return await self._run_in_pool(ORMBase.orm_insert_entries, self, _in)
 
     async def orm_insert_entry(self, _in: TableSpecType) -> int:
-        return await asyncio.wrap_future(
-            self._pool.submit(ORMBase.orm_insert_entry, self, _in),
-            loop=self._loop,
-        )
+        return await self._run_in_pool(ORMBase.orm_insert_entry, self, _in)
