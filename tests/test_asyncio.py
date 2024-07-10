@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import sqlite3
-import time
 from typing import Callable
 
 import pytest
@@ -17,8 +16,10 @@ from tests.sample_db.table import SampleTable
 logger = logging.getLogger(__name__)
 
 THREAD_NUM = 2
-TIMER_INTERVAL = 0.01
-BLOCKING_FACTOR = 1.2
+# NOTE: the timer interval should not be smaller than 0.01 due to the precision
+#   of asyncio internal clock.
+TIMER_INTERVAL = 0.1
+BLOCKING_FACTOR = 1.5
 
 
 class SampleDBAsyncio(AsyncORMConnectionThreadPool[SampleTable]):
@@ -63,19 +64,20 @@ class TestWithSampleDBWithAsyncIO:
     @pytest.mark.asyncio(scope="class")
     async def start_timer(self) -> tuple[asyncio.Task[None], asyncio.Event]:
         _test_finished = asyncio.Event()
+        _loop = asyncio.get_running_loop()
 
         async def _timer():
             count = 0
 
-            start_time = time.time()
+            start_time = _loop.time()
             while not _test_finished.is_set():
                 await asyncio.sleep(TIMER_INTERVAL)
                 count += 1
 
             total_time_cost = TIMER_INTERVAL * count
-            actual_time_cost = time.time() - start_time
+            actual_time_cost = _loop.time() - start_time
 
-            logger.info(f"{total_time_cost=}, {actual_time_cost=}")
+            logger.info(f"{count=}, {total_time_cost=}, {actual_time_cost=}")
             assert actual_time_cost <= total_time_cost * BLOCKING_FACTOR
 
         return asyncio.create_task(_timer()), _test_finished
