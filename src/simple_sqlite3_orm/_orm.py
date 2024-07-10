@@ -19,7 +19,6 @@ from typing import (
     Iterable,
     Literal,
     TypeVar,
-    overload,
 )
 from weakref import WeakValueDictionary
 
@@ -293,88 +292,71 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
         self._thread_id_cons = {}
 
     @copy_callable_typehint(ORMBase.orm_create_table)
-    def orm_create_table(self, *args, **kwargs) -> None:
+    def orm_create_table(self, *args, **kwargs):
         self._pool.submit(super().orm_create_table, *args, **kwargs).result()
 
     @copy_callable_typehint(ORMBase.orm_create_index)
-    def orm_create_index(self, *args, **kwargs) -> None:
+    def orm_create_index(self, *args, **kwargs):
         self._pool.submit(super().orm_create_index, *args, **kwargs).result()
 
-    @overload
-    def orm_select_entries(
+    def orm_select_entries_gen(
         self,
         *,
         _distinct: bool = False,
         _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
         _limit: int | None = None,
-        _return_as_generator: bool = False,
         **col_values: Any,
-    ) -> list[TableSpecType]: ...
+    ) -> Generator[TableSpecType, None, None]:
+        _queue: queue.SimpleQueue[TableSpecType | None] = queue.SimpleQueue()
 
-    @overload
-    def orm_select_entries(
-        self,
-        *,
-        _distinct: bool = False,
-        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
-        _limit: int | None = None,
-        _return_as_generator: bool = True,
-        **col_values: Any,
-    ) -> Generator[TableSpecType, None, None]: ...
-
-    def orm_select_entries(
-        self,
-        *,
-        _distinct: bool = False,
-        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
-        _limit: int | None = None,
-        _return_as_generator: bool = False,
-        **col_values: Any,
-    ) -> Generator[TableSpecType, None, None] | list[TableSpecType]:
-        if _return_as_generator:
-            _queue: queue.SimpleQueue[TableSpecType | None] = queue.SimpleQueue()
-
-            def _inner():
-                global _global_shutdown
-                try:
-                    for entry in ORMBase.orm_select_entries(
-                        self,
-                        _distinct=_distinct,
-                        _order_by=_order_by,
-                        _limit=_limit,
-                        **col_values,
-                    ):
-                        if _global_shutdown:
-                            break
-                        _queue.put(entry)
-                finally:
-                    _queue.put(None)
-
-            self._pool.submit(_inner)
-
-            def _gen():
-                while entry := _queue.get():
-                    yield entry
-
-            return _gen()
-
-        else:
-            return list(
-                self._pool.submit(
-                    super().orm_select_entries,
+        def _inner():
+            global _global_shutdown
+            try:
+                for entry in ORMBase.orm_select_entries(
+                    self,
                     _distinct=_distinct,
                     _order_by=_order_by,
                     _limit=_limit,
                     **col_values,
-                ).result()
-            )
+                ):
+                    if _global_shutdown:
+                        break
+                    _queue.put(entry)
+            finally:
+                _queue.put(None)
+
+        self._pool.submit(_inner)
+
+        def _gen():
+            while entry := _queue.get():
+                yield entry
+
+        return _gen()
+
+    def orm_select_entries(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
+        _limit: int | None = None,
+        **col_values: Any,
+    ) -> list[TableSpecType]:
+        return list(
+            self._pool.submit(
+                super().orm_select_entries,
+                _distinct=_distinct,
+                _order_by=_order_by,
+                _limit=_limit,
+                **col_values,
+            ).result()
+        )
 
     @copy_callable_typehint(ORMBase.orm_insert_entries)
-    def orm_insert_entries(self, *args, **kwargs) -> int:
+    def orm_insert_entries(self, *args, **kwargs):
         return self._pool.submit(super().orm_insert_entries, *args, **kwargs).result()
 
     @copy_callable_typehint(ORMBase.orm_insert_entry)
-    def orm_insert_entry(self, *args, **kwargs) -> int:
+    def orm_insert_entry(self, *args, **kwargs):
         return self._pool.submit(super().orm_insert_entry, *args, **kwargs).result()
 
     def orm_delete_entries(
@@ -394,9 +376,9 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
             **cols_value,
         ).result()
 
-        if isinstance(res, Generator):
-            return list(res)
-        return res
+        if isinstance(res, int):
+            return res
+        return list(res)
 
 
 class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
