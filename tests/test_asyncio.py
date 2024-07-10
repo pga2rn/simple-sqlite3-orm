@@ -78,7 +78,7 @@ class TestWithSampleDBWithAsyncIO:
             actual_time_cost = _loop.time() - start_time
 
             logger.info(f"{count=}, {total_time_cost=}, {actual_time_cost=}")
-            assert total_time_cost <= actual_time_cost * BLOCKING_FACTOR
+            assert total_time_cost * BLOCKING_FACTOR <= actual_time_cost
 
         return asyncio.create_task(_timer()), _test_finished
 
