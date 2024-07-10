@@ -307,7 +307,7 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
-        _queue: queue.SimpleQueue[TableSpecType | None] = queue.SimpleQueue()
+        _queue = queue.SimpleQueue()
 
         def _inner():
             global _global_shutdown
@@ -322,6 +322,8 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
                     if _global_shutdown:
                         break
                     _queue.put(entry)
+            except Exception as e:
+                _queue.put(e)
             finally:
                 _queue.put(None)
 
@@ -329,6 +331,11 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
 
         def _gen():
             while entry := _queue.get():
+                if isinstance(entry, Exception):
+                    try:
+                        raise entry from None
+                    finally:
+                        del entry
                 yield entry
 
         return _gen()
