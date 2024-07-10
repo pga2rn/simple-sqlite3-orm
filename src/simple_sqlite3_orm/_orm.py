@@ -436,7 +436,7 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> AsyncGenerator[TableSpecType, Any]:
-        _queue = queue.SimpleQueue()
+        _async_queue = asyncio.Queue()
 
         def _inner():
             global _global_shutdown
@@ -450,25 +450,16 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
                 ):
                     if _global_shutdown:
                         break
-                    _queue.put_nowait(entry)
+                    self._loop.call_soon_threadsafe(_async_queue.put_nowait, entry)
             except Exception as e:
-                _queue.put_nowait(e)
+                self._loop.call_soon_threadsafe(_async_queue.put_nowait, e)
             finally:
-                _queue.put_nowait(None)
+                self._loop.call_soon_threadsafe(_async_queue.put_nowait, None)
 
         self._pool.submit(_inner)
 
         async def _gen():
-            while True:
-                try:
-                    entry = _queue.get_nowait()
-                except queue.Empty:
-                    await asyncio.sleep(DEFAULT_GET_INTERVAL)
-                    continue
-
-                if entry is None:
-                    return
-
+            while entry := await _async_queue.get():
                 if isinstance(entry, Exception):
                     try:
                         raise entry from None
