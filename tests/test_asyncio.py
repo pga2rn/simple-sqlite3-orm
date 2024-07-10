@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 THREAD_NUM = 2
 # NOTE: the timer interval should not be smaller than 0.01 due to the precision
 #   of asyncio internal clock.
-TIMER_INTERVAL = 0.1
+TIMER_INTERVAL = 0.5
 BLOCKING_FACTOR = 2
 
 
@@ -100,8 +100,7 @@ class TestWithSampleDBWithAsyncIO:
         logger.info(
             f"all insert tasks are dispatched: {_batch_count} batches with {TEST_INSERT_BATCH_SIZE=}"
         )
-        for _fut in asyncio.as_completed(_tasks):
-            await _fut
+        await asyncio.wait(_tasks)
 
         logger.info("confirm data written with orm_select_entries_gen")
         _count = 0

@@ -394,7 +394,7 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
         return self._pool.submit(_inner).result()
 
 
-DEFAULT_GET_INTERVAL = 0.1
+DEFAULT_GET_INTERVAL = 0.01
 
 
 class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):

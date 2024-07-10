@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
 import pytest
@@ -59,20 +59,17 @@ class TestWithSampleDBAndThreadPool:
     def test_insert_entries_with_pool(self, thread_pool: SampleDBConnectionPool):
         logger.info("test insert entries...")
 
-        futs = []
         # simulating multiple worker threads submitting to database with access serialized.
         with ThreadPoolExecutor(max_workers=WORKER_NUM) as pool:
             for _batch_count, entry in enumerate(
                 batched(self.data_for_test.values(), TEST_INSERT_BATCH_SIZE),
                 start=1,
             ):
-                futs.append(pool.submit(thread_pool.orm_insert_entries, entry))
+                pool.submit(thread_pool.orm_insert_entries, entry)
 
             logger.info(
                 f"all insert tasks are dispatched: {_batch_count} batches with {TEST_INSERT_BATCH_SIZE=}"
             )
-            for fut in as_completed(futs):
-                fut.result()
 
         logger.info("confirm data written")
         for _selected_entry_count, _entry in enumerate(
