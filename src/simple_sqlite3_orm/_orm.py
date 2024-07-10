@@ -255,8 +255,6 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
     See https://www.sqlite.org/wal.html#concurrency for more details.
     """
 
-    _pool: ThreadPoolExecutor
-
     @property
     def _con(self) -> sqlite3.Connection:
         """Get thread-specific sqlite3 connection."""
@@ -463,20 +461,18 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> list[TableSpecType]:
-        return list(
-            await asyncio.wrap_future(
-                self._pool.submit(
-                    ORMBase.orm_select_entries,
+        def _inner():
+            return list(
+                ORMBase.orm_select_entries(
                     self,
                     _distinct=_distinct,
                     _order_by=_order_by,
                     _limit=_limit,
-                    _return_as_generator=False,
                     **col_values,
-                ),
-                loop=self._loop,
+                )
             )
-        )
+
+        return await asyncio.wrap_future(self._pool.submit(_inner), loop=self._loop)
 
     async def orm_delete_entries(
         self,
@@ -487,20 +483,20 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         **cols_value: Any,
     ) -> list[TableSpecType] | int:
         # NOTE(20240708): currently we don't support async generator for delete with RETURNING statement
-        res = await asyncio.wrap_future(
-            self._pool.submit(
-                ORMBase.orm_delete_entries,
+        def _inner():
+            res = ORMBase.orm_delete_entries(
                 self,
                 _order_by=_order_by,
                 _limit=_limit,
                 _returning_cols=_returning_cols,
                 **cols_value,
-            ),
-            loop=self._loop,
-        )
-        if isinstance(res, int):
-            return res
-        return list(res)
+            )
+
+            if isinstance(res, int):
+                return res
+            return list(res)
+
+        return await asyncio.wrap_future(self._pool.submit(_inner), loop=self._loop)
 
     async def orm_create_table(
         self,
@@ -510,7 +506,8 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
     ) -> None:
         return await asyncio.wrap_future(
             self._pool.submit(
-                super().orm_create_table,
+                ORMBase.orm_create_table,
+                self,
                 allow_existed=allow_existed,
                 without_rowid=without_rowid,
             ),
