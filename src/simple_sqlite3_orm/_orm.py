@@ -8,7 +8,7 @@ import sqlite3
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from functools import cached_property
+from functools import cached_property, partial
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -415,6 +415,10 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         )
 
         self._loop = asyncio.get_running_loop()
+        self._run_coro_threadsafe = partial(
+            asyncio.run_coroutine_threadsafe, loop=self._loop
+        )
+        """Run coroutine from thread and track result async."""
 
     def _run_in_pool(
         self, func: Callable[P, RT], *args: P.args, **kwargs: P.kwargs
@@ -447,11 +451,11 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
                 ):
                     if _global_shutdown:
                         break
-                    self._loop.call_soon_threadsafe(_async_queue.put_nowait, entry)
+                    self._run_coro_threadsafe(_async_queue.put(entry))
             except Exception as e:
-                self._loop.call_soon_threadsafe(_async_queue.put_nowait, e)
+                self._run_coro_threadsafe(_async_queue.put(e))
             finally:
-                self._loop.call_soon_threadsafe(_async_queue.put_nowait, None)
+                self._run_coro_threadsafe(_async_queue.put(None))
 
         self._pool.submit(_inner)
 
