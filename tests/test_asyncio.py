@@ -119,6 +119,45 @@ class TestWithSampleDBWithAsyncIO:
             unique=True,
         )
 
+    async def test_lookup_entries(self, async_pool: SampleDBAsyncio):
+        logger.info("test lookup entries")
+        for _entry in self.entries_to_lookup:
+            _looked_up = await async_pool.orm_select_entries(
+                key_id=_entry.key_id,
+                prim_key_sha256hash=_entry.prim_key_sha256hash,
+            )
+            assert len(_looked_up) == 1
+            assert _looked_up[0] == _entry
+
+    async def test_delete_entries(self, async_pool: SampleDBAsyncio):
+        logger.info("test remove and confirm the removed entries")
+        if sqlite3.sqlite_version_info < (3, 35, 0):
+            logger.warning(
+                (
+                    "Current runtime sqlite3 lib version doesn't support RETURNING statement:"
+                    f"{sqlite3.version_info=}, needs 3.35 and above. "
+                    "The test of RETURNING statement will be skipped here."
+                )
+            )
+
+            for entry in self.entries_to_remove:
+                _res = await async_pool.orm_delete_entries(
+                    key_id=entry.key_id,
+                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                )
+                assert _res == 1
+        else:
+            for entry in self.entries_to_remove:
+                _res = await async_pool.orm_delete_entries(
+                    _returning_cols="*",
+                    key_id=entry.key_id,
+                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                )
+                assert isinstance(_res, list)
+
+                assert len(_res) == 1
+                assert _res[0] == entry
+
     async def test_confirm_not_blocking(
         self, start_timer: tuple[asyncio.Task[None], asyncio.Event]
     ) -> None:
