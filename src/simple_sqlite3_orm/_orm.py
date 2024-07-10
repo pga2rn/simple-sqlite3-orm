@@ -341,15 +341,18 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> list[TableSpecType]:
-        return list(
-            self._pool.submit(
-                super().orm_select_entries,
-                _distinct=_distinct,
-                _order_by=_order_by,
-                _limit=_limit,
-                **col_values,
-            ).result()
-        )
+        def _inner():
+            return list(
+                ORMBase.orm_select_entries(
+                    self,
+                    _distinct=_distinct,
+                    _order_by=_order_by,
+                    _limit=_limit,
+                    **col_values,
+                )
+            )
+
+        return self._pool.submit(_inner).result()
 
     @copy_callable_typehint(ORMBase.orm_insert_entries)
     def orm_insert_entries(self, *args, **kwargs):
@@ -368,17 +371,20 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
         **cols_value: Any,
     ) -> int | list[TableSpecType]:
         # NOTE(20240708): currently we don't support generator for delete with RETURNING statement
-        res = self._pool.submit(
-            super().orm_delete_entries,
-            _order_by=_order_by,
-            _limit=_limit,
-            _returning_cols=_returning_cols,
-            **cols_value,
-        ).result()
+        def _inner():
+            res = ORMBase.orm_delete_entries(
+                self,
+                _order_by=_order_by,
+                _limit=_limit,
+                _returning_cols=_returning_cols,
+                **cols_value,
+            )
 
-        if isinstance(res, int):
-            return res
-        return list(res)
+            if isinstance(res, int):
+                return res
+            return list(res)
+
+        return self._pool.submit(_inner).result()
 
 
 class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
