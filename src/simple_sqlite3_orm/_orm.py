@@ -425,11 +425,11 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
         )
         """Run coroutine from thread and track result async."""
 
-    async def _run_in_pool(
+    def _run_in_pool(
         self, func: Callable[P, RT], *args: P.args, **kwargs: P.kwargs
-    ) -> RT:
+    ) -> asyncio.Future[RT]:
         """Run normal function in threadpool and track the result async."""
-        return await asyncio.wrap_future(
+        return asyncio.wrap_future(
             self._pool.submit(func, *args, **kwargs),
             loop=self._loop,
         )
