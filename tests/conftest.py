@@ -5,7 +5,7 @@ import random
 import sqlite3
 import string
 import time
-from typing import Generator, get_args
+from typing import Callable, Generator, get_args
 
 import pytest
 
@@ -74,6 +74,7 @@ def setup_test_data():
 def setup_test_db(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[SampleDB, None, None]:
+    """Setup a single db connection."""
     tmp_path = tmp_path_factory.mktemp("tmp_db_path")
     db_file = tmp_path / "test_db_file.sqlite3"
 
@@ -86,6 +87,35 @@ def setup_test_db(
     yield SampleDB(con, table_name=TABLE_NAME)
     # finally, do a database integrity check after test operations
     assert utils.check_db_integrity(con)
+
+
+DB_LOCK_WAIT_TIMEOUT = 30
+
+
+@pytest.fixture(scope="class")
+def setup_con_factory(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Callable[[type[sqlite3.Connection] | None], sqlite3.Connection]:
+    tmp_path = tmp_path_factory.mktemp("tmp_db_path")
+    db_file = tmp_path / "test_db_file.sqlite3"
+
+    def con_factory(_con_factory: type[sqlite3.Connection] | None = None):
+        if _con_factory is None:
+            _con_factory = sqlite3.Connection
+
+        con = sqlite3.connect(
+            db_file,
+            check_same_thread=False,
+            timeout=DB_LOCK_WAIT_TIMEOUT,
+            factory=_con_factory,
+        )
+        # enable optimization
+        utils.enable_wal_mode(con, relax_sync_mode=True)
+        utils.enable_mmap(con)
+        utils.enable_tmp_store_at_memory(con)
+        return con
+
+    return con_factory
 
 
 @pytest.fixture(scope="class")

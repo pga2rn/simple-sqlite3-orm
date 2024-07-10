@@ -7,7 +7,6 @@ from typing import Callable
 
 import pytest
 
-from simple_sqlite3_orm import utils
 from simple_sqlite3_orm._orm import ORMConnectionThreadPool
 from simple_sqlite3_orm.utils import batched
 from tests.sample_db.orm import SampleDB
@@ -15,34 +14,6 @@ from tests.sample_db.table import SampleTable
 from tests.test_with_sample_db import INDEX_KEYS, INDEX_NAME, TABLE_NAME
 
 logger = logging.getLogger(__name__)
-
-DB_LOCK_WAIT_TIMEOUT = 30
-
-
-@pytest.fixture(scope="class")
-def setup_connections(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> Callable[[type[sqlite3.Connection] | None], sqlite3.Connection]:
-    tmp_path = tmp_path_factory.mktemp("tmp_db_path")
-    db_file = tmp_path / "test_db_file.sqlite3"
-
-    def con_factory(_con_factory: type[sqlite3.Connection] | None = None):
-        if _con_factory is None:
-            _con_factory = sqlite3.Connection
-
-        con = sqlite3.connect(
-            db_file,
-            check_same_thread=False,
-            timeout=DB_LOCK_WAIT_TIMEOUT,
-            factory=_con_factory,
-        )
-        # enable optimization
-        utils.enable_wal_mode(con, relax_sync_mode=True)
-        utils.enable_mmap(con)
-        utils.enable_tmp_store_at_memory(con)
-        return con
-
-    return con_factory
 
 
 class SampleDBConnectionPool(ORMConnectionThreadPool[SampleTable]):
@@ -58,7 +29,7 @@ class TestWithSampleDBAndThreadPool:
     @pytest.fixture(autouse=True)
     def setup_test(
         self,
-        setup_connections: Callable[[], sqlite3.Connection],
+        setup_con_factory: Callable[[], sqlite3.Connection],
         setup_test_data: dict[str, SampleTable],
         entries_to_lookup: list[SampleTable],
         entries_to_remove: list[SampleTable],
@@ -71,10 +42,10 @@ class TestWithSampleDBAndThreadPool:
         self.entries_to_lookup = entries_to_lookup
         self.entries_to_remove = entries_to_remove
 
-        self.orm_inst = SampleDB(setup_connections(), TABLE_NAME)
+        self.orm_inst = SampleDB(setup_con_factory(), TABLE_NAME)
         self.pool = SampleDBConnectionPool(
             TABLE_NAME,
-            con_factory=setup_connections,
+            con_factory=setup_con_factory,
             number_of_cons=THREAD_NUM,
         )
 
