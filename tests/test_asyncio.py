@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sqlite3
+import time
 from typing import Callable
 
 import pytest
@@ -16,6 +17,8 @@ from tests.test_with_sample_db import INDEX_KEYS, INDEX_NAME, TABLE_NAME
 logger = logging.getLogger(__name__)
 
 THREAD_NUM = 2
+TIMER_INTERVAL = 0.01
+BLOCKING_FACTOR = 1.2
 
 
 class SampleDBAsyncio(AsyncORMConnectionThreadPool[SampleTable]):
@@ -55,6 +58,25 @@ class TestWithSampleDBWithAsyncIO:
             yield pool
         finally:
             pool.orm_pool_shutdown()
+
+    @pytest_asyncio.fixture(autouse=True, scope="class")
+    @pytest.mark.asyncio(scope="class")
+    async def start_timer(self) -> tuple[asyncio.Task[None], asyncio.Event]:
+        _test_finished = asyncio.Event()
+
+        async def _timer():
+            count = 0
+
+            start_time = time.time()
+            while not _test_finished.is_set():
+                await asyncio.sleep(TIMER_INTERVAL)
+                count += 1
+
+            total_time_cost = TIMER_INTERVAL * count
+            actual_time_cost = time.time() - start_time
+            assert actual_time_cost <= total_time_cost * BLOCKING_FACTOR
+
+        return asyncio.create_task(_timer()), _test_finished
 
     async def test_create_table(self, async_pool: SampleDBAsyncio):
         logger.info("test create table")
@@ -100,3 +122,11 @@ class TestWithSampleDBWithAsyncIO:
             index_keys=INDEX_KEYS,
             unique=True,
         )
+
+    async def test_confirm_not_blocking(
+        self, start_timer: tuple[asyncio.Task[None], asyncio.Event]
+    ) -> None:
+        """Confirm that during the ORM async API call, the main event loop is not blocked."""
+        _task, _event = start_timer
+        _event.set()
+        await _task
