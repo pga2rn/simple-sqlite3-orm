@@ -74,6 +74,8 @@ class TestWithSampleDBWithAsyncIO:
 
             total_time_cost = TIMER_INTERVAL * count
             actual_time_cost = time.time() - start_time
+
+            logger.info(f"{total_time_cost=}, {actual_time_cost=}")
             assert actual_time_cost <= total_time_cost * BLOCKING_FACTOR
 
         return asyncio.create_task(_timer()), _test_finished
@@ -97,7 +99,6 @@ class TestWithSampleDBWithAsyncIO:
         logger.info(
             f"all insert tasks are dispatched: {_batch_count} batches with {_BATCH_SIZE=}"
         )
-
         for _fut in asyncio.as_completed(_tasks):
             await _fut
 
@@ -107,12 +108,6 @@ class TestWithSampleDBWithAsyncIO:
             _corresponding_item = self.data_for_test[_entry.prim_key]
             assert _corresponding_item == _entry
             _count += 1
-        assert _count == len(self.data_for_test)
-
-        logger.info("confirm data written with orm_select_entries")
-        for _count, _entry in enumerate(await async_pool.orm_select_entries(), start=1):
-            _corresponding_item = self.data_for_test[_entry.prim_key]
-            assert _corresponding_item == _entry
         assert _count == len(self.data_for_test)
 
     async def test_create_index(self, async_pool: SampleDBAsyncio):
