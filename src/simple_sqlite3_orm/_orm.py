@@ -447,11 +447,11 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
                 ):
                     if _global_shutdown:
                         break
-                    _async_queue.put_nowait(entry)
+                    self._loop.call_soon_threadsafe(_async_queue.put_nowait, entry)
             except Exception as e:
-                _async_queue.put_nowait(e)
+                self._loop.call_soon_threadsafe(_async_queue.put_nowait, e)
             finally:
-                _async_queue.put_nowait(None)
+                self._loop.call_soon_threadsafe(_async_queue.put_nowait, None)
 
         self._pool.submit(_inner)
 
