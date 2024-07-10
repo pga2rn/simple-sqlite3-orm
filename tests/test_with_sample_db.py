@@ -4,20 +4,17 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from concurrent.futures import as_completed
 from typing import Generator
 
 import pytest
 
 from simple_sqlite3_orm import utils
-from tests.conftest import TABLE_NAME
+from tests.conftest import INDEX_KEYS, INDEX_NAME, TABLE_NAME, TEST_INSERT_BATCH_SIZE
 from tests.sample_db.orm import SampleDB
 from tests.sample_db.table import SampleTable
 
 logger = logging.getLogger(__name__)
-
-
-INDEX_NAME = "key_id_prim_key_hash_idx"
-INDEX_KEYS = ("key_id", "prim_key_sha256hash")
 
 
 class TestWithSampleDB:
@@ -54,7 +51,20 @@ class TestWithSampleDB:
 
     def test_insert_entries(self):
         logger.info("test insert entries")
-        self.orm_inst.orm_insert_entries(self.data_for_test.values())
+
+        futs = []
+        for _batch_count, entry in enumerate(
+            utils.batched(self.data_for_test.values(), TEST_INSERT_BATCH_SIZE),
+            start=1,
+        ):
+            _fut = self.orm_inst.orm_insert_entries(entry)
+            futs.append(_fut)
+
+        logger.info(
+            f"all insert tasks are dispatched: {_batch_count} batches with {TEST_INSERT_BATCH_SIZE=}"
+        )
+        for _fut in as_completed(futs):
+            _fut.result()
 
         logger.info("confirm data written")
         for _entry in self.orm_inst.orm_select_entries():

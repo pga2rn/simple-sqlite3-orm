@@ -28,8 +28,11 @@ random.seed(0)
 TEST_ENTRY_NUM = 240_000
 TEST_REMOVE_ENTRIES_NUM = 500
 TEST_LOOKUP_ENTRIES_NUM = 5000
+TEST_INSERT_BATCH_SIZE = 256
 PRIM_KEY_LEN = 128
 TABLE_NAME = "test_table"
+INDEX_NAME = "key_id_prim_key_hash_idx"
+INDEX_KEYS = ("key_id", "prim_key_sha256hash")
 
 
 def _generate_random_str(_len: int = PRIM_KEY_LEN) -> str:

@@ -30,7 +30,7 @@ optional-dependencies.dev = [
   "isort==5.13.2",
   "pytest==7.4.4",
   "pytest-mock==3.12",
-  "pytest-asyncio==0.22.0",
+  "pytest-asyncio==0.23.7",
 ]
 urls.Source = "https://github.com/pga2rn/simple-sqlite3-orm"
 
@@ -59,6 +59,7 @@ skip_gitignore = true
 known_first_party = ["simple_sqlite3_orm"]
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 log_auto_indent = true
 log_format = "%(asctime)s %(levelname)s %(filename)s %(funcName)s,%(lineno)d %(message)s"
 log_cli = true

@@ -9,8 +9,8 @@ import pytest
 
 from simple_sqlite3_orm._orm import ORMConnectionThreadPool
 from simple_sqlite3_orm.utils import batched
+from tests.conftest import INDEX_KEYS, INDEX_NAME, TABLE_NAME, TEST_INSERT_BATCH_SIZE
 from tests.sample_db.table import SampleTable
-from tests.test_with_sample_db import INDEX_KEYS, INDEX_NAME, TABLE_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -59,18 +59,17 @@ class TestWithSampleDBAndThreadPool:
     def test_insert_entries_with_pool(self, thread_pool: SampleDBConnectionPool):
         logger.info("test insert entries...")
 
-        _BATCH_SIZE = 128
         futs = []
         # simulating multiple worker threads submitting to database with access serialized.
         with ThreadPoolExecutor(max_workers=WORKER_NUM) as pool:
             for _batch_count, entry in enumerate(
-                batched(self.data_for_test.values(), _BATCH_SIZE),
+                batched(self.data_for_test.values(), TEST_INSERT_BATCH_SIZE),
                 start=1,
             ):
                 futs.append(pool.submit(thread_pool.orm_insert_entries, entry))
 
             logger.info(
-                f"all insert tasks are dispatched: {_batch_count} batches with {_BATCH_SIZE=}"
+                f"all insert tasks are dispatched: {_batch_count} batches with {TEST_INSERT_BATCH_SIZE=}"
             )
             for fut in as_completed(futs):
                 fut.result()
