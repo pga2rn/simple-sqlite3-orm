@@ -19,7 +19,7 @@ THREAD_NUM = 2
 # NOTE: the timer interval should not be smaller than 0.01 due to the precision
 #   of asyncio internal clock.
 TIMER_INTERVAL = 0.1
-BLOCKING_FACTOR = 1.5
+BLOCKING_FACTOR = 1.2
 
 
 class SampleDBAsyncio(AsyncORMConnectionThreadPool[SampleTable]):
@@ -78,7 +78,7 @@ class TestWithSampleDBWithAsyncIO:
             actual_time_cost = _loop.time() - start_time
 
             logger.info(f"{count=}, {total_time_cost=}, {actual_time_cost=}")
-            assert actual_time_cost <= total_time_cost * BLOCKING_FACTOR
+            assert total_time_cost <= actual_time_cost * BLOCKING_FACTOR
 
         return asyncio.create_task(_timer()), _test_finished
 
