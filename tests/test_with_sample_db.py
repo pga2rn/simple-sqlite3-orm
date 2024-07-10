@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from concurrent.futures import as_completed
 from typing import Generator
 
 import pytest
@@ -52,19 +51,8 @@ class TestWithSampleDB:
     def test_insert_entries(self):
         logger.info("test insert entries")
 
-        futs = []
-        for _batch_count, entry in enumerate(
-            utils.batched(self.data_for_test.values(), TEST_INSERT_BATCH_SIZE),
-            start=1,
-        ):
-            _fut = self.orm_inst.orm_insert_entries(entry)
-            futs.append(_fut)
-
-        logger.info(
-            f"all insert tasks are dispatched: {_batch_count} batches with {TEST_INSERT_BATCH_SIZE=}"
-        )
-        for _fut in as_completed(futs):
-            _fut.result()
+        for entry in utils.batched(self.data_for_test.values(), TEST_INSERT_BATCH_SIZE):
+            self.orm_inst.orm_insert_entries(entry)
 
         logger.info("confirm data written")
         for _entry in self.orm_inst.orm_select_entries():
