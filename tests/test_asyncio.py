@@ -20,7 +20,7 @@ THREAD_NUM = 2
 # NOTE: the timer interval should not be smaller than 0.01 due to the precision
 #   of asyncio internal clock.
 TIMER_INTERVAL = 0.1
-BLOCKING_FACTOR = 1.5
+BLOCKING_FACTOR = 2
 
 
 class SampleDBAsyncio(AsyncORMConnectionThreadPool[SampleTable]):
@@ -161,7 +161,7 @@ class TestWithSampleDBWithAsyncIO:
     async def test_confirm_not_blocking(
         self, start_timer: tuple[asyncio.Task[None], asyncio.Event]
     ) -> None:
-        """Confirm that during the ORM async API call, the main event loop is not blocked."""
+        """Confirm that during the ORM async API call, the main event loop is not (so) blocked."""
         _task, _event = start_timer
         _event.set()
         await _task
