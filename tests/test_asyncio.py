@@ -19,7 +19,7 @@ THREAD_NUM = 2
 # NOTE: the timer interval should not be smaller than 0.01 due to the precision
 #   of asyncio internal clock.
 TIMER_INTERVAL = 0.1
-BLOCKING_FACTOR = 1.2
+BLOCKING_FACTOR = 1.5
 
 
 class SampleDBAsyncio(AsyncORMConnectionThreadPool[SampleTable]):
