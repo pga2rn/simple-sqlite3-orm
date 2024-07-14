@@ -8,7 +8,7 @@ from simple_sqlite3_orm._sqlite_spec import (
     SQLiteTypeAffinity,
     SQLiteTypeAffinityLiteral,
 )
-from simple_sqlite3_orm._table_spec import TableSpec
+from simple_sqlite3_orm._table_spec import TableSpec, gen_sql_stmt
 from simple_sqlite3_orm._types import (
     DatetimeISO8601,
     DatetimeUnixTimestamp,
@@ -29,4 +29,5 @@ __all__ = [
     "DatetimeISO8601",
     "DatetimeUnixTimestamp",
     "DatetimeUnixTimestampInt",
+    "gen_sql_stmt",
 ]

@@ -17,7 +17,7 @@ from simple_sqlite3_orm._sqlite_spec import (
 from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr, lru_cache
 
 
-def _gen_stmt(*stmts: str) -> str:
+def gen_sql_stmt(*stmts: str) -> str:
     """Generate statement with input statement strings."""
     with StringIO() as buffer:
         for stmt in stmts:
@@ -142,7 +142,7 @@ class TableSpec(BaseModel):
         cols_spec = ",".join(
             cls.table_dump_column(col_name) for col_name in cls.model_fields
         )
-        return _gen_stmt(
+        return gen_sql_stmt(
             "CREATE",
             f"{'TEMPORARY' if temporary else ''}",
             "TABLE",
@@ -185,7 +185,7 @@ class TableSpec(BaseModel):
                 indexed_cols.append(_col)
         indexed_columns_stmt = f"({','.join(indexed_cols)})"
 
-        return _gen_stmt(
+        return gen_sql_stmt(
             "CREATE",
             f"{'UNIQUE' if unique else ''}",
             "INDEX",
@@ -266,7 +266,7 @@ class TableSpec(BaseModel):
             returning_cols, returning_stmt
         )
 
-        return _gen_stmt(
+        return gen_sql_stmt(
             gen_insert_stmt,
             gen_insert_value_stmt,
             gen_returning_stmt,
@@ -328,7 +328,7 @@ class TableSpec(BaseModel):
         gen_order_by_stmt = cls._generate_order_by_stmt(order_by, order_by_stmt)
         gen_limit_stmt = f"LIMIT {limit}" if limit is not None else ""
 
-        return _gen_stmt(
+        return gen_sql_stmt(
             gen_select_stmt,
             gen_select_from_stmt,
             gen_where_stmt,
@@ -390,7 +390,7 @@ class TableSpec(BaseModel):
             returning_cols, returning_stmt
         )
 
-        return _gen_stmt(
+        return gen_sql_stmt(
             gen_delete_from_stmt,
             gen_where_stmt,
             gen_order_by_stmt,
