@@ -260,6 +260,13 @@ def gen_check_constrain(_in: Any, field_name: str) -> str:
         str: the generated statement can be used with CHECK keyword like the following:
            <enum_value_1>[, <enum_value_2>[, ...]]
     """
+    if (_origin := get_origin(_in)) and _origin is Literal:
+        values = map(str, get_args(_in))
+        return f"{field_name} IN ({','.join(values)})"
+
+    if not isinstance(_in, type):
+        raise TypeError("expect Literal or types")
+
     if issubclass(_in, Enum):
         if issubclass(_in, str):
             enum_values = (f'"{e.value}"' for e in _in)
@@ -267,14 +274,9 @@ def gen_check_constrain(_in: Any, field_name: str) -> str:
             enum_values = (f"{e.value}" for e in _in)
         else:
             raise TypeError("for Enum types, only support StrEnum or IntEnum types")
-        in_statement = ",".join(enum_values)
-    elif (_origin := get_origin(_in)) and _origin is Literal:
-        values = get_args(_in)
-        in_statement = ",".join(values)
-    else:
-        raise TypeError(f"expect StrEnum, IntEnum or Literal, get {type(_in)}")
+        return f"{field_name} IN ({','.join(enum_values)})"
 
-    return f"{field_name} IN ({in_statement})"
+    raise TypeError(f"expect StrEnum, IntEnum or Literal, get {type(_in)}")
 
 
 def concatenate_condition(
