@@ -152,7 +152,7 @@ else:
             yield batch
 
 
-def generate_constrains_for_enum(enum_type: type[Enum], field_name: str) -> str:
+def gen_check_constrain(enum_type: type[Enum], field_name: str) -> str:
     """Generate the constrains statement from enum type.
 
     Only StrEnum or IntEnum are supported.
@@ -165,4 +165,4 @@ def generate_constrains_for_enum(enum_type: type[Enum], field_name: str) -> str:
         raise TypeError("only support StrEnum or IntEnum types")
 
     in_statement = ",".join(enum_values)
-    return f"{field_name} IN ({in_statement})"
+    return f"CHECK {field_name} IN ({in_statement})"

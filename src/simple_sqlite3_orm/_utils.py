@@ -74,7 +74,9 @@ class TypeAffinityRepr(str):
 
 
 class ConstrainRepr(str):
-    def __new__(cls, *args: ConstrainLiteral | tuple[ConstrainLiteral, str]) -> Self:
+    def __new__(
+        cls, *args: ConstrainLiteral | tuple[ConstrainLiteral, str] | str
+    ) -> Self:
         with StringIO() as _buffer:
             for arg in args:
                 if isinstance(arg, tuple):
