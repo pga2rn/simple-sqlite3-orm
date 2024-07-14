@@ -143,9 +143,11 @@ class TableSpec(BaseModel):
             cls.table_dump_column(col_name) for col_name in cls.model_fields
         )
         return _gen_stmt(
-            f"CREATE {'TEMPORARY ' if temporary else ''}",
+            "CREATE",
+            f"{'TEMPORARY' if temporary else ''}",
+            "TABLE",
             f"{'IF NOT EXISTS ' if if_not_exists else ''}",
-            f"TABLE {table_name} ({cols_spec})",
+            f"{table_name} ({cols_spec})",
             f"{'WITHOUT ROWID ' if without_rowid else ''}",
             f"{'STRICT ' if strict else ''}",
         )
