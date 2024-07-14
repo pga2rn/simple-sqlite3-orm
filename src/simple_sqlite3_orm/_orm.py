@@ -258,7 +258,7 @@ def _python_exit():
 atexit.register(_python_exit)
 
 
-class ORMConnectionThreadPool(ORMBase[TableSpecType]):
+class ORMThreadPoolBase(ORMBase[TableSpecType]):
     """
     See https://www.sqlite.org/wal.html#concurrency for more details.
     """
@@ -405,7 +405,7 @@ class ORMConnectionThreadPool(ORMBase[TableSpecType]):
 DEFAULT_GET_INTERVAL = 0.01
 
 
-class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
+class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
 
     def __init__(
         self,

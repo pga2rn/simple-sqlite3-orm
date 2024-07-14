@@ -9,7 +9,7 @@ from typing import Callable
 import pytest
 import pytest_asyncio
 
-from simple_sqlite3_orm._orm import AsyncORMConnectionThreadPool
+from simple_sqlite3_orm._orm import AsyncORMThreadPoolBase
 from simple_sqlite3_orm.utils import batched
 from tests.conftest import INDEX_KEYS, INDEX_NAME, TABLE_NAME, TEST_INSERT_BATCH_SIZE
 from tests.sample_db.table import SampleTable
@@ -22,7 +22,7 @@ THREAD_NUM = 2
 TIMER_INTERVAL = 0.1
 
 
-class SampleDBAsyncio(AsyncORMConnectionThreadPool[SampleTable]):
+class SampleDBAsyncio(AsyncORMThreadPoolBase[SampleTable]):
     """Test connection pool with async API."""
 
 

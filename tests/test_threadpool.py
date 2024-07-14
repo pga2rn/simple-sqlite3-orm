@@ -7,7 +7,7 @@ from typing import Callable
 
 import pytest
 
-from simple_sqlite3_orm._orm import ORMConnectionThreadPool
+from simple_sqlite3_orm._orm import ORMThreadPoolBase
 from simple_sqlite3_orm.utils import batched
 from tests.conftest import INDEX_KEYS, INDEX_NAME, TABLE_NAME, TEST_INSERT_BATCH_SIZE
 from tests.sample_db.table import SampleTable
@@ -15,7 +15,7 @@ from tests.sample_db.table import SampleTable
 logger = logging.getLogger(__name__)
 
 
-class SampleDBConnectionPool(ORMConnectionThreadPool[SampleTable]):
+class SampleDBConnectionPool(ORMThreadPoolBase[SampleTable]):
     """Test connection pool."""
 
 
