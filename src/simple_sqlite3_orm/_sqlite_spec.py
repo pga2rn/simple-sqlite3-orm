@@ -206,5 +206,24 @@ SQLiteBuiltInFuncs = Union[
     SQLiteBuiltInScalarFuncs,
 ]
 
+
+#
+# ------ other helper literals ------ #
+#
+
 INSERT_OR = Literal["abort", "fail", "ignore", "replace", "rollback"]
 ORDER_DIRECTION = Literal["ASC", "DESC"]
+
+CONDITION_OPERATORS = Literal[
+    "AND",
+    "OR",
+    "IS",
+    "NOT",
+    "MATCH",
+    "LIKE",
+    "BETWEEN",
+    "REGEXP",
+    "GLOB",
+    "DISTINCT FROM",
+]
+"""Ref https://www.sqlite.org/lang_expr.html"""
