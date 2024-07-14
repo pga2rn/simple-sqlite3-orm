@@ -14,6 +14,11 @@ from simple_sqlite3_orm import (
     TableSpec,
     TypeAffinityRepr,
 )
+from simple_sqlite3_orm.utils import (
+    gen_check_constrain,
+    concatenate_condition,
+    default_constrain,
+)
 from tests.sample_db._types import (
     Choice123,
     ChoiceABC,
@@ -37,8 +42,13 @@ class SampleTable(TableSpec):
         TypeAffinityRepr(ChoiceABC),
         ConstrainRepr(
             "NOT NULL",
-            ("CHECK", r'(choice_abc IN ("A", "B", "C"))'),
-            ("DEFAULT", ChoiceABC.A),
+            (
+                "CHECK",
+                concatenate_condition(
+                    gen_check_constrain(ChoiceABC, "choice_abc"),
+                ),
+            ),
+            default_constrain(ChoiceABC.A),
         ),
     ] = ChoiceABC.A
     optional_choice_123: Annotated[
@@ -47,9 +57,14 @@ class SampleTable(TableSpec):
         ConstrainRepr(
             (
                 "CHECK",
-                r"(optional_choice_123 is NULL OR optional_choice_123 IN (1, 2, 3))",
+                concatenate_condition(
+                    "optional_choice_123",
+                    "IS NULL",
+                    "OR",
+                    gen_check_constrain(Choice123, "optional_choice_123"),
+                ),
             ),
-            ("DEFAULT", "NULL"),
+            default_constrain(None),
         ),
     ] = None
 
@@ -60,9 +75,14 @@ class SampleTable(TableSpec):
         ConstrainRepr(
             (
                 "CHECK",
-                r"(optional_num_literal is NULL OR optional_num_literal IN (123, 456, 789))",
+                concatenate_condition(
+                    "optional_num_literal",
+                    "IS NULL",
+                    "OR",
+                    gen_check_constrain(SomeIntLiteral, "optional_num_literal"),
+                ),
+                default_constrain(None),
             ),
-            ("DEFAULT", "NULL"),
         ),
     ] = None
     str_literal: Annotated[
@@ -70,8 +90,13 @@ class SampleTable(TableSpec):
         TypeAffinityRepr(SomeStrLiteral),
         ConstrainRepr(
             "NOT NULL",
-            ("CHECK", r'(str_literal IN ("H", "I", "J"))'),
-            ("DEFAULT", "H"),
+            (
+                "CHECK",
+                concatenate_condition(
+                    gen_check_constrain(SomeStrLiteral, "str_literal"),
+                ),
+            ),
+            default_constrain("H"),
         ),
     ] = "H"
 
@@ -82,7 +107,13 @@ class SampleTable(TableSpec):
     prim_key: Annotated[
         Mystr,
         TypeAffinityRepr(Mystr),
-        ConstrainRepr("PRIMARY KEY", ("CHECK", r"(length(prim_key) == 128)")),
+        ConstrainRepr(
+            "PRIMARY KEY",
+            (
+                "CHECK",
+                concatenate_condition("length(prim_key)", "=", "128"),
+            ),
+        ),
     ]
     prim_key_sha256hash: Annotated[
         bytes, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL", "UNIQUE")
