@@ -34,6 +34,15 @@ else:
 
 
 class TypeAffinityRepr(str):
+    """Map python types to sqlite3 data types with type affinity.
+
+    Currently supports:
+    1. python sqlite3 lib supported native python types.
+    2. StrEnum and IntEnum, will map to TEXT and INT accordingly.
+    3. Optional types, will map against the args inside the Optional.
+    4. Literal types, will map against the values type inside the Literal.
+    """
+
     def __new__(cls, _in: type[Any] | SQLiteTypeAffinityLiteral | str | Any) -> Self:
         """Mapping python types to corresponding sqlite storage classes."""
         if isinstance(_in, str):  # user-define type affinity, use as it
@@ -74,6 +83,18 @@ class TypeAffinityRepr(str):
 
 
 class ConstrainRepr(str):
+    """Helper class for composing full constrain statement string.
+
+    For example, for constrain statement like the following:
+        NOT NULL DEFAULT NULL CHECK (column IN (1, 2, 3))
+    can be represented ConstrainRepr as follow:
+        ConstrainRepr(
+            "NOT NULL",
+            ("DEFAULT", "NULL"),
+            ("CHECK", r"(column IN (1, 2, 3))")
+        )
+    """
+
     def __new__(
         cls, *args: ConstrainLiteral | tuple[ConstrainLiteral, str] | str
     ) -> Self:
