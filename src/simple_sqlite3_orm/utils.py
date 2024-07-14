@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import sys
+from enum import Enum
 from itertools import islice
 from typing import Any, Generator, Iterable, Literal, overload
 
@@ -149,3 +150,19 @@ else:
         iterator = iter(iterable)
         while batch := tuple(islice(iterator, n)):
             yield batch
+
+
+def generate_constrains_for_enum(enum_type: type[Enum], field_name: str) -> str:
+    """Generate the constrains statement from enum type.
+
+    Only StrEnum or IntEnum are supported.
+    """
+    if issubclass(enum_type, str):
+        enum_values = (f'"{e.value()}"' for e in enum_type)
+    elif issubclass(enum_type, int):
+        enum_values = (f"{e.value()}" for e in enum_type)
+    else:
+        raise TypeError("only support StrEnum or IntEnum types")
+
+    in_statement = ",".join(enum_values)
+    return f"{field_name} IN ({in_statement})"
