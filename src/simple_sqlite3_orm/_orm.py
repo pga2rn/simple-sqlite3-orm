@@ -23,7 +23,7 @@ from typing import (
 )
 from weakref import WeakValueDictionary
 
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec, deprecated
 
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR, ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
@@ -379,6 +379,12 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
             thread_name_prefix=thread_name_prefix,
         )
 
+    @property
+    @deprecated("orm_con is not available in thread pool ORM")
+    def orm_con(self):
+        """Not implemented, orm_con is not available in thread pool ORM."""
+        raise NotImplementedError("orm_con is not available in thread pool ORM")
+
     def orm_pool_shutdown(self, *, wait=True):
         self._pool.shutdown(wait=wait)
         for con in self._thread_id_cons.values():
@@ -488,9 +494,6 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         return self._pool.submit(_inner).result()
 
 
-DEFAULT_GET_INTERVAL = 0.01
-
-
 class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
 
     def __init__(
@@ -521,6 +524,12 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
             self._pool.submit(func, *args, **kwargs),
             loop=self._loop,
         )
+
+    @property
+    @deprecated("orm_con is not available in thread pool ORM")
+    def orm_con(self):
+        """Not implemented, orm_con is not available in thread pool ORM."""
+        raise NotImplementedError("orm_con is not available in thread pool ORM")
 
     def orm_select_entries_gen(
         self,
