@@ -261,7 +261,14 @@ def gen_check_constrain(_in: Any, field_name: str) -> str:
            <enum_value_1>[, <enum_value_2>[, ...]]
     """
     if (_origin := get_origin(_in)) and _origin is Literal:
-        values = map(str, get_args(_in))
+        values = get_args(_in)
+
+        if isinstance(values[0], (int, float)):
+            values = map(str, values)
+        elif isinstance(values[0], str):
+            values = map(lambda x: rf'"{x}"', values)
+        else:
+            raise TypeError("for Literal, only support str, int or float as value")
         return f"{field_name} IN ({','.join(values)})"
 
     if not isinstance(_in, type):
@@ -297,3 +304,10 @@ def concatenate_condition(
     if wrapped_with_parentheses:
         res = f"({res})"
     return res
+
+
+def default_constrain(value: Any) -> str:
+    """Generate DEFAULT constrain with input <value>."""
+    if isinstance(value, (int, float)):
+        return f"DEFAULT {value}"
+    return rf'DEFAULT "{value}"'
