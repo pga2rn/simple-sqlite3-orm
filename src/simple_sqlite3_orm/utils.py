@@ -9,6 +9,8 @@ from enum import Enum
 from itertools import islice
 from typing import Any, Generator, Iterable, Literal, get_args, get_origin, overload
 
+from simple_sqlite3_orm._sqlite_spec import CONDITION_OPERATORS, COMPARE_OPERATORS
+
 logger = logging.getLogger(__name__)
 
 #
@@ -276,7 +278,8 @@ def gen_check_constrain(_in: Any, field_name: str) -> str:
 
 
 def concatenate_condition(
-    *condition_or_op: str, wrapped_with_parentheses: bool = True
+    *condition_or_op: CONDITION_OPERATORS | COMPARE_OPERATORS | Any,
+    wrapped_with_parentheses: bool = True,
 ) -> str:
     """Chain a list of conditions and operators together in a string.
 
