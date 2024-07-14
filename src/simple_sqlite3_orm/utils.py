@@ -240,7 +240,7 @@ else:
 
 
 def gen_check_constrain(enum_type: type[Enum], field_name: str) -> str:
-    """Generate the CHECK constrain statement from enum type.
+    """Generate the constrain statement for CHECK keyword from enum type.
 
     Only StrEnum or IntEnum are supported.
 
@@ -252,8 +252,8 @@ def gen_check_constrain(enum_type: type[Enum], field_name: str) -> str:
         TypeError on unsupported enum_type.
 
     Returns:
-        str: the generated CHECK statement like the following:
-            CHECK <field_name> IN (<enum_value_1>[, <enum_value_2>[, ...]])
+        str: the generated statement can be used with CHECK keyword like the following:
+           (<enum_value_1>[, <enum_value_2>[, ...]])
     """
     if issubclass(enum_type, str):
         enum_values = (f'"{e.value}"' for e in enum_type)
@@ -263,4 +263,4 @@ def gen_check_constrain(enum_type: type[Enum], field_name: str) -> str:
         raise TypeError("only support StrEnum or IntEnum types")
 
     in_statement = ",".join(enum_values)
-    return f"CHECK ({field_name} IN ({in_statement}))"
+    return f"({field_name} IN ({in_statement}))"
