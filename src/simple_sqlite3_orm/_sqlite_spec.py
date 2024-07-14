@@ -218,12 +218,18 @@ CONDITION_OPERATORS = Literal[
     "AND",
     "OR",
     "IS",
+    "NULL",
+    "IS NULL",
+    "IS NOT NULL",
     "NOT",
     "MATCH",
     "LIKE",
     "BETWEEN",
     "REGEXP",
     "GLOB",
-    "DISTINCT FROM",
+    "IS DISTINCT FROM",
+    "IS NOT DISTINCT FROM",
 ]
 """Ref https://www.sqlite.org/lang_expr.html"""
+
+COMPARE_OPERATORS = Literal["=", "==", "!=", "<>", ">=", "<="]
