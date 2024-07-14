@@ -165,4 +165,4 @@ def gen_check_constrain(enum_type: type[Enum], field_name: str) -> str:
         raise TypeError("only support StrEnum or IntEnum types")
 
     in_statement = ",".join(enum_values)
-    return f"CHECK {field_name} IN ({in_statement})"
+    return f"CHECK ({field_name} IN ({in_statement}))"
