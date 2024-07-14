@@ -19,10 +19,18 @@ logger = logging.getLogger(__name__)
 
 
 def enable_wal_mode(con: sqlite3.Connection, relax_sync_mode: bool = True):
-    """
+    """Enable WAL mode for the connected database.
+
     Note that for multiple databases being attached, WAL mode only guarantees
         atomic within each individual database file. See https://www.sqlite.org/lang_attach.html
         for more details.
+
+    Args:
+        con (sqlite3.Connection): The connection to the target database.
+        relax_sync_mode (bool): Also set the synchronous mode to NORMAL. Default to True.
+
+    Raises:
+        sqlite3.DatabaseError on failed sql execution.
     """
     with con as con:
         con.execute("PRAGMA journal_mode = WAL;")
@@ -31,8 +39,15 @@ def enable_wal_mode(con: sqlite3.Connection, relax_sync_mode: bool = True):
 
 
 def enable_tmp_store_at_memory(con: sqlite3.Connection):
-    """
-    See https://www.sqlite.org/pragma.html#pragma_temp_store.
+    """Locate the temp tables at memory.
+
+    See https://www.sqlite.org/pragma.html#pragma_temp_store for more details.
+
+    Args:
+        con (sqlite3.Connection): The connection to the target database.
+
+    Raises:
+        sqlite3.DatabaseError on failed sql execution.
     """
     with con as con:
         con.execute("PRAGMA temp_store = MEMORY;")
@@ -42,16 +57,31 @@ DEFAULT_MMAP_SIZE = 16 * 1024 * 1024  # 16MiB
 
 
 def enable_mmap(con: sqlite3.Connection, mmap_size: int = DEFAULT_MMAP_SIZE):
-    """
-    See https://www.sqlite.org/pragma.html#pragma_mmap_size.
+    """Enable mmap for the connection.
+
+    See https://www.sqlite.org/pragma.html#pragma_mmap_size for more
+
+    Args:
+        con (sqlite3.Connection): The connection to the target database.
+        mmap_size (int, optional): The max mmap size. Defaults to <DEFAULT_MMAP_SIZE=16MiB>.
+
+    Raises:
+        sqlite3.DatabaseError on failed sql execution.
     """
     with con as con:
         con.execute(f"PRAGMA mmap_size = {mmap_size};")
 
 
 def optimize_db(con: sqlite3.Connection):
-    """
+    """Execute optimize PRAGMA on the target database.
+
     See https://www.sqlite.org/pragma.html#pragma_optimize.
+
+    Args:
+        con (sqlite3.Connection): The connection to the target database.
+
+    Raises:
+        sqlite3.DatabaseError on failed sql execution.
     """
     with con as con:
         con.execute("PRAGMA optimize;")
@@ -63,8 +93,17 @@ def optimize_db(con: sqlite3.Connection):
 
 
 def check_db_integrity(con: sqlite3.Connection, table_name: str | None = None) -> bool:
-    """
-    See https://www.sqlite.org/pragma.html#pragma_integrity_check.
+    """Execute integrity_check PRAGMA on the target database(or specific table at the database).
+
+    See https://www.sqlite.org/pragma.html#pragma_integrity_check for more details.
+
+    Args:
+        con (sqlite3.Connection): The connection to the target database.
+        table_name (str | None, optional): If specified, the integrity_check will only be performed
+            against this table. Defaults to None, means performing the check on the whole database.
+
+    Returns:
+        bool: True for integrity_check passed on the target database, False for errors found.
     """
     with con as con:
         if table_name:
@@ -80,6 +119,15 @@ def check_db_integrity(con: sqlite3.Connection, table_name: str | None = None) -
 
 
 def lookup_table(con: sqlite3.Connection, table_name: str) -> bool:
+    """Check if specific table existed on the target database.
+
+    Args:
+        con (sqlite3.Connection): The connection to the target database.
+        table_name (str): The name of table to lookup.
+
+    Returns:
+        bool: True for table existed, False for not found.
+    """
     query = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
     with con as con:
         cur = con.execute(query, (table_name,))
@@ -89,6 +137,19 @@ def lookup_table(con: sqlite3.Connection, table_name: str) -> bool:
 def attach_database(
     con: sqlite3.Connection, database: str | Literal[":memory:"], schema_name: str
 ) -> str:
+    """Attach another database onto the current connection.
+
+    See https://www.sqlite.org/lang_attach.html for more details.
+
+    Args:
+        con (sqlite3.Connection): The current database connection.
+        database (str | Literal[":memory:"]): The new database to be attached.
+        schema_name (str): The alias name of the newly connected database for distinguishing
+            between the already connected database in this connection.
+
+    Returns:
+        str: The schema_name of the newly connected database in the connection.
+    """
     query = "ATTACH DATABASE ? AS ?"
     with con as con:
         con.execute(query, (database, schema_name))
@@ -113,6 +174,16 @@ def check_pragma_compile_time_options(
 def check_pragma_compile_time_options(
     con: sqlite3.Connection, option_name: str | None = None
 ) -> tuple[str, Any] | None | list[tuple[str, Any]]:
+    """Get the runtime sqlite3 library's compile time options.
+
+    Args:
+        con (sqlite3.Connection): The current database connection.
+        option_name (str | None, optional): The option to lookup. If not specified,
+            it will return all the options and its values. Defaults to None.
+
+    Returns:
+        tuple[str, Any] | None | list[tuple[str, Any]]: Looked up options and its values.
+    """
     query = "SELECT * FROM pragma_compile_options"
     with con as con:
         cur = con.execute(query)
@@ -144,7 +215,23 @@ else:
     def batched(
         iterable: Iterable[Any], n: int
     ) -> Generator[tuple[Any, ...], Any, None]:
-        """Backport batched from py3.12."""
+        """Batch data from the iterable into tuples of length n. The last batch may be shorter than n.
+
+        Backport batched from py3.12. This is the roughly python implementation
+            of py3.12's batched copied from py3.12 documentation.
+        See https://docs.python.org/3/library/itertools.html#itertools.batched for more details.
+
+        Args:
+            iterable (Iterable[Any]): The input to be batched.
+            n (int): the size of each batch.
+
+        Raises:
+            ValueError on invalid n.
+
+        Returns:
+            A generator that can be used to loop over the input iterable and accumulates data into
+                tuples up to size n(a.k.a, batch in size of n).
+        """
         if n < 1:
             raise ValueError("n must be at least one")
         iterator = iter(iterable)
@@ -153,9 +240,20 @@ else:
 
 
 def gen_check_constrain(enum_type: type[Enum], field_name: str) -> str:
-    """Generate the constrains statement from enum type.
+    """Generate the CHECK constrain statement from enum type.
 
     Only StrEnum or IntEnum are supported.
+
+    Args:
+        enum_type (type[Enum]): The enum type to generate CHECK statement against.
+        field_name (str): The field name of this enum_type in use.
+
+    Raises:
+        TypeError on unsupported enum_type.
+
+    Returns:
+        str: the generated CHECK statement like the following:
+            CHECK <field_name> IN (<enum_value_1>[, <enum_value_2>[, ...]])
     """
     if issubclass(enum_type, str):
         enum_values = (f'"{e.value}"' for e in enum_type)
