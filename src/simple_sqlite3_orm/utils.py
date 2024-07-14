@@ -158,9 +158,9 @@ def gen_check_constrain(enum_type: type[Enum], field_name: str) -> str:
     Only StrEnum or IntEnum are supported.
     """
     if issubclass(enum_type, str):
-        enum_values = (f'"{e.value()}"' for e in enum_type)
+        enum_values = (f'"{e.value}"' for e in enum_type)
     elif issubclass(enum_type, int):
-        enum_values = (f"{e.value()}" for e in enum_type)
+        enum_values = (f"{e.value}" for e in enum_type)
     else:
         raise TypeError("only support StrEnum or IntEnum types")
 
