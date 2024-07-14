@@ -35,7 +35,6 @@ SQLiteTypeAffinityLiteral = Literal["TEXT", "NUMERIC", "INTEGER", "REAL", "BLOB"
 #
 # ------ contrain keywords ------ #
 #
-# ref: https://www.sqlite.org/lang_createtable.html
 ConstrainLiteral = Literal[
     "PRIMARY KEY",
     "NOT NULL",
@@ -47,12 +46,12 @@ ConstrainLiteral = Literal[
     "GENERATED ALWAYS AS",
     "AS",
 ]
+"""Ref: https://www.sqlite.org/lang_createtable.html"""
 
 
 #
 # ------ built-in functions ------ #
 #
-# https://www.sqlite.org/lang_corefunc.html
 SQLiteBuiltInScalarFuncs = Literal[
     "abs",
     "changes",
@@ -112,8 +111,8 @@ SQLiteBuiltInScalarFuncs = Literal[
     "upper",
     "zeroblob",
 ]
+"""Ref: https://www.sqlite.org/lang_corefunc.html"""
 
-# https://www.sqlite.org/lang_aggfunc.html
 SQLiteBuiltInAggregateFuncs = Literal[
     "avg",
     "count",
@@ -125,13 +124,13 @@ SQLiteBuiltInAggregateFuncs = Literal[
     "string_agg",
     "sum",
 ]
+"""Ref: https://www.sqlite.org/lang_aggfunc.html"""
 
-# https://www.sqlite.org/lang_datefunc.html
 SQLiteBuiltInDateTimeFuncs = Literal[
     "data", "time", "datetime", "julianday", "unixepoch", "strftime", "timediff"
 ]
+"""Ref: https://www.sqlite.org/lang_datefunc.html"""
 
-# https://www.sqlite.org/lang_mathfunc.html
 SQLiteBuiltInMathFuncs = Literal[
     "acos",
     "acosh",
@@ -164,8 +163,8 @@ SQLiteBuiltInMathFuncs = Literal[
     "tanh",
     "trunc",
 ]
+"""Ref: https://www.sqlite.org/lang_mathfunc.html"""
 
-# https://www.sqlite.org/json1.html
 SQLiteBuiltInJSONFuncs = Literal[
     "json",
     "jsonb",
@@ -197,6 +196,7 @@ SQLiteBuiltInJSONFuncs = Literal[
     "json_each",
     "json_tree",
 ]
+"""Ref: https://www.sqlite.org/json1.html"""
 
 SQLiteBuiltInFuncs = Union[
     SQLiteBuiltInAggregateFuncs,
