@@ -253,7 +253,7 @@ def gen_check_constrain(enum_type: type[Enum], field_name: str) -> str:
 
     Returns:
         str: the generated statement can be used with CHECK keyword like the following:
-           (<enum_value_1>[, <enum_value_2>[, ...]])
+           <enum_value_1>[, <enum_value_2>[, ...]]
     """
     if issubclass(enum_type, str):
         enum_values = (f'"{e.value}"' for e in enum_type)
@@ -263,4 +263,23 @@ def gen_check_constrain(enum_type: type[Enum], field_name: str) -> str:
         raise TypeError("only support StrEnum or IntEnum types")
 
     in_statement = ",".join(enum_values)
-    return f"({field_name} IN ({in_statement}))"
+    return f"{field_name} IN ({in_statement})"
+
+
+def concatenate_condition(
+    *condition_or_op: str, wrapped_with_parentheses: bool = True
+) -> str:
+    """Chain a list of conditions and operators together in a string.
+
+    For example, for the following statement for CHECK keyword:
+        (column IS NULL OR column IN (1, 2, 3))
+    we can use concatenate_condition like:
+        concatenate_condition(
+            "column IS NULL", "OR", "column IN (1, 2, 3)",
+            wrapped_with_parentheses=True,
+        )
+    """
+    res = " ".join(condition_or_op)
+    if wrapped_with_parentheses:
+        res = f"({res})"
+    return res
