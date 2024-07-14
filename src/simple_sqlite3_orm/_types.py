@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from typing import Any
 
 from pydantic import BeforeValidator, PlainSerializer
 from typing_extensions import Annotated
@@ -12,7 +13,10 @@ from typing_extensions import Annotated
 #
 
 
-def _datetime_validator(_in: int | float | str | datetime.datetime):
+def _datetime_validator(
+    _in: int | float | str | datetime.datetime | Any,
+) -> datetime.datetime:
+    """A pydantic validator helper for parsing serialized datetime from database."""
     if isinstance(_in, datetime.datetime):
         return _in
     elif isinstance(_in, (int, float)):
@@ -31,18 +35,18 @@ DatetimeUnixTimestamp = Annotated[
     BeforeValidator(_datetime_validator),
     PlainSerializer(lambda x: x.timestamp(), return_type=float),
 ]
-"""datetime.datetime serialized as unixtimestamp in seconds stored as a float in db."""
+"""datetime.datetime as unixtimestamp in seconds serialized as a float in db."""
 
 DatetimeUnixTimestampInt = Annotated[
     datetime.datetime,
     BeforeValidator(_datetime_validator),
     PlainSerializer(lambda x: int(x.timestamp()), return_type=int),
 ]
-"""datetime.datetime serialized as unixtimestamp in seconds stored as an int in db."""
+"""datetime.datetime as unixtimestamp in seconds serialized as an int in db."""
 
 DatetimeISO8601 = Annotated[
     datetime.datetime,
     BeforeValidator(_datetime_validator),
     PlainSerializer(lambda x: x.isoformat(), return_type=str),
 ]
-"""datetime.datetime serialized as str(ISO8601 formatted) in db."""
+"""datetime.datetime as str(ISO8601 formatted) serialized as a string in db."""
