@@ -43,7 +43,7 @@ class TypeAffinityRepr(str):
     4. Literal types, will map against the values type inside the Literal.
     """
 
-    def __new__(cls, _in: type[Any] | SQLiteTypeAffinityLiteral | str | Any) -> Self:
+    def __new__(cls, _in: type[Any] | SQLiteTypeAffinityLiteral | Any) -> Self:
         """Mapping python types to corresponding sqlite storage classes."""
         if isinstance(_in, str):  # user-define type affinity, use as it
             return str.__new__(cls, _in)
@@ -96,7 +96,7 @@ class ConstrainRepr(str):
     """
 
     def __new__(
-        cls, *args: ConstrainLiteral | tuple[ConstrainLiteral, str] | str
+        cls, *args: ConstrainLiteral | tuple[ConstrainLiteral, str] | Any
     ) -> Self:
         with StringIO() as _buffer:
             for arg in args:
