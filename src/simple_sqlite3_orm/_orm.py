@@ -24,7 +24,7 @@ from weakref import WeakValueDictionary
 
 from typing_extensions import ParamSpec
 
-from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
+from simple_sqlite3_orm._sqlite_spec import INSERT_OR, ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
 from simple_sqlite3_orm._typing import copy_callable_typehint
 
@@ -70,7 +70,7 @@ class ORMBase(Generic[TableSpecType]):
         self,
         con: sqlite3.Connection,
         table_name: str,
-        schema_name: str | None = None,
+        schema_name: str | Literal["temp"] | None = None,
     ) -> None:
         self._table_name = table_name
         self._schema_name = schema_name
@@ -120,6 +120,7 @@ class ORMBase(Generic[TableSpecType]):
         self,
         *,
         allow_existed: bool = False,
+        strict: bool = False,
         without_rowid: bool = False,
     ) -> None:
         with self._con as con:
@@ -127,6 +128,7 @@ class ORMBase(Generic[TableSpecType]):
                 self.orm_table_spec.table_create_stmt(
                     self.orm_table_name,
                     if_not_exists=allow_existed,
+                    strict=strict,
                     without_rowid=without_rowid,
                 )
             )
@@ -169,7 +171,9 @@ class ORMBase(Generic[TableSpecType]):
             _cur = con.execute(table_select_stmt, col_values)
             yield from _cur
 
-    def orm_insert_entries(self, _in: Iterable[TableSpecType]) -> int:
+    def orm_insert_entries(
+        self, _in: Iterable[TableSpecType], *, or_option: INSERT_OR | None = None
+    ) -> int:
         """Insert entry/entries into this table.
 
         Args:
@@ -182,7 +186,8 @@ class ORMBase(Generic[TableSpecType]):
             int: Number of inserted entries.
         """
         insert_stmt = self.orm_table_spec.table_insert_stmt(
-            insert_into=self.orm_table_name
+            insert_into=self.orm_table_name,
+            or_option=or_option,
         )
         with self._con as con:
             _cur = con.executemany(
@@ -190,7 +195,9 @@ class ORMBase(Generic[TableSpecType]):
             )
             return _cur.rowcount
 
-    def orm_insert_entry(self, _in: TableSpecType) -> int:
+    def orm_insert_entry(
+        self, _in: TableSpecType, *, or_option: INSERT_OR | None = None
+    ) -> int:
         """Insert exactly one entry into this table.
 
         Args:
@@ -200,7 +207,8 @@ class ORMBase(Generic[TableSpecType]):
             int: Number of inserted entries.
         """
         insert_stmt = self.orm_table_spec.table_insert_stmt(
-            insert_into=self.orm_table_name
+            insert_into=self.orm_table_name,
+            or_option=or_option,
         )
         with self._con as con:
             _cur = con.execute(insert_stmt, _in.table_dump_asdict())
@@ -544,8 +552,16 @@ class AsyncORMConnectionThreadPool(ORMConnectionThreadPool[TableSpecType]):
             unique=unique,
         )
 
-    async def orm_insert_entries(self, _in: Iterable[TableSpecType]) -> int:
-        return await self._run_in_pool(ORMBase.orm_insert_entries, self, _in)
+    async def orm_insert_entries(
+        self, _in: Iterable[TableSpecType], *, or_option: INSERT_OR | None = None
+    ) -> int:
+        return await self._run_in_pool(
+            ORMBase.orm_insert_entries, self, _in, or_option=or_option
+        )
 
-    async def orm_insert_entry(self, _in: TableSpecType) -> int:
-        return await self._run_in_pool(ORMBase.orm_insert_entry, self, _in)
+    async def orm_insert_entry(
+        self, _in: TableSpecType, *, or_option: INSERT_OR | None = None
+    ) -> int:
+        return await self._run_in_pool(
+            ORMBase.orm_insert_entry, self, _in, or_option=or_option
+        )
