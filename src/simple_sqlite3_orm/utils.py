@@ -310,4 +310,6 @@ def default_constrain(value: Any) -> str:
     """Generate DEFAULT constrain with input <value>."""
     if isinstance(value, (int, float)):
         return f"DEFAULT {value}"
+    if value is None:
+        return "DEFAULT NULL"
     return rf'DEFAULT "{value}"'
