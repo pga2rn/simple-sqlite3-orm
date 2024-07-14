@@ -9,7 +9,7 @@ from enum import Enum
 from itertools import islice
 from typing import Any, Generator, Iterable, Literal, get_args, get_origin, overload
 
-from simple_sqlite3_orm._sqlite_spec import CONDITION_OPERATORS, COMPARE_OPERATORS
+from simple_sqlite3_orm._sqlite_spec import COMPARE_OPERATORS, CONDITION_OPERATORS
 
 logger = logging.getLogger(__name__)
 

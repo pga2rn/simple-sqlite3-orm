@@ -15,9 +15,9 @@ from simple_sqlite3_orm import (
     TypeAffinityRepr,
 )
 from simple_sqlite3_orm.utils import (
-    gen_check_constrain,
     concatenate_condition,
     default_constrain,
+    gen_check_constrain,
 )
 from tests.sample_db._types import (
     Choice123,
