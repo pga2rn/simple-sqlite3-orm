@@ -19,6 +19,7 @@ from typing import (
     Iterable,
     Literal,
     TypeVar,
+    overload,
 )
 from weakref import WeakValueDictionary
 
@@ -54,14 +55,22 @@ else:
 
 
 class ORMBase(Generic[TableSpecType]):
-    """ORM for <TableSpecType>.
+    """ORM layer for <TableSpecType>.
 
     NOTE that ORMBase will set the connection scope row_factory to <tablespec>'s table_row_factory.
+        See TableSpec.table_row_factory for more details.
+
+    NOTE that instance of ORMBase cannot be used in multi-threaded environment as the underlying
+        sqlite3 connection. Use ORMThreadPoolBase for multi-threaded environment. For asyncio,
+        use AsyncORMThreadPoolBase.
+
+    The underlying connection can be used in multiple connection for accessing different table in
+        the connected database.
 
     Attributes:
-        con: the sqlite3 connection used by this ORM.
-        table_name: the name of the table in the database <con> connected to.
-        schema_name: the schema of the table if multiple databases are attached to <con>.
+        con (sqlite3.Connection): The sqlite3 connection used by this ORM.
+        table_name (str): The name of the table in the database <con> connected to.
+        schema_name (str): the schema of the table if multiple databases are attached to <con>.
     """
 
     orm_table_spec: type[TableSpecType]
@@ -105,7 +114,7 @@ class ORMBase(Generic[TableSpecType]):
 
     @cached_property
     def orm_table_name(self) -> str:
-        """The unique name of the table.
+        """The unique name of the table for use in sql statement.
 
         If multiple databases are attached to <con> and <schema_name> is availabe,
             return "<schema_name>.<table_name>", otherwise return <table_name>.
@@ -123,6 +132,19 @@ class ORMBase(Generic[TableSpecType]):
         strict: bool = False,
         without_rowid: bool = False,
     ) -> None:
+        """Create the table defined by this ORM with <orm_table_spec>.
+
+        Args:
+            allow_existed (bool, optional): Do not abort on table already created.
+                Set True equals to add "IF NOT EXISTS" in the sql statement. Defaults to False.
+            strict (bool, optional): Enable strict field type check. Defaults to False.
+                See https://www.sqlite.org/stricttables.html for more details.
+            without_rowid (bool, optional): Create the table without ROWID. Defaults to False.
+                See https://www.sqlite.org/withoutrowid.html for more details.
+
+        Raises:
+            sqlite3.DatabaseError on failed sql execution.
+        """
         with self._con as con:
             con.execute(
                 self.orm_table_spec.table_create_stmt(
@@ -141,6 +163,17 @@ class ORMBase(Generic[TableSpecType]):
         allow_existed: bool = False,
         unique: bool = False,
     ) -> None:
+        """Create index according to the input arguments.
+
+        Args:
+            index_name (str): The name of the index.
+            index_keys (tuple[str, ...]): The columns for the index.
+            allow_existed (bool, optional): Not abort on index already created. Defaults to False.
+            unique (bool, optional): Not allow duplicated entries in the index. Defaults to False.
+
+        Raises:
+            sqlite3.DatabaseError on failed sql execution.
+        """
         index_create_stmt = self.orm_table_spec.table_create_index_stmt(
             table_name=self.orm_table_name,
             index_name=index_name,
@@ -159,6 +192,20 @@ class ORMBase(Generic[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
+        """Select entries for the table accordingly.
+
+        Args:
+            _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
+            _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
+                Order the result accordingly. Defaults to None, not sorting the result.
+            _limit (int | None, optional): Limit the number of result entries. Defaults to None.
+
+        Raises:
+            sqlite3.DatabaseError on failed sql execution.
+
+        Yields:
+            Generator[TableSpecType, None, None]: A generator that can be used to yield entry from result.
+        """
         table_select_stmt = self.orm_table_spec.table_select_stmt(
             select_from=self.orm_table_name,
             distinct=_distinct,
@@ -181,6 +228,7 @@ class ORMBase(Generic[TableSpecType]):
 
         Raises:
             ValueError: On invalid types of _in.
+            sqlite3.DatabaseError: On failed sql execution.
 
         Returns:
             int: Number of inserted entries.
@@ -203,8 +251,12 @@ class ORMBase(Generic[TableSpecType]):
         Args:
             _in (TableSpecType): The instance of entry to insert.
 
+        Raises:
+            ValueError: On invalid types of _in.
+            sqlite3.DatabaseError: On failed sql execution.
+
         Returns:
-            int: Number of inserted entries.
+            int: Number of inserted entries. In normal case it should be 1.
         """
         insert_stmt = self.orm_table_spec.table_insert_stmt(
             insert_into=self.orm_table_name,
@@ -214,6 +266,26 @@ class ORMBase(Generic[TableSpecType]):
             _cur = con.execute(insert_stmt, _in.table_dump_asdict())
             return _cur.rowcount
 
+    @overload
+    def orm_delete_entries(
+        self,
+        *,
+        _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        _limit: int | None = None,
+        _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
+        **cols_value: Any,
+    ) -> int: ...
+
+    @overload
+    def orm_delete_entries(
+        self,
+        *,
+        _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        _limit: int | None = None,
+        _returning_cols: tuple[str, ...] | Literal["*"],
+        **cols_value: Any,
+    ) -> Generator[TableSpecType, None, None]: ...
+
     def orm_delete_entries(
         self,
         *,
@@ -222,6 +294,20 @@ class ORMBase(Generic[TableSpecType]):
         _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         **cols_value: Any,
     ) -> int | Generator[TableSpecType, None, None]:
+        """Delete entries from the table accordingly.
+
+        Args:
+            _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION]] | None, optional): Order the matching entries
+                before executing the deletion, used together with <_limit>. Defaults to None.
+            _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
+            _returning_cols (tuple[str, ...] | Literal[, optional): Return the deleted entries on execution.
+                NOTE that only sqlite3 version >= 3.35 supports returning statement. Defaults to None.
+
+        Returns:
+            int: The num of entries deleted.
+            Generator[TableSpecType, None, None]: If <_returning_cols> is defined, returns a generator which can
+                be used to yield the deleted entries from.
+        """
         delete_stmt = self.orm_table_spec.table_delete_stmt(
             delete_from=self.orm_table_name,
             limit=_limit,
