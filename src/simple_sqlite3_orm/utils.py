@@ -7,7 +7,7 @@ import sqlite3
 import sys
 from enum import Enum
 from itertools import islice
-from typing import Any, Generator, Iterable, Literal, overload
+from typing import Any, Generator, Iterable, Literal, get_args, get_origin, overload
 
 logger = logging.getLogger(__name__)
 
@@ -239,10 +239,13 @@ else:
             yield batch
 
 
-def gen_check_constrain(enum_type: type[Enum], field_name: str) -> str:
-    """Generate the constrain statement for CHECK keyword from enum type.
+def gen_check_constrain(_in: Any, field_name: str) -> str:
+    """Generate the constrain statement for CHECK keyword.
 
-    Only StrEnum or IntEnum are supported.
+    Supports the following types:
+    1. StrEnum or IntEnum types: will generate statement like:
+        <field_name> IN (<enum_value_1>[, <enum_value_2>[, ...]])
+    2. Literal types: similar to StrEnum and IntEnum.
 
     Args:
         enum_type (type[Enum]): The enum type to generate CHECK statement against.
@@ -255,14 +258,20 @@ def gen_check_constrain(enum_type: type[Enum], field_name: str) -> str:
         str: the generated statement can be used with CHECK keyword like the following:
            <enum_value_1>[, <enum_value_2>[, ...]]
     """
-    if issubclass(enum_type, str):
-        enum_values = (f'"{e.value}"' for e in enum_type)
-    elif issubclass(enum_type, int):
-        enum_values = (f"{e.value}" for e in enum_type)
+    if issubclass(_in, Enum):
+        if issubclass(_in, str):
+            enum_values = (f'"{e.value}"' for e in _in)
+        elif issubclass(_in, int):
+            enum_values = (f"{e.value}" for e in _in)
+        else:
+            raise TypeError("for Enum types, only support StrEnum or IntEnum types")
+        in_statement = ",".join(enum_values)
+    elif (_origin := get_origin(_in)) and _origin is Literal:
+        values = get_args(_in)
+        in_statement = ",".join(values)
     else:
-        raise TypeError("only support StrEnum or IntEnum types")
+        raise TypeError(f"expect StrEnum, IntEnum or Literal, get {type(_in)}")
 
-    in_statement = ",".join(enum_values)
     return f"{field_name} IN ({in_statement})"
 
 
