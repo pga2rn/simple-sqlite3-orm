@@ -261,28 +261,13 @@ def gen_check_constrain(_in: Any, field_name: str) -> str:
            <enum_value_1>[, <enum_value_2>[, ...]]
     """
     if (_origin := get_origin(_in)) and _origin is Literal:
-        values = get_args(_in)
-
-        if isinstance(values[0], (int, float)):
-            values = map(str, values)
-        elif isinstance(values[0], str):
-            values = map(lambda x: rf'"{x}"', values)
-        else:
-            raise TypeError("for Literal, only support str, int or float as value")
+        values = (wrap_value(v) for v in get_args(_in))
         return f"{field_name} IN ({','.join(values)})"
-
     if not isinstance(_in, type):
         raise TypeError("expect Literal or types")
-
     if issubclass(_in, Enum):
-        if issubclass(_in, str):
-            enum_values = (f'"{e.value}"' for e in _in)
-        elif issubclass(_in, int):
-            enum_values = (f"{e.value}" for e in _in)
-        else:
-            raise TypeError("for Enum types, only support StrEnum or IntEnum types")
+        enum_values = (wrap_value(e.value) for e in _in)
         return f"{field_name} IN ({','.join(enum_values)})"
-
     raise TypeError(f"expect StrEnum, IntEnum or Literal, get {type(_in)}")
 
 
