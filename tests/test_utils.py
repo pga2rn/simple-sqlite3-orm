@@ -7,15 +7,15 @@ import sys
 import pytest
 
 from simple_sqlite3_orm.utils import (
-    enable_wal_mode,
-    enable_tmp_store_at_memory,
-    enable_mmap,
-    optimize_db,
-    check_db_integrity,
-    lookup_table,
-    check_pragma_compile_time_options,
     batched,
+    check_db_integrity,
+    check_pragma_compile_time_options,
+    enable_mmap,
+    enable_tmp_store_at_memory,
+    enable_wal_mode,
     gen_check_constrain,
+    lookup_table,
+    optimize_db,
     wrap_value,
 )
 from tests.sample_db._types import Choice123, ChoiceABC, SomeIntLiteral, SomeStrLiteral
