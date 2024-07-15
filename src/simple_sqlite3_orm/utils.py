@@ -306,10 +306,22 @@ def concatenate_condition(
     return res
 
 
-def default_constrain(value: Any) -> str:
-    """Generate DEFAULT constrain with input <value>."""
+def wrap_value(value: Any) -> str:
+    """Wrap value for use in sql statement.
+
+    NOTE that for most cases, you should use python sqlite3 lib's
+        placeholder feature to bind value in the sql statement.
+
+    For int and float, the value will be used as it.
+    For str, the value will be wrapped with parenthesis.
+    For bytes, the value will be converted as x'<bytes_in_hex>'.
+    """
     if isinstance(value, (int, float)):
-        return f"DEFAULT {value}"
+        return f"{value}"
+    if isinstance(value, str):
+        return rf'"{value}"'
+    if isinstance(value, bytes):
+        return rf"x'{value.hex()}'"
     if value is None:
-        return "DEFAULT NULL"
-    return rf'DEFAULT "{value}"'
+        return "NULL"
+    raise TypeError("only accept int, float, str, None or bytes")
