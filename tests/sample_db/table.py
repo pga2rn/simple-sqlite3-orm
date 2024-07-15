@@ -15,7 +15,7 @@ from simple_sqlite3_orm import (
     TableSpec,
     TypeAffinityRepr,
 )
-from simple_sqlite3_orm.utils import concatenate_condition, wrap_value
+from simple_sqlite3_orm.utils import concatenate_condition, wrap_value, gen_check_constrain
 from tests.sample_db._types import (
     Choice123,
     ChoiceABC,
