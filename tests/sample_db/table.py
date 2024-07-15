@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from pydantic import SkipValidation
 from typing_extensions import Annotated
 
 from simple_sqlite3_orm import (
@@ -14,11 +15,7 @@ from simple_sqlite3_orm import (
     TableSpec,
     TypeAffinityRepr,
 )
-from simple_sqlite3_orm.utils import (
-    concatenate_condition,
-    default_constrain,
-    gen_check_constrain,
-)
+from simple_sqlite3_orm.utils import concatenate_condition, wrap_value
 from tests.sample_db._types import (
     Choice123,
     ChoiceABC,
@@ -48,7 +45,7 @@ class SampleTable(TableSpec):
                     gen_check_constrain(ChoiceABC, "choice_abc"),
                 ),
             ),
-            default_constrain(ChoiceABC.A),
+            ("DEFAULT", wrap_value(ChoiceABC.A)),
         ),
     ] = ChoiceABC.A
     optional_choice_123: Annotated[
@@ -64,7 +61,7 @@ class SampleTable(TableSpec):
                     gen_check_constrain(Choice123, "optional_choice_123"),
                 ),
             ),
-            default_constrain(None),
+            ("DEFAULT", wrap_value(None)),
         ),
     ] = None
 
@@ -81,9 +78,10 @@ class SampleTable(TableSpec):
                     "OR",
                     gen_check_constrain(SomeIntLiteral, "optional_num_literal"),
                 ),
-                default_constrain(None),
             ),
+            ("DEFAULT", wrap_value(None)),
         ),
+        SkipValidation,
     ] = None
     str_literal: Annotated[
         SomeStrLiteral,
@@ -96,12 +94,15 @@ class SampleTable(TableSpec):
                     gen_check_constrain(SomeStrLiteral, "str_literal"),
                 ),
             ),
-            default_constrain("H"),
+            ("DEFAULT", wrap_value("H")),
         ),
+        SkipValidation,
     ] = "H"
 
     # ------ built-in types ------ #
-    key_id: Annotated[int, TypeAffinityRepr(int), ConstrainRepr("NOT NULL")]
+    key_id: Annotated[
+        int, TypeAffinityRepr(int), ConstrainRepr("NOT NULL"), SkipValidation
+    ]
     # Here for convenience, all prim_ prefixed field can be
     #   derived by prim_key, check MyStr's methods for mor details.
     prim_key: Annotated[
@@ -114,11 +115,17 @@ class SampleTable(TableSpec):
                 concatenate_condition("length(prim_key)", "=", "128"),
             ),
         ),
+        SkipValidation,
     ]
     prim_key_sha256hash: Annotated[
-        bytes, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL", "UNIQUE")
+        bytes,
+        TypeAffinityRepr(bytes),
+        ConstrainRepr("NOT NULL", "UNIQUE"),
+        SkipValidation,
     ]
     prim_key_magicf: Annotated[
-        float, TypeAffinityRepr(float), ConstrainRepr("NOT NULL")
+        float, TypeAffinityRepr(float), ConstrainRepr("NOT NULL"), SkipValidation
     ]
-    prim_key_bln: Annotated[bool, TypeAffinityRepr(bool), ConstrainRepr("NOT NULL")]
+    prim_key_bln: Annotated[
+        bool, TypeAffinityRepr(bool), ConstrainRepr("NOT NULL"), SkipValidation
+    ]
