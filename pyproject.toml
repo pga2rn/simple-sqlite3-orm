@@ -95,7 +95,7 @@ testpaths = [
 
 [tool.coverage.run]
 omit = [
-  "_version.py"
+  "_version.py",
 ]
 branch = false
 relative_files = true

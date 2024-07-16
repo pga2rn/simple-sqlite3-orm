@@ -6,8 +6,8 @@ from typing import (
     Any,
     Callable,
     Literal,
-    Union,
     TypeVar,
+    Union,
     get_args,
     get_origin,
 )

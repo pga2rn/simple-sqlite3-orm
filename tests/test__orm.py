@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import logging
-import time
 import sqlite3
+import time
 from datetime import datetime
 
 import pytest
 
 from simple_sqlite3_orm import ORMBase
-
-from tests.sample_db.table import SampleTable
-from tests.sample_db._types import Mystr
 from tests.conftest import _generate_random_str
+from tests.sample_db._types import Mystr
+from tests.sample_db.table import SampleTable
 
 logger = logging.getLogger(__name__)
 

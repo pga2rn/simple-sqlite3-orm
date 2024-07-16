@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import pytest
 from typing import Optional
 
-from simple_sqlite3_orm import TypeAffinityRepr, ConstrainRepr
-from simple_sqlite3_orm._sqlite_spec import SQLiteTypeAffinity
+import pytest
 
+from simple_sqlite3_orm import ConstrainRepr, TypeAffinityRepr
+from simple_sqlite3_orm._sqlite_spec import SQLiteTypeAffinity
 from tests.sample_db._types import Choice123, ChoiceABC, SomeIntLiteral, SomeStrLiteral
 
 
