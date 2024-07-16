@@ -142,14 +142,19 @@ class TableSpec(BaseModel):
         cols_spec = ",".join(
             cls.table_dump_column(col_name) for col_name in cls.model_fields
         )
+        table_options = []
+        if without_rowid:
+            table_options.append("WITHOUT ROWID")
+        if strict:
+            table_options.append("STRICT")
+
         return gen_sql_stmt(
             "CREATE",
             f"{'TEMPORARY' if temporary else ''}",
             "TABLE",
-            f"{'IF NOT EXISTS ' if if_not_exists else ''}",
+            f"{'IF NOT EXISTS' if if_not_exists else ''}",
             f"{table_name} ({cols_spec})",
-            f"{'WITHOUT ROWID ' if without_rowid else ''}",
-            f"{'STRICT ' if strict else ''}",
+            f"{','.join(table_options)}",
         )
 
     @classmethod
