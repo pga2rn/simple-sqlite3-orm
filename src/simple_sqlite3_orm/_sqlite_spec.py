@@ -28,6 +28,7 @@ class SQLiteTypeAffinity(str, Enum):
     INTEGER = "INTEGER"
     REAL = "REAL"
     BLOB = "BLOB"
+    NULL = "NULL"
 
 
 SQLiteTypeAffinityLiteral = Literal["TEXT", "NUMERIC", "INTEGER", "REAL", "BLOB"]

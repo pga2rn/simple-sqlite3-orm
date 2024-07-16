@@ -45,6 +45,9 @@ class TypeAffinityRepr(str):
 
     def __new__(cls, _in: type[Any] | SQLiteTypeAffinityLiteral | Any) -> Self:
         """Mapping python types to corresponding sqlite storage classes."""
+        if _in is None or _in is type(None):
+            return str.__new__(cls, SQLiteTypeAffinity.NULL.value)
+
         if isinstance(_in, str):  # user-define type affinity, use as it
             return str.__new__(cls, _in)
 
