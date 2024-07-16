@@ -51,13 +51,17 @@ class TypeAffinityRepr(str):
         if isinstance(_in, str):  # user-define type affinity, use as it
             return str.__new__(cls, _in)
 
-        if _origin := get_origin(_in):
-            if _origin is Literal:
-                return cls._map_from_literal(_in)
-            if _origin is Union:
-                # Optional[X] is actually Union[X, type(None)]
-                if len(_args := get_args(_in)) == 2 and _args[-1] is type(None):
-                    return cls._map_from_type(_args[0])
+        _origin = get_origin(_in)
+        if _origin is Literal:
+            return cls._map_from_literal(_in)
+        if (
+            _origin is Union
+            and len(_args := get_args(_in)) == 2
+            and _args[-1] is type(None)
+        ):
+            # Optional[X] is actually Union[X, type(None)]
+            return cls._map_from_type(_args[0])
+        if _origin is not None:
             raise TypeError(f"not one of Literal or Optional: {_in}")
 
         if not isinstance(_in, type):
