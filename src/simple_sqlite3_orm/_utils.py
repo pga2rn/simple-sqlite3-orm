@@ -6,7 +6,7 @@ from typing import (
     Any,
     Callable,
     Literal,
-    Optional,
+    Union,
     TypeVar,
     get_args,
     get_origin,
@@ -54,8 +54,10 @@ class TypeAffinityRepr(str):
         if _origin := get_origin(_in):
             if _origin is Literal:
                 return cls._map_from_literal(_in)
-            if _origin is Optional:
-                return cls._map_from_type(get_args(_origin)[0])
+            if _origin is Union:
+                # Optional[X] is actually Union[X, type(None)]
+                if len(_args := get_args(_in)) == 2 and _args[-1] is type(None):
+                    return cls._map_from_type(_args[0])
             raise TypeError(f"not one of Literal or Optional: {_in}")
 
         if not isinstance(_in, type):
