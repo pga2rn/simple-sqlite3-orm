@@ -368,6 +368,9 @@ class TableSpec(BaseModel):
             "WHERE 1=1" can resolve the above bug.
             I will not add this hack here, and user can add this hack according to their needs.
 
+        NOTE: <order_by> and <limit> support are only enabled when runtime sqlite3 lib is compiled with
+            SQLITE_ENABLE_UPDATE_DELETE_LIMIT flag.
+
         Args:
             delete_from (str): The table name for the generated statement.
             limit (int | str | None, optional): The value for limit expr. Defaults to None.
