@@ -10,6 +10,7 @@ from simple_sqlite3_orm.utils import (
     batched,
     check_db_integrity,
     check_pragma_compile_time_options,
+    concatenate_condition,
     enable_mmap,
     enable_tmp_store_at_memory,
     enable_wal_mode,
@@ -111,6 +112,28 @@ FIELD_NAME = "test_field"
 )
 def test_gen_check_constrain(_in, expected):
     assert gen_check_constrain(_in, FIELD_NAME) == expected
+
+
+@pytest.mark.parametrize(
+    "stmts, with_parenthese, expected",
+    (
+        (
+            ["column", "IS NULL", "OR", "column IN (1,2,3)"],
+            True,
+            "(column IS NULL OR column IN (1,2,3))",
+        ),
+        (
+            ["column", "IS NULL", "OR", "column IN (1,2,3)"],
+            False,
+            "column IS NULL OR column IN (1,2,3)",
+        ),
+    ),
+)
+def test_concatenate_condition(stmts, with_parenthese, expected):
+    assert (
+        concatenate_condition(*stmts, wrapped_with_parentheses=with_parenthese)
+        == expected
+    )
 
 
 @pytest.mark.parametrize(
