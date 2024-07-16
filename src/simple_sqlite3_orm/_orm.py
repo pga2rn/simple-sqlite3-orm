@@ -134,6 +134,8 @@ class ORMBase(Generic[TableSpecType]):
     ) -> None:
         """Create the table defined by this ORM with <orm_table_spec>.
 
+        NOTE: strict table option is supported after sqlite3 3.37.
+
         Args:
             allow_existed (bool, optional): Do not abort on table already created.
                 Set True equals to add "IF NOT EXISTS" in the sql statement. Defaults to False.

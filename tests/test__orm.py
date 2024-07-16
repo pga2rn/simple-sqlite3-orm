@@ -55,9 +55,17 @@ class TestORMBase:
 
     def test_create_table(self, setup_connection: ORMTest):
         setup_connection.orm_create_table(allow_existed=False)
-        setup_connection.orm_create_table(
-            allow_existed=True, strict=True, without_rowid=True
-        )
+
+        if sqlite3.sqlite_version_info < (3, 37, 0):
+            logger.warning(
+                "STRICT table option is only available after sqlite3 version 3.37, "
+                f"get {sqlite3.sqlite_version_info}, skip testing STRICT table option."
+            )
+            setup_connection.orm_create_table(allow_existed=True, without_rowid=True)
+        else:
+            setup_connection.orm_create_table(
+                allow_existed=True, strict=True, without_rowid=True
+            )
 
         with pytest.raises(sqlite3.DatabaseError):
             setup_connection.orm_create_table(allow_existed=False)
