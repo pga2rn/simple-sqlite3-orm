@@ -327,7 +327,7 @@ class ORMBase(Generic[TableSpecType]):
 
         else:
             with self._con as con:
-                _cur = con.execute(delete_stmt, tuple(cols_value.values()))
+                _cur = con.execute(delete_stmt, cols_value)
                 return _cur.rowcount
 
 
