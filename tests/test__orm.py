@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 import sqlite3
 from datetime import datetime
@@ -12,12 +13,14 @@ from tests.sample_db.table import SampleTable
 from tests.sample_db._types import Mystr
 from tests.conftest import _generate_random_str
 
+logger = logging.getLogger(__name__)
+
 
 class ORMTest(ORMBase[SampleTable]):
     pass
 
 
-TABLE_NAME = "test_table"
+TABLE_NAME = "test_orm_table"
 
 _cur_timestamp = time.time()
 mstr = Mystr(_generate_random_str())
@@ -31,6 +34,16 @@ entry_for_test = SampleTable(
     prim_key_bln=mstr.bool,
     prim_key_magicf=mstr.magicf,
 )
+
+TABLE_SPEC_LOGGER = "simple_sqlite3_orm._table_spec"
+
+
+@pytest.fixture(autouse=True)
+def enable_debug_logging(caplog: pytest.LogCaptureFixture):
+    caplog.set_level(logging.DEBUG, logger=TABLE_SPEC_LOGGER)
+    yield
+    for log in list(caplog.get_records("call")):
+        logger.info(log)
 
 
 class TestORMBase:
