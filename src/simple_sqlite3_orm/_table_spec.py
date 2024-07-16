@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from io import StringIO
 from typing import Any, Literal, TypeVar
@@ -15,6 +16,8 @@ from simple_sqlite3_orm._sqlite_spec import (
     SQLiteStorageClass,
 )
 from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr, lru_cache
+
+logger = logging.getLogger(__name__)
 
 
 def gen_sql_stmt(*stmts: str) -> str:
@@ -121,7 +124,10 @@ class TableSpec(BaseModel):
                 constrain = metadata
         if not datatype_name:
             raise ValueError("data affinity must be set")
-        return f"{column_name} {datatype_name} {constrain}".strip()
+
+        res = f"{column_name} {datatype_name} {constrain}".strip()
+        logger.debug(f"{column_name=}: {res}")
+        return res
 
     @classmethod
     @lru_cache
@@ -148,7 +154,7 @@ class TableSpec(BaseModel):
         if strict:
             table_options.append("STRICT")
 
-        return gen_sql_stmt(
+        res = gen_sql_stmt(
             "CREATE",
             f"{'TEMPORARY' if temporary else ''}",
             "TABLE",
@@ -156,6 +162,8 @@ class TableSpec(BaseModel):
             f"{table_name} ({cols_spec})",
             f"{','.join(table_options)}",
         )
+        logger.debug(res)
+        return res
 
     @classmethod
     @lru_cache
@@ -190,7 +198,7 @@ class TableSpec(BaseModel):
                 indexed_cols.append(_col)
         indexed_columns_stmt = f"({','.join(indexed_cols)})"
 
-        return gen_sql_stmt(
+        res = gen_sql_stmt(
             "CREATE",
             f"{'UNIQUE' if unique else ''}",
             "INDEX",
@@ -198,6 +206,8 @@ class TableSpec(BaseModel):
             f"{index_name}",
             f"ON {table_name} {indexed_columns_stmt}",
         )
+        logger.debug(res)
+        return res
 
     @classmethod
     def table_row_factory(
@@ -271,11 +281,13 @@ class TableSpec(BaseModel):
             returning_cols, returning_stmt
         )
 
-        return gen_sql_stmt(
+        res = gen_sql_stmt(
             gen_insert_stmt,
             gen_insert_value_stmt,
             gen_returning_stmt,
         )
+        logger.debug(res)
+        return res
 
     @classmethod
     @lru_cache
@@ -333,7 +345,7 @@ class TableSpec(BaseModel):
         gen_order_by_stmt = cls._generate_order_by_stmt(order_by, order_by_stmt)
         gen_limit_stmt = f"LIMIT {limit}" if limit is not None else ""
 
-        return gen_sql_stmt(
+        res = gen_sql_stmt(
             gen_select_stmt,
             gen_select_from_stmt,
             gen_where_stmt,
@@ -341,6 +353,8 @@ class TableSpec(BaseModel):
             gen_order_by_stmt,
             gen_limit_stmt,
         )
+        logger.debug(res)
+        return res
 
     @classmethod
     @lru_cache
@@ -398,13 +412,15 @@ class TableSpec(BaseModel):
             returning_cols, returning_stmt
         )
 
-        return gen_sql_stmt(
+        res = gen_sql_stmt(
             gen_delete_from_stmt,
             gen_where_stmt,
             gen_order_by_stmt,
             gen_limit_stmt,
             gen_returning_stmt,
         )
+        logger.debug(res)
+        return res
 
     def table_dump_asdict(self, *cols: str) -> dict[str, SQLiteStorageClass]:
         """Dump self to a dict containing all col values.
