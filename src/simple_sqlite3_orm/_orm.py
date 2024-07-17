@@ -639,6 +639,21 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
 
         return await self._run_in_pool(_inner)
 
+    async def orm_select_entry(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
+        **col_values: Any,
+    ) -> TableSpecType | None:
+        return await self._run_in_pool(
+            ORMBase.orm_select_entry,
+            self,
+            _distinct=_distinct,
+            _order_by=_order_by,
+            **col_values,
+        )
+
     async def orm_delete_entries(
         self,
         *,
