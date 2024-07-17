@@ -274,7 +274,7 @@ class ORMBase(Generic[TableSpecType]):
         *,
         _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
         _limit: int | None = None,
-        _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
+        _returning_cols: None = None,
         **cols_value: Any,
     ) -> int: ...
 
@@ -365,14 +365,17 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         number_of_cons: int,
         thread_name_prefix: str = "",
     ) -> None:
+        self._closed = False
+        self._shutdown_lock = threading.Lock()
+
         self._table_name = table_name
         self._schema_name = schema_name
 
-        self._thread_id_cons = thread_cons_map = {}
+        self._thread_id_cons: dict[int, sqlite3.Connection] = {}
 
         def _thread_initializer():
             thread_id = threading.get_native_id()
-            thread_cons_map[thread_id] = con = con_factory()
+            self._thread_id_cons[thread_id] = con = con_factory()
             con.row_factory = self.orm_table_spec.table_row_factory
 
         self._pool = ThreadPoolExecutor(
@@ -380,6 +383,15 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
             initializer=_thread_initializer,
             thread_name_prefix=thread_name_prefix,
         )
+
+    def shutdown(self) -> None:
+        """Close all the connections used by this pool."""
+        with self._shutdown_lock:
+            if self._closed:
+                return
+            self._closed = True
+            for con in self._thread_id_cons.values():
+                con.close()
 
     @property
     @deprecated("orm_con is not available in thread pool ORM")
