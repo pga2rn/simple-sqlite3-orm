@@ -194,7 +194,7 @@ class ORMBase(Generic[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
-        """Select entries for the table accordingly.
+        """Select entries from the table accordingly.
 
         Args:
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
@@ -219,6 +219,38 @@ class ORMBase(Generic[TableSpecType]):
         with self._con as con:
             _cur = con.execute(table_select_stmt, col_values)
             yield from _cur
+
+    def orm_select_entry(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
+        **col_values: Any,
+    ) -> TableSpecType | None:
+        """Select exactly one entry from the table accordingly.
+
+        Args:
+            _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
+            _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
+                Order the result accordingly. Defaults to None, not sorting the result.
+
+        Raises:
+            sqlite3.DatabaseError on failed sql execution.
+
+        Returns:
+            Exactly one <TableSpecType> entry, or None if not hit.
+        """
+        table_select_stmt = self.orm_table_spec.table_select_stmt(
+            select_from=self.orm_table_name,
+            distinct=_distinct,
+            order_by=_order_by,
+            limit=1,
+            where_cols=tuple(col_values),
+        )
+
+        with self._con as con:
+            _cur = con.execute(table_select_stmt, col_values)
+            return _cur.fetchone()
 
     def orm_insert_entries(
         self, _in: Iterable[TableSpecType], *, or_option: INSERT_OR | None = None
