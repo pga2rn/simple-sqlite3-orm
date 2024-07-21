@@ -459,10 +459,17 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         """Not implemented, orm_con is not available in thread pool ORM."""
         raise NotImplementedError("orm_con is not available in thread pool ORM")
 
-    def orm_pool_shutdown(self, *, wait=True):
+    def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
+        """Shutdown the ORM connections thread pool.
+
+        Args:
+            wait (bool, optional): Wait for threads join. Defaults to True.
+            close_connections (bool, optional): Close all the connections. Defaults to True.
+        """
         self._pool.shutdown(wait=wait)
-        for con in self._thread_id_cons.values():
-            con.close()
+        if close_connections:
+            for con in self._thread_id_cons.values():
+                con.close()
         self._thread_id_cons = {}
 
     @copy_callable_typehint(ORMBase.orm_create_table)
