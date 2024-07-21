@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from concurrent.futures import ThreadPoolExecutor, Future
+from concurrent.futures import Future, ThreadPoolExecutor
 from functools import partial
 from typing import Any, Callable
 
