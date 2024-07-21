@@ -68,9 +68,30 @@ def generate_test_data(num_of_entry: int) -> dict[str, SampleTable]:
     return res
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="session")
 def setup_test_data():
     return generate_test_data(TEST_ENTRY_NUM)
+
+
+@pytest.fixture(scope="session")
+def entries_to_lookup(setup_test_data: dict[str, SampleTable]) -> list[SampleTable]:
+    return random.sample(
+        list(setup_test_data.values()),
+        k=TEST_LOOKUP_ENTRIES_NUM,
+    )
+
+
+@pytest.fixture(scope="session")
+def entries_to_remove(setup_test_data: dict[str, SampleTable]) -> list[SampleTable]:
+    return random.sample(
+        list(setup_test_data.values()),
+        k=TEST_REMOVE_ENTRIES_NUM,
+    )
+
+
+@pytest.fixture(scope="session")
+def entry_to_lookup(setup_test_data: dict[str, SampleTable]) -> SampleTable:
+    return random.choice(list(setup_test_data.values()))
 
 
 @pytest.fixture(scope="class")
@@ -119,19 +140,3 @@ def setup_con_factory(
         return con
 
     return con_factory
-
-
-@pytest.fixture(scope="class")
-def entries_to_lookup(setup_test_data: dict[str, SampleTable]) -> list[SampleTable]:
-    return random.sample(
-        list(setup_test_data.values()),
-        k=TEST_LOOKUP_ENTRIES_NUM,
-    )
-
-
-@pytest.fixture(scope="class")
-def entries_to_remove(setup_test_data: dict[str, SampleTable]) -> list[SampleTable]:
-    return random.sample(
-        list(setup_test_data.values()),
-        k=TEST_REMOVE_ENTRIES_NUM,
-    )
