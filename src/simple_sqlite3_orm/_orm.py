@@ -612,6 +612,11 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
         """Not implemented, orm_con is not available in thread pool ORM."""
         raise NotImplementedError("orm_con is not available in thread pool ORM")
 
+    async def orm_execute(
+        self, sql_stmt: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list[Any]:
+        return await self._run_in_pool(ORMBase.orm_execute, self, sql_stmt, params)
+
     def orm_select_entries_gen(
         self,
         *,
