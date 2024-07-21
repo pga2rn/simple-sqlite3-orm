@@ -77,7 +77,7 @@ def setup_test_data():
 def setup_test_db(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[SampleDB, None, None]:
-    """Setup a single db connection."""
+    """Setup a single db connection for a test class."""
     tmp_path = tmp_path_factory.mktemp("tmp_db_path")
     db_file = tmp_path / "test_db_file.sqlite3"
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import random
 import sqlite3
 from typing import Generator
 
@@ -22,16 +23,13 @@ class TestWithSampleDB:
     def setup_test(
         self,
         setup_test_db: SampleDB,
-        setup_test_data: dict[str, SampleTable],
         entries_to_lookup: list[SampleTable],
         entries_to_remove: list[SampleTable],
     ):
         self.table_name = TABLE_NAME
 
-        self.data_for_test = setup_test_data
         self.table_spec = SampleTable
         self.orm_inst = setup_test_db
-        self.data_len = len(setup_test_data)
         self.entries_to_lookup = entries_to_lookup
         self.entries_to_remove = entries_to_remove
 
@@ -48,15 +46,15 @@ class TestWithSampleDB:
             unique=True,
         )
 
-    def test_insert_entries(self):
+    def test_insert_entries(self, setup_test_data: dict[str, SampleTable]):
         logger.info("test insert entries")
 
-        for entry in utils.batched(self.data_for_test.values(), TEST_INSERT_BATCH_SIZE):
+        for entry in utils.batched(setup_test_data.values(), TEST_INSERT_BATCH_SIZE):
             self.orm_inst.orm_insert_entries(entry)
 
         logger.info("confirm data written")
         for _entry in self.orm_inst.orm_select_entries():
-            _corresponding_item = self.data_for_test[_entry.prim_key]
+            _corresponding_item = setup_test_data[_entry.prim_key]
             assert _corresponding_item == _entry
 
         logger.info("confirm the num of inserted entries")
@@ -67,7 +65,26 @@ class TestWithSampleDB:
                 )
             )
             _raw = _cur.fetchone()
-            assert _raw[0] == self.data_len
+            assert _raw[0] == len(setup_test_data)
+
+    def test_select_one_entry(self, setup_test_data: dict[str, SampleTable]):
+        logger.info("test select exactly one entry")
+        entry_key = random.choice(list(setup_test_data))
+        entry_to_select = setup_test_data[entry_key]
+
+        assert entry_to_select == self.orm_inst.orm_select_entry(
+            key_id=entry_to_select.key_id
+        )
+
+    def test_orm_execute(self, setup_test_data: dict[str, SampleTable]):
+        logger.info("test orm_execute API")
+        sql_stmt = self.orm_inst.orm_table_spec.table_select_stmt(
+            select_from=self.orm_inst.orm_table_name,
+            select_cols="*",
+            function="count",
+        )
+        res = self.orm_inst.orm_execute(sql_stmt)
+        assert res and res[0][0] == len(setup_test_data)
 
     def test_lookup_entries(self):
         logger.info("test lookup entries")
@@ -80,7 +97,7 @@ class TestWithSampleDB:
             assert len(_looked_up) == 1
             assert _looked_up[0] == _entry
 
-    def test_delete_entries(self):
+    def test_delete_entries(self, setup_test_data: dict[str, SampleTable]):
         logger.info("test remove and confirm the removed entries")
         if sqlite3.sqlite_version_info < (3, 35, 0):
             logger.warning(
@@ -118,4 +135,4 @@ class TestWithSampleDB:
                 )
             )
             _raw = _cur.fetchone()
-            assert _raw[0] == self.data_len - len(self.entries_to_remove)
+            assert _raw[0] == len(setup_test_data) - len(self.entries_to_remove)
