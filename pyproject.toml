@@ -28,7 +28,7 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "pydantic==2.8.2",
+  "pydantic<3,>=2.6",
   "typing-extensions>=4",
 ]
 optional-dependencies.dev = [
