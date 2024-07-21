@@ -125,6 +125,32 @@ class ORMBase(Generic[TableSpecType]):
             else self._table_name
         )
 
+    def orm_execute(
+        self, sql_stmt: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list[Any]:
+        """Execute one sql statement and get the all the result.
+
+        The result will be fetched with fetchall API and returned as it.
+
+        This method is inteneded for executing simple sql_stmt with small result.
+        For complicated sql statement and large result, please use sqlite3.Connection object
+            exposed by orm_con and manipulate the Cursor object by yourselves.
+
+        Args:
+            sql_stmt (str): The sqlite statement to be executed.
+            params (tuple[Any, ...] | dict[str, Any] | None, optional): The parameters to be bound
+                to the sql statement execution. Defaults to None, not passing any params.
+
+        Returns:
+            list[Any]: A list contains all the result entries.
+        """
+        with self._con as con:
+            if params:
+                cur = con.execute(sql_stmt, params)
+            else:
+                cur = con.execute(sql_stmt)
+            return cur.fetchall()
+
     def orm_create_table(
         self,
         *,
