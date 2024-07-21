@@ -125,6 +125,32 @@ class ORMBase(Generic[TableSpecType]):
             else self._table_name
         )
 
+    def orm_execute(
+        self, sql_stmt: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list[Any]:
+        """Execute one sql statement and get the all the result.
+
+        The result will be fetched with fetchall API and returned as it.
+
+        This method is inteneded for executing simple sql_stmt with small result.
+        For complicated sql statement and large result, please use sqlite3.Connection object
+            exposed by orm_con and manipulate the Cursor object by yourselves.
+
+        Args:
+            sql_stmt (str): The sqlite statement to be executed.
+            params (tuple[Any, ...] | dict[str, Any] | None, optional): The parameters to be bound
+                to the sql statement execution. Defaults to None, not passing any params.
+
+        Returns:
+            list[Any]: A list contains all the result entries.
+        """
+        with self._con as con:
+            if params:
+                cur = con.execute(sql_stmt, params)
+            else:
+                cur = con.execute(sql_stmt)
+            return cur.fetchall()
+
     def orm_create_table(
         self,
         *,
@@ -194,7 +220,7 @@ class ORMBase(Generic[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
-        """Select entries for the table accordingly.
+        """Select entries from the table accordingly.
 
         Args:
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
@@ -219,6 +245,40 @@ class ORMBase(Generic[TableSpecType]):
         with self._con as con:
             _cur = con.execute(table_select_stmt, col_values)
             yield from _cur
+
+    def orm_select_entry(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
+        **col_values: Any,
+    ) -> TableSpecType | None:
+        """Select exactly one entry from the table accordingly.
+
+        NOTE that if the select result contains more than one entry, this method will return
+            the FIRST one from the result with fetchone API.
+
+        Args:
+            _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
+            _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
+                Order the result accordingly. Defaults to None, not sorting the result.
+
+        Raises:
+            sqlite3.DatabaseError on failed sql execution.
+
+        Returns:
+            Exactly one <TableSpecType> entry, or None if not hit.
+        """
+        table_select_stmt = self.orm_table_spec.table_select_stmt(
+            select_from=self.orm_table_name,
+            distinct=_distinct,
+            order_by=_order_by,
+            where_cols=tuple(col_values),
+        )
+
+        with self._con as con:
+            _cur = con.execute(table_select_stmt, col_values)
+            return _cur.fetchone()
 
     def orm_insert_entries(
         self, _in: Iterable[TableSpecType], *, or_option: INSERT_OR | None = None
@@ -274,7 +334,7 @@ class ORMBase(Generic[TableSpecType]):
         *,
         _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
         _limit: int | None = None,
-        _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
+        _returning_cols: None = None,
         **cols_value: Any,
     ) -> int: ...
 
@@ -368,11 +428,11 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         self._table_name = table_name
         self._schema_name = schema_name
 
-        self._thread_id_cons = thread_cons_map = {}
+        self._thread_id_cons: dict[int, sqlite3.Connection] = {}
 
         def _thread_initializer():
             thread_id = threading.get_native_id()
-            thread_cons_map[thread_id] = con = con_factory()
+            self._thread_id_cons[thread_id] = con = con_factory()
             con.row_factory = self.orm_table_spec.table_row_factory
 
         self._pool = ThreadPoolExecutor(
@@ -387,11 +447,29 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         """Not implemented, orm_con is not available in thread pool ORM."""
         raise NotImplementedError("orm_con is not available in thread pool ORM")
 
-    def orm_pool_shutdown(self, *, wait=True):
+    def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
+        """Shutdown the ORM connections thread pool.
+
+        It is safe to call this method multiple time.
+        This method is NOT thread-safe, and should be called at the main thread,
+            or the thread that creates this thread pool.
+
+        Args:
+            wait (bool, optional): Wait for threads join. Defaults to True.
+            close_connections (bool, optional): Close all the connections. Defaults to True.
+        """
         self._pool.shutdown(wait=wait)
-        for con in self._thread_id_cons.values():
-            con.close()
+        if close_connections:
+            for con in self._thread_id_cons.values():
+                con.close()
         self._thread_id_cons = {}
+
+    def orm_execute(
+        self, sql_stmt: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list[Any]:
+        return self._pool.submit(super().orm_execute, sql_stmt, params).result()
+
+    orm_execute.__doc__ = ORMBase.orm_execute.__doc__
 
     @copy_callable_typehint(ORMBase.orm_create_table)
     def orm_create_table(self, *args, **kwargs):
@@ -409,6 +487,7 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
+        """Select multiple entries and return a generator for yielding entries from."""
         _queue = queue.SimpleQueue()
 
         def _inner():
@@ -450,6 +529,8 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> list[TableSpecType]:
+        """Select multiple entries and return all the entries in a list."""
+
         def _inner():
             return list(
                 ORMBase.orm_select_entries(
@@ -533,6 +614,13 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
         """Not implemented, orm_con is not available in thread pool ORM."""
         raise NotImplementedError("orm_con is not available in thread pool ORM")
 
+    async def orm_execute(
+        self, sql_stmt: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list[Any]:
+        return await self._run_in_pool(ORMBase.orm_execute, self, sql_stmt, params)
+
+    orm_execute.__doc__ = ORMBase.orm_execute.__doc__
+
     def orm_select_entries_gen(
         self,
         *,
@@ -541,6 +629,7 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> AsyncGenerator[TableSpecType, Any]:
+        """Select multiple entries and return an async generator for yielding entries from."""
         _async_queue = asyncio.Queue()
 
         def _inner():
@@ -582,6 +671,8 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> list[TableSpecType]:
+        """Select multiple entries and return all the entries in a list."""
+
         def _inner():
             return list(
                 ORMBase.orm_select_entries(
@@ -594,6 +685,23 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
             )
 
         return await self._run_in_pool(_inner)
+
+    async def orm_select_entry(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
+        **col_values: Any,
+    ) -> TableSpecType | None:
+        return await self._run_in_pool(
+            ORMBase.orm_select_entry,
+            self,
+            _distinct=_distinct,
+            _order_by=_order_by,
+            **col_values,
+        )
+
+    orm_select_entry.__doc__ = ORMBase.orm_select_entry
 
     async def orm_delete_entries(
         self,
@@ -619,6 +727,8 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
 
         return await self._run_in_pool(_inner)
 
+    orm_delete_entries.__doc__ = ORMBase.orm_delete_entries.__doc__
+
     async def orm_create_table(
         self,
         *,
@@ -631,6 +741,8 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
             allow_existed=allow_existed,
             without_rowid=without_rowid,
         )
+
+    orm_create_table.__doc__ = ORMBase.orm_create_table.__doc__
 
     async def orm_create_index(
         self,
@@ -649,6 +761,8 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
             unique=unique,
         )
 
+    orm_create_index.__doc__ = ORMBase.orm_create_index.__doc__
+
     async def orm_insert_entries(
         self, _in: Iterable[TableSpecType], *, or_option: INSERT_OR | None = None
     ) -> int:
@@ -656,9 +770,13 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
             ORMBase.orm_insert_entries, self, _in, or_option=or_option
         )
 
+    orm_insert_entries.__doc__ = ORMBase.orm_insert_entries.__doc__
+
     async def orm_insert_entry(
         self, _in: TableSpecType, *, or_option: INSERT_OR | None = None
     ) -> int:
         return await self._run_in_pool(
             ORMBase.orm_insert_entry, self, _in, or_option=or_option
         )
+
+    orm_insert_entry.__doc__ = ORMBase.orm_insert_entry.__doc__

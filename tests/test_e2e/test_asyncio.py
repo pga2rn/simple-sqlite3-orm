@@ -29,23 +29,7 @@ class SampleDBAsyncio(AsyncORMThreadPoolBase[SampleTable]):
 @pytest.mark.asyncio(scope="class")
 class TestWithSampleDBWithAsyncIO:
 
-    @pytest.fixture(autouse=True)
-    def setup_test(
-        self,
-        setup_test_data: dict[str, SampleTable],
-        entries_to_lookup: list[SampleTable],
-        entries_to_remove: list[SampleTable],
-    ):
-        self.table_name = TABLE_NAME
-
-        self.data_for_test = setup_test_data
-        self.table_spec = SampleTable
-        self.data_len = len(setup_test_data)
-        self.entries_to_lookup = entries_to_lookup
-        self.entries_to_remove = entries_to_remove
-
     @pytest_asyncio.fixture(scope="class")
-    @pytest.mark.asyncio(scope="class")
     async def async_pool(
         self,
         setup_con_factory: Callable[[], sqlite3.Connection],
@@ -61,7 +45,6 @@ class TestWithSampleDBWithAsyncIO:
             pool.orm_pool_shutdown()
 
     @pytest_asyncio.fixture(autouse=True, scope="class")
-    @pytest.mark.asyncio(scope="class")
     async def start_timer(self) -> tuple[asyncio.Task[None], asyncio.Event]:
         _test_finished = asyncio.Event()
 
@@ -84,12 +67,14 @@ class TestWithSampleDBWithAsyncIO:
         logger.info("test create table")
         await async_pool.orm_create_table(without_rowid=True)
 
-    async def test_insert_entries_with_pool(self, async_pool: SampleDBAsyncio):
+    async def test_insert_entries_with_pool(
+        self, async_pool: SampleDBAsyncio, setup_test_data: dict[str, SampleTable]
+    ):
         logger.info("test insert entries...")
 
         _tasks = []
         for _batch_count, entry in enumerate(
-            batched(self.data_for_test.values(), TEST_INSERT_BATCH_SIZE),
+            batched(setup_test_data.values(), TEST_INSERT_BATCH_SIZE),
             start=1,
         ):
             _task = asyncio.create_task(async_pool.orm_insert_entries(entry))
@@ -103,10 +88,10 @@ class TestWithSampleDBWithAsyncIO:
         logger.info("confirm data written with orm_select_entries_gen")
         _count = 0
         async for _entry in async_pool.orm_select_entries_gen():
-            _corresponding_item = self.data_for_test[_entry.prim_key]
+            _corresponding_item = setup_test_data[_entry.prim_key]
             assert _corresponding_item == _entry
             _count += 1
-        assert _count == len(self.data_for_test)
+        assert _count == len(setup_test_data)
 
     async def test_create_index(self, async_pool: SampleDBAsyncio):
         logger.info("test create index")
@@ -116,9 +101,11 @@ class TestWithSampleDBWithAsyncIO:
             unique=True,
         )
 
-    async def test_lookup_entries(self, async_pool: SampleDBAsyncio):
+    async def test_lookup_entries(
+        self, async_pool: SampleDBAsyncio, setup_test_data: dict[str, SampleTable]
+    ):
         logger.info("test lookup entries")
-        for _entry in self.entries_to_lookup:
+        for _entry in setup_test_data.values():
             _looked_up = await async_pool.orm_select_entries(
                 key_id=_entry.key_id,
                 prim_key_sha256hash=_entry.prim_key_sha256hash,
@@ -126,7 +113,21 @@ class TestWithSampleDBWithAsyncIO:
             assert len(_looked_up) == 1
             assert _looked_up[0] == _entry
 
-    async def test_delete_entries(self, async_pool: SampleDBAsyncio):
+    async def test_orm_execute(
+        self, async_pool: SampleDBAsyncio, setup_test_data: dict[str, SampleTable]
+    ):
+        logger.info("test orm_execute to check inserted entries num")
+        sql_stmt = async_pool.orm_table_spec.table_select_stmt(
+            select_from=async_pool.orm_table_name,
+            function="count",
+        )
+        res = await async_pool.orm_execute(sql_stmt)
+
+        assert res and res[0][0] == len(setup_test_data)
+
+    async def test_delete_entries(
+        self, async_pool: SampleDBAsyncio, entries_to_remove: list[SampleTable]
+    ):
         logger.info("test remove and confirm the removed entries")
         if sqlite3.sqlite_version_info < (3, 35, 0):
             logger.warning(
@@ -137,14 +138,14 @@ class TestWithSampleDBWithAsyncIO:
                 )
             )
 
-            for entry in self.entries_to_remove:
+            for entry in entries_to_remove:
                 _res = await async_pool.orm_delete_entries(
                     key_id=entry.key_id,
                     prim_key_sha256hash=entry.prim_key_sha256hash,
                 )
                 assert _res == 1
         else:
-            for entry in self.entries_to_remove:
+            for entry in entries_to_remove:
                 _res = await async_pool.orm_delete_entries(
                     _returning_cols="*",
                     key_id=entry.key_id,
@@ -162,3 +163,6 @@ class TestWithSampleDBWithAsyncIO:
         _task, _event = start_timer
         _event.set()
         await _task
+
+    async def test_shutdown_pool(self, async_pool: SampleDBAsyncio):
+        async_pool.orm_pool_shutdown(wait=True, close_connections=True)
