@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from concurrent.futures import ThreadPoolExecutor
-from typing import Callable
+from concurrent.futures import ThreadPoolExecutor, Future
+from functools import partial
+from typing import Any, Callable
 
 import pytest
 
@@ -21,6 +22,10 @@ class SampleDBConnectionPool(ORMThreadPoolBase[SampleTable]):
 
 THREAD_NUM = 2
 WORKER_NUM = 6
+
+
+def _get_result(func: Callable[..., Future[Any]]):
+    return func().result()
 
 
 class TestWithSampleDBAndThreadPool:
@@ -54,7 +59,7 @@ class TestWithSampleDBAndThreadPool:
                 batched(setup_test_data.values(), TEST_INSERT_BATCH_SIZE),
                 start=1,
             ):
-                pool.submit(thread_pool.orm_insert_entries, entry)
+                pool.submit(_get_result, partial(thread_pool.orm_insert_entries, entry))
 
             logger.info(
                 f"all insert tasks are dispatched: {_batch_count} batches with {TEST_INSERT_BATCH_SIZE=}"
