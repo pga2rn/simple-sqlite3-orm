@@ -7,7 +7,7 @@ import queue
 import sqlite3
 import sys
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future
 from functools import cached_property
 from typing import (
     TYPE_CHECKING,
@@ -27,7 +27,6 @@ from typing_extensions import ParamSpec, deprecated
 
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR, ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
-from simple_sqlite3_orm._typing import copy_callable_typehint
 
 _parameterized_orm_cache: WeakValueDictionary[
     tuple[type[ORMBase], type[TableSpec]], type[ORMBase[Any]]
@@ -411,11 +410,6 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
     See https://www.sqlite.org/wal.html#concurrency for more details.
     """
 
-    @property
-    def _con(self) -> sqlite3.Connection:
-        """Get thread-specific sqlite3 connection."""
-        return self._thread_id_cons[threading.get_native_id()]
-
     def __init__(
         self,
         table_name: str,
@@ -442,6 +436,11 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         )
 
     @property
+    def _con(self) -> sqlite3.Connection:
+        """Get thread-specific sqlite3 connection."""
+        return self._thread_id_cons[threading.get_native_id()]
+
+    @property
     @deprecated("orm_con is not available in thread pool ORM")
     def orm_con(self):
         """Not implemented, orm_con is not available in thread pool ORM."""
@@ -466,18 +465,44 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
 
     def orm_execute(
         self, sql_stmt: str, params: tuple[Any, ...] | dict[str, Any] | None = None
-    ) -> list[Any]:
-        return self._pool.submit(super().orm_execute, sql_stmt, params).result()
+    ) -> Future[list[Any]]:
+        return self._pool.submit(super().orm_execute, sql_stmt, params)
 
     orm_execute.__doc__ = ORMBase.orm_execute.__doc__
 
-    @copy_callable_typehint(ORMBase.orm_create_table)
-    def orm_create_table(self, *args, **kwargs):
-        self._pool.submit(super().orm_create_table, *args, **kwargs).result()
+    def orm_create_table(
+        self,
+        *,
+        allow_existed: bool = False,
+        strict: bool = False,
+        without_rowid: bool = False,
+    ) -> Future[None]:
+        return self._pool.submit(
+            super().orm_create_table,
+            allow_existed=allow_existed,
+            strict=strict,
+            without_rowid=without_rowid,
+        )
 
-    @copy_callable_typehint(ORMBase.orm_create_index)
-    def orm_create_index(self, *args, **kwargs):
-        self._pool.submit(super().orm_create_index, *args, **kwargs).result()
+    orm_create_table.__doc__ = ORMBase.orm_create_table.__doc__
+
+    def orm_create_index(
+        self,
+        *,
+        index_name: str,
+        index_keys: tuple[str, ...],
+        allow_existed: bool = False,
+        unique: bool = False,
+    ) -> Future[None]:
+        return self._pool.submit(
+            super().orm_create_index,
+            index_name=index_name,
+            index_keys=index_keys,
+            allow_existed=allow_existed,
+            unique=unique,
+        )
+
+    orm_create_index.__doc__ = ORMBase.orm_create_index.__doc__
 
     def orm_select_entries_gen(
         self,
@@ -528,7 +553,7 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
         _limit: int | None = None,
         **col_values: Any,
-    ) -> list[TableSpecType]:
+    ) -> Future[list[TableSpecType]]:
         """Select multiple entries and return all the entries in a list."""
 
         def _inner():
@@ -542,15 +567,21 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
                 )
             )
 
-        return self._pool.submit(_inner).result()
+        return self._pool.submit(_inner)
 
-    @copy_callable_typehint(ORMBase.orm_insert_entries)
-    def orm_insert_entries(self, *args, **kwargs):
-        return self._pool.submit(super().orm_insert_entries, *args, **kwargs).result()
+    def orm_insert_entries(
+        self, _in: Iterable[TableSpecType], *, or_option: INSERT_OR | None = None
+    ) -> Future[int]:
+        return self._pool.submit(super().orm_insert_entries, _in, or_option=or_option)
 
-    @copy_callable_typehint(ORMBase.orm_insert_entry)
-    def orm_insert_entry(self, *args, **kwargs):
-        return self._pool.submit(super().orm_insert_entry, *args, **kwargs).result()
+    orm_insert_entries.__doc__ = ORMBase.orm_insert_entries.__doc__
+
+    def orm_insert_entry(
+        self, _in: TableSpecType, *, or_option: INSERT_OR | None = None
+    ) -> Future[int]:
+        return self._pool.submit(super().orm_insert_entry, _in, or_option=or_option)
+
+    orm_insert_entry.__doc__ = ORMBase.orm_insert_entry.__doc__
 
     def orm_delete_entries(
         self,
@@ -559,7 +590,7 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         _limit: int | None = None,
         _returning_cols: tuple[str, ...] | None | Literal["*"] = None,
         **cols_value: Any,
-    ) -> int | list[TableSpecType]:
+    ) -> Future[int | list[TableSpecType]]:
         # NOTE(20240708): currently we don't support generator for delete with RETURNING statement
         def _inner():
             res = ORMBase.orm_delete_entries(
@@ -574,7 +605,9 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
                 return res
             return list(res)
 
-        return self._pool.submit(_inner).result()
+        return self._pool.submit(_inner)
+
+    orm_delete_entries.__doc__ = ORMBase.orm_delete_entries.__doc__
 
 
 class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
