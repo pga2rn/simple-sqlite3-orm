@@ -464,6 +464,13 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
                 con.close()
         self._thread_id_cons = {}
 
+    def orm_execute(
+        self, sql_stmt: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list[Any]:
+        return self._pool.submit(super().orm_execute, sql_stmt, params).result()
+
+    orm_execute.__doc__ = ORMBase.orm_execute.__doc__
+
     @copy_callable_typehint(ORMBase.orm_create_table)
     def orm_create_table(self, *args, **kwargs):
         self._pool.submit(super().orm_create_table, *args, **kwargs).result()
