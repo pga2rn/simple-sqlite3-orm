@@ -7,7 +7,7 @@ from typing_extensions import ParamSpec
 P = ParamSpec("P")
 
 
-def copy_callable_typehint(_: Callable[P, Any]):
+def copy_callable_typehint(src: Callable[P, Any]):
     """This helper function return a decorator that can type hint the target
     function as the _source function.
 
@@ -17,6 +17,7 @@ def copy_callable_typehint(_: Callable[P, Any]):
     """
 
     def _decorator(target) -> Callable[P, Any]:
+        target.__doc__ = src.__doc__
         return target
 
     return _decorator
