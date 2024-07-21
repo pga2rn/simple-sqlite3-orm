@@ -229,6 +229,9 @@ class ORMBase(Generic[TableSpecType]):
     ) -> TableSpecType | None:
         """Select exactly one entry from the table accordingly.
 
+        NOTE that if the select result contains more than one entry, this method will return
+            the FIRST one from the result with fetchone API.
+
         Args:
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
             _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
@@ -244,7 +247,6 @@ class ORMBase(Generic[TableSpecType]):
             select_from=self.orm_table_name,
             distinct=_distinct,
             order_by=_order_by,
-            limit=1,
             where_cols=tuple(col_values),
         )
 
