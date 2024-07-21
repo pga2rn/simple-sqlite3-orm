@@ -7,7 +7,7 @@ import queue
 import sqlite3
 import sys
 import threading
-from concurrent.futures import ThreadPoolExecutor, Future
+from concurrent.futures import Future, ThreadPoolExecutor
 from functools import cached_property
 from typing import (
     TYPE_CHECKING,
