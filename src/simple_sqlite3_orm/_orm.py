@@ -444,15 +444,6 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
             thread_name_prefix=thread_name_prefix,
         )
 
-    def shutdown(self) -> None:
-        """Close all the connections used by this pool."""
-        with self._shutdown_lock:
-            if self._closed:
-                return
-            self._closed = True
-            for con in self._thread_id_cons.values():
-                con.close()
-
     @property
     @deprecated("orm_con is not available in thread pool ORM")
     def orm_con(self):
