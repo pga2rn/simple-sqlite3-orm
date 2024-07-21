@@ -35,11 +35,11 @@ class TestWithSampleDBAndThreadPool:
             )
             yield pool
         finally:
-            pool.orm_pool_shutdown()
+            pool.orm_pool_shutdown(wait=True, close_connections=True)
 
     def test_create_table(self, thread_pool: SampleDBConnectionPool):
         logger.info("test create table")
-        thread_pool.orm_create_table(without_rowid=True)
+        thread_pool.orm_create_table(without_rowid=True).result()
 
     def test_insert_entries_with_pool(
         self,
@@ -74,7 +74,7 @@ class TestWithSampleDBAndThreadPool:
             index_name=INDEX_NAME,
             index_keys=INDEX_KEYS,
             unique=True,
-        )
+        ).result()
 
     def test_orm_execute(
         self,
@@ -86,7 +86,7 @@ class TestWithSampleDBAndThreadPool:
             select_from=thread_pool.orm_table_name,
             function="count",
         )
-        res = thread_pool.orm_execute(sql_stmt)
+        res = thread_pool.orm_execute(sql_stmt).result()
 
         assert res and res[0][0] == len(setup_test_data)
 
@@ -98,7 +98,7 @@ class TestWithSampleDBAndThreadPool:
             _looked_up = thread_pool.orm_select_entries(
                 key_id=_entry.key_id,
                 prim_key_sha256hash=_entry.prim_key_sha256hash,
-            )
+            ).result()
             _looked_up = list(_looked_up)
             assert len(_looked_up) == 1
             assert _looked_up[0] == _entry
@@ -120,7 +120,7 @@ class TestWithSampleDBAndThreadPool:
                 _res = thread_pool.orm_delete_entries(
                     key_id=entry.key_id,
                     prim_key_sha256hash=entry.prim_key_sha256hash,
-                )
+                ).result()
                 assert _res == 1
         else:
             for entry in entries_to_remove:
@@ -128,11 +128,8 @@ class TestWithSampleDBAndThreadPool:
                     _returning_cols="*",
                     key_id=entry.key_id,
                     prim_key_sha256hash=entry.prim_key_sha256hash,
-                )
+                ).result()
                 assert isinstance(_res, list)
 
                 assert len(_res) == 1
                 assert _res[0] == entry
-
-    def test_shutdown_pool(self, thread_pool: SampleDBConnectionPool):
-        thread_pool.orm_pool_shutdown(wait=True, close_connections=True)
