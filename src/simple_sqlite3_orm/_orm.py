@@ -480,6 +480,7 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
+        """Select multiple entries and return a generator for yielding entries from."""
         _queue = queue.SimpleQueue()
 
         def _inner():
@@ -521,6 +522,8 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> list[TableSpecType]:
+        """Select multiple entries and return all the entries in a list."""
+
         def _inner():
             return list(
                 ORMBase.orm_select_entries(
@@ -619,6 +622,7 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> AsyncGenerator[TableSpecType, Any]:
+        """Select multiple entries and return an async generator for yielding entries from."""
         _async_queue = asyncio.Queue()
 
         def _inner():
@@ -660,6 +664,8 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
         _limit: int | None = None,
         **col_values: Any,
     ) -> list[TableSpecType]:
+        """Select multiple entries and return all the entries in a list."""
+
         def _inner():
             return list(
                 ORMBase.orm_select_entries(
