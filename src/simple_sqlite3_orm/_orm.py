@@ -609,6 +609,8 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
     ) -> list[Any]:
         return await self._run_in_pool(ORMBase.orm_execute, self, sql_stmt, params)
 
+    orm_execute.__doc__ = ORMBase.orm_execute.__doc__
+
     def orm_select_entries_gen(
         self,
         *,
@@ -686,6 +688,8 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
             **col_values,
         )
 
+    orm_select_entry.__doc__ = ORMBase.orm_select_entry
+
     async def orm_delete_entries(
         self,
         *,
@@ -710,6 +714,8 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
 
         return await self._run_in_pool(_inner)
 
+    orm_delete_entries.__doc__ = ORMBase.orm_delete_entries.__doc__
+
     async def orm_create_table(
         self,
         *,
@@ -722,6 +728,8 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
             allow_existed=allow_existed,
             without_rowid=without_rowid,
         )
+
+    orm_create_table.__doc__ = ORMBase.orm_create_table.__doc__
 
     async def orm_create_index(
         self,
@@ -740,6 +748,8 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
             unique=unique,
         )
 
+    orm_create_index.__doc__ = ORMBase.orm_create_index.__doc__
+
     async def orm_insert_entries(
         self, _in: Iterable[TableSpecType], *, or_option: INSERT_OR | None = None
     ) -> int:
@@ -747,9 +757,13 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
             ORMBase.orm_insert_entries, self, _in, or_option=or_option
         )
 
+    orm_insert_entries.__doc__ = ORMBase.orm_insert_entries.__doc__
+
     async def orm_insert_entry(
         self, _in: TableSpecType, *, or_option: INSERT_OR | None = None
     ) -> int:
         return await self._run_in_pool(
             ORMBase.orm_insert_entry, self, _in, or_option=or_option
         )
+
+    orm_insert_entry.__doc__ = ORMBase.orm_insert_entry.__doc__
