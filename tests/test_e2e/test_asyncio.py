@@ -42,7 +42,7 @@ class TestWithSampleDBWithAsyncIO:
             )
             yield pool
         finally:
-            pool.orm_pool_shutdown()
+            pool.orm_pool_shutdown(wait=True, close_connections=True)
 
     @pytest_asyncio.fixture(autouse=True, scope="class")
     async def start_timer(self) -> tuple[asyncio.Task[None], asyncio.Event]:
@@ -163,6 +163,3 @@ class TestWithSampleDBWithAsyncIO:
         _task, _event = start_timer
         _event.set()
         await _task
-
-    async def test_shutdown_pool(self, async_pool: SampleDBAsyncio):
-        async_pool.orm_pool_shutdown(wait=True, close_connections=True)
