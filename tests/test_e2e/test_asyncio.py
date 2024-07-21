@@ -6,7 +6,6 @@ import sqlite3
 import time
 from typing import Callable
 
-import pytest
 import pytest_asyncio
 
 from simple_sqlite3_orm._orm import AsyncORMThreadPoolBase
@@ -26,11 +25,9 @@ class SampleDBAsyncio(AsyncORMThreadPoolBase[SampleTable]):
     """Test connection pool with async API."""
 
 
-@pytest.mark.asyncio(scope="class")
 class TestWithSampleDBWithAsyncIO:
 
     @pytest_asyncio.fixture(scope="class")
-    @pytest.mark.asyncio(scope="class")
     async def async_pool(
         self,
         setup_con_factory: Callable[[], sqlite3.Connection],
@@ -46,7 +43,6 @@ class TestWithSampleDBWithAsyncIO:
             pool.orm_pool_shutdown()
 
     @pytest_asyncio.fixture(autouse=True, scope="class")
-    @pytest.mark.asyncio(scope="class")
     async def start_timer(self) -> tuple[asyncio.Task[None], asyncio.Event]:
         _test_finished = asyncio.Event()
 
