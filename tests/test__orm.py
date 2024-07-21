@@ -93,6 +93,19 @@ class TestORMBase:
         setup_connection.orm_insert_entry(entry_for_test, or_option="ignore")
         setup_connection.orm_insert_entry(entry_for_test, or_option="replace")
 
+    def test_orm_execute(self, setup_connection: ORMTest):
+        sql_stmt = setup_connection.orm_table_spec.table_select_stmt(
+            select_from=setup_connection.orm_table_name,
+            select_cols="*",
+            function="count",
+        )
+
+        res = setup_connection.orm_execute(sql_stmt)
+        assert res and res[0][0] > 0
+
+    def test_select_entry(self, setup_connection: ORMTest):
+        assert entry_for_test == setup_connection.orm_select_entry(prim_key=mstr)
+
     def test_select_entries(self, setup_connection: ORMTest):
         select_result = setup_connection.orm_select_entries(
             _distinct=True,
