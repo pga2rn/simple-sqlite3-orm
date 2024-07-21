@@ -766,12 +766,14 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
         self,
         *,
         allow_existed: bool = False,
+        strict: bool = False,
         without_rowid: bool = False,
     ) -> None:
         return await self._run_in_pool(
             ORMBase.orm_create_table,
             self,
             allow_existed=allow_existed,
+            strict=strict,
             without_rowid=without_rowid,
         )
 
