@@ -425,9 +425,6 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         number_of_cons: int,
         thread_name_prefix: str = "",
     ) -> None:
-        self._closed = False
-        self._shutdown_lock = threading.Lock()
-
         self._table_name = table_name
         self._schema_name = schema_name
 
@@ -452,6 +449,10 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
 
     def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
         """Shutdown the ORM connections thread pool.
+
+        It is safe to call this method multiple time.
+        This method is NOT thread-safe, and should be called at the main thread,
+            or the thread that creates this thread pool.
 
         Args:
             wait (bool, optional): Wait for threads join. Defaults to True.
