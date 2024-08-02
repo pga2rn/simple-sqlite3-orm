@@ -406,18 +406,18 @@ class TableSpec(BaseModel):
         """
         gen_delete_from_stmt = f"DELETE FROM {delete_from}"
         gen_where_stmt = cls._generate_where_stmt(where_cols, where_stmt)
-        gen_order_by_stmt = cls._generate_order_by_stmt(order_by, order_by_stmt)
-        gen_limit_stmt = f"LIMIT {limit}" if limit is not None else ""
         gen_returning_stmt = cls._generate_returning_stmt(
             returning_cols, returning_stmt
         )
+        gen_order_by_stmt = cls._generate_order_by_stmt(order_by, order_by_stmt)
+        gen_limit_stmt = f"LIMIT {limit}" if limit is not None else ""
 
         res = gen_sql_stmt(
             gen_delete_from_stmt,
             gen_where_stmt,
+            gen_returning_stmt,
             gen_order_by_stmt,
             gen_limit_stmt,
-            gen_returning_stmt,
         )
         logger.debug(res)
         return res
