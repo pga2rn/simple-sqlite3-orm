@@ -8,7 +8,7 @@ requires = [
 
 [project]
 name = "simple-sqlite3-orm"
-description = "A simple python sqlite3 ORM with pydantic."
+description = "A simple yet powerful SQLite3 ORM, powered by pydantic."
 
 readme = "README.md"
 license = { text = "LICENSE.md" }
