@@ -33,7 +33,7 @@ dependencies = [
 ]
 optional-dependencies.dev = [
   "black==24.4.2",
-  "coverage==7.6",
+  "coverage==7.6.1",
   "flake8==7.1",
   "isort==5.13.2",
   "pytest==8.3.1",
