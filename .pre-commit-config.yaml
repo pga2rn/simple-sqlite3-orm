@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: check-yaml
         args: ["--allow-multiple-documents"]
@@ -9,7 +9,7 @@ repos:
       - id: trailing-whitespace
   # Using this mirror lets us use mypyc-compiled black, which is about 2x faster
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 24.4.2
+    rev: 24.10.0
     hooks:
       - id: black
         # It is recommended to specify the latest version of Python
@@ -30,13 +30,13 @@ repos:
           - flake8-comprehensions
           - flake8-simplify
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: "2.2.1"
+    rev: "2.2.4"
     hooks:
       - id: pyproject-fmt
         # https://pyproject-fmt.readthedocs.io/en/latest/#calculating-max-supported-python-version
         additional_dependencies: ["tox>=4.9"]
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.41.0
+    rev: v0.42.0
     hooks:
       - id: markdownlint
         args: ["-c", ".markdownlint.yaml", "--fix"]
