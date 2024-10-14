@@ -107,7 +107,7 @@ skip_covered = true
 skip_empty = true
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py38"
 include = [
   "tests/**/*.py",
   "src/**/*.py",
