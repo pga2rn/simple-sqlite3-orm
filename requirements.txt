@@ -1,0 +1,3 @@
+# Generated from pyproject.toml, only for reference use!
+pydantic<3,>=2.6
+typing-extensions>=4
