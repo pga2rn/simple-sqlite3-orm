@@ -9,7 +9,9 @@ requires = [
 [project]
 name = "simple-sqlite3-orm"
 description = "A simple yet powerful SQLite3 ORM, powered by pydantic."
-
+authors = [
+  { name = "pga2rn", email = "aaronpigybd@gmail.com"},
+]
 readme = "README.md"
 license = { text = "LICENSE.md" }
 requires-python = ">=3.8"
@@ -39,7 +41,10 @@ optional-dependencies.dev = [
   "pytest-mock<3.15,>=3.14",
   "ruff<0.8,>=0.6",
 ]
-urls.Source = "https://github.com/pga2rn/simple-sqlite3-orm"
+
+[project.urls]
+Source = "https://github.com/pga2rn/simple-sqlite3-orm"
+Tracker = "https://github.com/pga2rn/simple-sqlite3-orm/issues"
 
 [tool.black]
 line-length = 88
