@@ -1,0 +1,49 @@
+[version]
+source = "vcs"
+
+[build.hooks.vcs]
+version-file = "src/simple_sqlite3_orm/_version.py"
+
+[build.targets.sdist]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[build.targets.wheel]
+only-include = [
+  "src",
+]
+sources = [
+  "src",
+]
+
+[envs.dev_py38]
+type = "virtual"
+python = "3.8"
+path = "./venv/hatch_venv_dev_py38"
+features = ["dev"]
+
+[envs.dev_py39]
+type = "virtual"
+python = "3.9"
+path = "./venv/hatch_venv_dev_py39"
+features = ["dev"]
+
+[envs.dev_py310]
+type = "virtual"
+python = "3.10"
+path = "./venv/hatch_venv_dev_py310"
+features = ["dev"]
+
+[envs.dev_py311]
+type = "virtual"
+python = "3.11"
+path = "./venv/hatch_venv_dev_py311"
+features = ["dev"]
+
+[envs.dev_py312]
+type = "virtual"
+python = "3.12"
+path = "./venv/hatch_venv_dev_py312"
+features = ["dev"]
