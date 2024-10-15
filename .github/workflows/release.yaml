@@ -43,10 +43,10 @@ jobs:
             dist/*.whl
             dist/*.checksum
 
+      - run: rm -f dist/*.checksum
+
       - if: github.event_name == 'release'
-        name: upload to pypi via twine
-        env:
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          rm -f dist/*.checksum
-          twine upload --verbose -u '__token__' dist/*
+        name: publish to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.8.14
+        with:
+          skip-existing: true
