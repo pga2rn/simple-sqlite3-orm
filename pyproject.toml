@@ -13,7 +13,7 @@ authors = [
   { name = "pga2rn", email = "aaronpigybd@gmail.com"},
 ]
 readme = "README.md"
-license = { text = "LICENSE.md" }
+license = { file = "LICENSE" }
 requires-python = ">=3.8"
 classifiers = [
   "License :: OSI Approved :: Apache Software License",
