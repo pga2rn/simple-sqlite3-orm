@@ -5,7 +5,8 @@ on:
     types: [published]
 
 jobs:
-  build:
+  build-and-push-artifacts:
+    name: build release packages and push gh artifacts
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,29 +25,43 @@ jobs:
           python -m pip install -U --disable-pip-version-check pip
           python -m pip install -U hatch build twine
 
-      - name: build wheel package
+      - name: build packages
         run: |
-          hatch build -t wheel
+          hatch build
 
       - name: calculate checksum
         run: |
-          for WHL in dist/*.whl; \
+          for PKG in dist/*; \
             do \
-              sha256sum ${WHL} | sed -E "s@(\w+)\s+.*@sha256:\1@" > \
-                ${WHL}.checksum; \
+              sha256sum ${PKG} | sed -E "s@(\w+)\s+.*@sha256:\1@" > \
+                ${PKG}.checksum; \
             done
 
-      - name: upload release artifacts
+      - name: push release artifacts
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/*.whl
-            dist/*.checksum
+          name: build-and-push-artifacts
+          path: dist/*
+          if-no-files-found: error
 
-      - if: github.event_name == 'release'
-        name: upload to pypi via twine
-        env:
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          rm -f dist/*.checksum
-          twine upload --verbose -u '__token__' dist/*
+  publish-pypi:
+    name: publish to pypi
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    needs: build-and-push-artifacts
+    permissions:
+      id-token: write
+
+    steps:
+      - name: download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-and-push-artifacts
+          path: dist
+
+      - run: rm dist/*.checksum
+
+      - name: publish to pypi
+        uses: pypa/gh-action-pypi-publish@v1.10.3
+        with:
+          skip-existing: true
