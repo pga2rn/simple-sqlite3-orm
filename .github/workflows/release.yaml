@@ -5,7 +5,7 @@ on:
     types: [published]
 
 jobs:
-  build-and-push-artifacts:
+  build-and-upload-artifacts:
     name: build release packages and push gh artifacts
     runs-on: ubuntu-latest
     permissions:
@@ -37,10 +37,10 @@ jobs:
                 ${PKG}.checksum; \
             done
 
-      - name: push release artifacts
-        uses: softprops/action-gh-release@v2
+      - name: upload release artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: build-and-push-artifacts
+          name: build-and-upload-artifacts
           path: dist/*
           if-no-files-found: error
 
@@ -48,7 +48,7 @@ jobs:
     name: publish to pypi
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    needs: build-and-push-artifacts
+    needs: build-and-upload-artifacts
     permissions:
       id-token: write
 
@@ -56,7 +56,7 @@ jobs:
       - name: download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: build-and-push-artifacts
+          name: build-and-upload-artifacts
           path: dist
 
       - run: rm dist/*.checksum
