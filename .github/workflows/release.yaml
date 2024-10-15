@@ -31,10 +31,10 @@ jobs:
 
       - name: calculate checksum
         run: |
-          for WHL in dist/*; \
+          for PKG in dist/*; \
             do \
-              sha256sum ${WHL} | sed -E "s@(\w+)\s+.*@sha256:\1@" > \
-                ${WHL}.checksum; \
+              sha256sum ${PKG} | sed -E "s@(\w+)\s+.*@sha256:\1@" > \
+                ${PKG}.checksum; \
             done
 
       - name: push release artifacts
