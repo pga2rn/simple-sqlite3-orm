@@ -9,11 +9,11 @@ requires = [
 [project]
 name = "simple-sqlite3-orm"
 description = "A simple yet powerful SQLite3 ORM, powered by pydantic."
-authors = [
-  { name = "pga2rn", email = "aaronpigybd@gmail.com"},
-]
 readme = "README.md"
 license = { file = "LICENSE" }
+authors = [
+  { name = "pga2rn", email = "aaronpigybd@gmail.com" },
+]
 requires-python = ">=3.8"
 classifiers = [
   "License :: OSI Approved :: Apache Software License",
@@ -42,9 +42,8 @@ optional-dependencies.dev = [
   "ruff<0.8,>=0.6",
 ]
 
-[project.urls]
-Source = "https://github.com/pga2rn/simple-sqlite3-orm"
-Tracker = "https://github.com/pga2rn/simple-sqlite3-orm/issues"
+urls.Source = "https://github.com/pga2rn/simple-sqlite3-orm"
+urls.Tracker = "https://github.com/pga2rn/simple-sqlite3-orm/issues"
 
 [tool.black]
 line-length = 88
