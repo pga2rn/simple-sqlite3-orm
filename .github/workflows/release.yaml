@@ -8,8 +8,6 @@ jobs:
   build-and-upload-artifacts:
     name: build release packages and push gh artifacts
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -65,3 +63,24 @@ jobs:
         uses: pypa/gh-action-pypi-publish@v1.10.3
         with:
           skip-existing: true
+
+  publish-release:
+    name: publish to gh release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    needs: build-and-upload-artifacts
+    permissions:
+      contents: write
+
+    steps:
+      - name: download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-and-upload-artifacts
+          path: dist
+
+      - name: upload artifacts to current release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
