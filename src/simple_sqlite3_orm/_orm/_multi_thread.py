@@ -4,11 +4,9 @@ import atexit
 import logging
 import queue
 import sqlite3
-import sys
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Generator,
@@ -16,38 +14,17 @@ from typing import (
     Literal,
     TypeVar,
 )
-from weakref import WeakValueDictionary
 
 from typing_extensions import ParamSpec, deprecated
 
 from simple_sqlite3_orm._orm._base import ORMBase
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR
-from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
-
-_parameterized_orm_cache: WeakValueDictionary[
-    tuple[type[ORMBase], type[TableSpec]], type[ORMBase[Any]]
-] = WeakValueDictionary()
+from simple_sqlite3_orm._table_spec import TableSpecType
 
 logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
-
-if sys.version_info >= (3, 9):
-    from types import GenericAlias as _GenericAlias
-else:
-    from typing import List
-
-    if not TYPE_CHECKING:
-        _GenericAlias = type(List[int])
-    else:
-
-        class _GenericAlias(type(List)):
-            def __new__(
-                cls, _type: type[Any], _params: type[Any] | tuple[type[Any], ...]
-            ):
-                """For type check only, typing the _GenericAlias as GenericAlias."""
-
 
 _global_shutdown = False
 

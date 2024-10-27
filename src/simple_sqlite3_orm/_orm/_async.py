@@ -3,9 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sqlite3
-import sys
 from typing import (
-    TYPE_CHECKING,
     Any,
     AsyncGenerator,
     Callable,
@@ -25,21 +23,6 @@ logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
-
-if sys.version_info >= (3, 9):
-    from types import GenericAlias as _GenericAlias
-else:
-    from typing import List
-
-    if not TYPE_CHECKING:
-        _GenericAlias = type(List[int])
-    else:
-
-        class _GenericAlias(type(List)):
-            def __new__(
-                cls, _type: type[Any], _params: type[Any] | tuple[type[Any], ...]
-            ):
-                """For type check only, typing the _GenericAlias as GenericAlias."""
 
 
 class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
