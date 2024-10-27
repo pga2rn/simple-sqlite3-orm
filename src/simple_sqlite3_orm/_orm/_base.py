@@ -20,6 +20,7 @@ from typing_extensions import ParamSpec
 
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR, ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
+from simple_sqlite3_orm._types import RowFactoryType
 
 _parameterized_orm_cache: WeakValueDictionary[
     tuple[type[ORMBase], type[TableSpec]], type[ORMBase[Any]]
@@ -204,12 +205,35 @@ class ORMBase(Generic[TableSpecType]):
         with self._con as con:
             con.execute(index_create_stmt)
 
+    @overload
     def orm_select_entries(
         self,
         *,
         _distinct: bool = False,
         _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
         _limit: int | None = None,
+        _row_factory: RowFactoryType,
+        **col_values: Any,
+    ) -> Generator[Any, None, None]: ...
+
+    @overload
+    def orm_select_entries(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
+        _limit: int | None = None,
+        _row_factory: None = None,
+        **col_values: Any,
+    ) -> Generator[TableSpecType, None, None]: ...
+
+    def orm_select_entries(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
+        _limit: int | None = None,
+        _row_factory: RowFactoryType | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
         """Select entries from the table accordingly.
@@ -219,6 +243,8 @@ class ORMBase(Generic[TableSpecType]):
             _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
                 Order the result accordingly. Defaults to None, not sorting the result.
             _limit (int | None, optional): Limit the number of result entries. Defaults to None.
+            _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
+                as row factory, set this argument to use different row factory. Defaults to None.
 
         Raises:
             sqlite3.DatabaseError on failed sql execution.
@@ -236,6 +262,8 @@ class ORMBase(Generic[TableSpecType]):
 
         with self._con as con:
             _cur = con.execute(table_select_stmt, col_values)
+            if _row_factory is not None:
+                _cur.row_factory = _row_factory
             yield from _cur
 
     def orm_select_entry(
@@ -243,8 +271,9 @@ class ORMBase(Generic[TableSpecType]):
         *,
         _distinct: bool = False,
         _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
+        _row_factory: RowFactoryType | None = None,
         **col_values: Any,
-    ) -> TableSpecType | None:
+    ) -> TableSpecType | Any | None:
         """Select exactly one entry from the table accordingly.
 
         NOTE that if the select result contains more than one entry, this method will return
@@ -254,6 +283,8 @@ class ORMBase(Generic[TableSpecType]):
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
             _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
                 Order the result accordingly. Defaults to None, not sorting the result.
+            _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
+                as row factory, set this argument to use different row factory. Defaults to None.
 
         Raises:
             sqlite3.DatabaseError on failed sql execution.
@@ -265,11 +296,14 @@ class ORMBase(Generic[TableSpecType]):
             select_from=self.orm_table_name,
             distinct=_distinct,
             order_by=_order_by,
+            limit=1,
             where_cols=tuple(col_values),
         )
 
         with self._con as con:
             _cur = con.execute(table_select_stmt, col_values)
+            if _row_factory is not None:
+                _cur.row_factory = _row_factory
             return _cur.fetchone()
 
     def orm_insert_entries(
@@ -327,6 +361,7 @@ class ORMBase(Generic[TableSpecType]):
         _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
         _limit: int | None = None,
         _returning_cols: None = None,
+        _row_factory: None = None,
         **cols_value: Any,
     ) -> int: ...
 
@@ -337,8 +372,20 @@ class ORMBase(Generic[TableSpecType]):
         _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
         _limit: int | None = None,
         _returning_cols: tuple[str, ...] | Literal["*"],
+        _row_factory: None = None,
         **cols_value: Any,
     ) -> Generator[TableSpecType, None, None]: ...
+
+    @overload
+    def orm_delete_entries(
+        self,
+        *,
+        _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        _limit: int | None = None,
+        _returning_cols: tuple[str, ...] | Literal["*"],
+        _row_factory: RowFactoryType,
+        **cols_value: Any,
+    ) -> Generator[Any, None, None]: ...
 
     def orm_delete_entries(
         self,
@@ -346,6 +393,7 @@ class ORMBase(Generic[TableSpecType]):
         _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
         _limit: int | None = None,
         _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
+        _row_factory: RowFactoryType | None = None,
         **cols_value: Any,
     ) -> int | Generator[TableSpecType, None, None]:
         """Delete entries from the table accordingly.
@@ -356,6 +404,8 @@ class ORMBase(Generic[TableSpecType]):
             _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
             _returning_cols (tuple[str, ...] | Literal[, optional): Return the deleted entries on execution.
                 NOTE that only sqlite3 version >= 3.35 supports returning statement. Defaults to None.
+            _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
+                as row factory, set this argument to use different row factory. Defaults to None.
 
         Returns:
             int: The num of entries deleted.
@@ -375,6 +425,8 @@ class ORMBase(Generic[TableSpecType]):
             def _gen():
                 with self._con as con:
                     _cur = con.execute(delete_stmt, cols_value)
+                    if _row_factory is not None:
+                        _cur.row_factory = _row_factory
                     yield from _cur
 
             return _gen()
