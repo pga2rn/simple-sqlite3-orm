@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import datetime
-from typing import Any
+from sqlite3 import Cursor
+from typing import Any, Callable
 
 from pydantic import BeforeValidator, PlainSerializer
 from typing_extensions import Annotated
+
+RowFactoryType = Callable[[Cursor, tuple[Any, ...]], Any]
+"""Type hint for callable that can be used as sqlite3 row_factory."""
 
 #
 # ------ datetime related ------ #
