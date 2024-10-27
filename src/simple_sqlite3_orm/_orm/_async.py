@@ -42,8 +42,6 @@ else:
                 """For type check only, typing the _GenericAlias as GenericAlias."""
 
 
-
-
 class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
 
     def __init__(

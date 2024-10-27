@@ -48,6 +48,7 @@ else:
             ):
                 """For type check only, typing the _GenericAlias as GenericAlias."""
 
+
 _global_shutdown = False
 
 
