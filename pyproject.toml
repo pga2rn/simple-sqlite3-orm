@@ -1,19 +1,14 @@
 [build-system]
 build-backend = "hatchling.build"
 
-requires = [
-  "hatch-vcs",
-  "hatchling>=1.20",
-]
+requires = ["hatch-vcs", "hatchling>=1.20"]
 
 [project]
 name = "simple-sqlite3-orm"
 description = "A simple yet powerful SQLite3 ORM, powered by pydantic."
 readme = "README.md"
 license = { file = "LICENSE" }
-authors = [
-  { name = "pga2rn", email = "aaronpigybd@gmail.com" },
-]
+authors = [{ name = "pga2rn", email = "aaronpigybd@gmail.com" }]
 requires-python = ">=3.8"
 classifiers = [
   "License :: OSI Approved :: Apache Software License",
@@ -25,14 +20,10 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
 ]
-dynamic = [
-  "version",
-]
-dependencies = [
-  "pydantic<3,>=2.6",
-  "typing-extensions>=4",
-]
+dynamic = ["version"]
+dependencies = ["pydantic<3,>=2.6", "typing-extensions>=4"]
 optional-dependencies.dev = [
   "black<25,>=24",
   "coverage<7.7,>=7.6",
@@ -47,12 +38,7 @@ urls.Tracker = "https://github.com/pga2rn/simple-sqlite3-orm/issues"
 
 [tool.black]
 line-length = 88
-target-version = [
-  'py38',
-  'py39',
-  'py310',
-  'py311',
-]
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -60,22 +46,14 @@ log_auto_indent = true
 log_format = "%(asctime)s %(levelname)s %(filename)s %(funcName)s,%(lineno)d %(message)s"
 log_cli = true
 log_cli_level = "INFO"
-pythonpath = [
-  "src",
-]
-testpaths = [
-  "./tests",
-]
+pythonpath = ["src"]
+testpaths = ["./tests"]
 
 [tool.coverage.run]
-omit = [
-  "_version.py",
-]
+omit = ["_version.py"]
 branch = false
 relative_files = true
-source = [
-  "simple_sqlite3_orm",
-]
+source = ["simple_sqlite3_orm"]
 
 [tool.coverage.report]
 exclude_also = [
