@@ -8,7 +8,7 @@ from datetime import datetime
 import pytest
 
 from simple_sqlite3_orm import ORMBase
-from tests.conftest import _generate_random_str
+from tests.conftest import SELECT_ALL_BATCH_SIZE, _generate_random_str
 from tests.sample_db._types import Mystr
 from tests.sample_db.table import SampleTable
 
@@ -112,6 +112,17 @@ class TestORMBase:
             _order_by=(("key_id", "DESC"),),
             _limit=1,
             prim_key=mstr,
+        )
+        select_result = list(select_result)
+
+        assert len(select_result) == 1
+        assert select_result[0] == entry_for_test
+
+    def test_select_all_entries(self, setup_connection: ORMTest):
+        select_result = setup_connection.orm_select_all_entries(
+            batch_size=SELECT_ALL_BATCH_SIZE,
+            _distinct=True,
+            _order_by=(("key_id", "DESC"),),
         )
         select_result = list(select_result)
 

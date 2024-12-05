@@ -4,6 +4,7 @@ import logging
 import sqlite3
 import sys
 from functools import cached_property
+from itertools import count
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -435,6 +436,53 @@ class ORMBase(Generic[TableSpecType]):
             with self._con as con:
                 _cur = con.execute(delete_stmt, cols_value)
                 return _cur.rowcount
+
+    def orm_select_all_entries(
+        self,
+        *,
+        batch_size: int | None = None,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
+        _row_factory: RowFactoryType | None = None,
+    ) -> Generator[TableSpecType, None, None]:
+        """Select all entries from the table accordingly, optionally with pagination.
+
+        Args:
+            batch_size (int | None, optional): If specified, enable pagination and specify the number of entries for each page. Defaults to None.
+            _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
+            _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
+                Order the result accordingly. Defaults to None, not sorting the result.
+            _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
+                as row factory, set this argument to use different row factory. Defaults to None.
+
+        Raises:
+            ValueError on invalid batch_size.
+            sqlite3.DatabaseError on failed sql execution.
+
+        Yields:
+            Generator[TableSpecType, None, None]: A generator that can be used to yield entry from result.
+        """
+        if batch_size is not None and batch_size < 0:
+            raise ValueError("batch_size must be positive integer")
+
+        for _batch_idx in count():
+            with self._con as con:
+                _cur = con.execute(
+                    self.orm_table_spec.table_select_all_stmt(
+                        select_from=self.orm_table_name,
+                        distinct=_distinct,
+                        order_by=_order_by,
+                        batch_size=batch_size,
+                        batch_idx=_batch_idx,
+                    )
+                )
+                if _row_factory:
+                    _cur.row_factory = _row_factory
+
+                if not (_one := _cur.fetchone()):
+                    break
+                yield _one
+                yield from _cur
 
 
 ORMBaseType = TypeVar("ORMBaseType", bound=ORMBase)

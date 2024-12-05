@@ -26,10 +26,10 @@ class SampleDBAsyncio(AsyncORMThreadPoolBase[SampleTable]):
     """Test connection pool with async API."""
 
 
-@pytest.mark.asyncio(scope="class")
+@pytest.mark.asyncio(loop_scope="class")
 class TestWithSampleDBWithAsyncIO:
 
-    @pytest_asyncio.fixture(scope="class")
+    @pytest_asyncio.fixture(loop_scope="class")
     async def async_pool(
         self,
         setup_con_factory: Callable[[], sqlite3.Connection],
@@ -44,7 +44,7 @@ class TestWithSampleDBWithAsyncIO:
         finally:
             pool.orm_pool_shutdown(wait=True, close_connections=True)
 
-    @pytest_asyncio.fixture(autouse=True, scope="class")
+    @pytest_asyncio.fixture(autouse=True, loop_scope="class")
     async def start_timer(self) -> tuple[asyncio.Task[None], asyncio.Event]:
         _test_finished = asyncio.Event()
 
