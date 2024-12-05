@@ -100,7 +100,7 @@ class TestWithSampleDB:
             self.orm_inst.orm_select_all_entries(
                 batch_size=SELECT_ALL_BATCH_SIZE,
                 _distinct=True,
-                _order_by=(("prim_key", "ASC")),
+                _order_by=(("prim_key", "ASC"),),
             )
         ):
             assert _entry.prim_key in setup_test_data
