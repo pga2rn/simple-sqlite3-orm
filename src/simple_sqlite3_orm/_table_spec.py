@@ -148,7 +148,7 @@ class TableSpec(BaseModel):
         cols_spec = ",".join(
             cls.table_dump_column(col_name) for col_name in cls.model_fields
         )
-        table_options = []
+        table_options: list[str] = []
         if without_rowid:
             table_options.append("WITHOUT ROWID")
         if strict:
@@ -321,7 +321,9 @@ class TableSpec(BaseModel):
         Returns:
             str: The generated select statement.
         """
-        if batch_idx is not None or batch_size is not None:
+        if (batch_idx is not None and batch_size is None) or (
+            batch_idx is None and batch_size is not None
+        ):
             raise ValueError(
                 "batch_idx and batch_size must be None or not None together"
             )
