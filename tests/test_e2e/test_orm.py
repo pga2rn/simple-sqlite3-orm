@@ -9,7 +9,12 @@ from typing import Generator
 import pytest
 
 from simple_sqlite3_orm import utils
-from tests.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
+from tests.conftest import (
+    INDEX_KEYS,
+    INDEX_NAME,
+    SELECT_ALL_BATCH_SIZE,
+    TEST_INSERT_BATCH_SIZE,
+)
 from tests.sample_db.orm import SampleDB
 from tests.sample_db.table import SampleTable
 
@@ -88,6 +93,18 @@ class TestWithSampleDB:
             _looked_up = list(_looked_up)
             assert len(_looked_up) == 1
             assert _looked_up[0] == _entry
+
+    def test_select_all_entries(self, setup_test_data: dict[str, SampleTable]):
+        logger.info("test lookup entries")
+        for _cnt, _entry in enumerate(
+            self.orm_inst.orm_select_all_entries(
+                batch_size=SELECT_ALL_BATCH_SIZE,
+                _distinct=True,
+                _order_by=(("prim_key", "ASC")),
+            )
+        ):
+            assert _entry.prim_key in setup_test_data
+        assert _cnt == len(setup_test_data)
 
     def test_delete_entries(
         self,
