@@ -30,7 +30,7 @@ optional-dependencies.dev = [
   "pytest>=8.3,<8.4",
   "pytest-asyncio>=0.24,<0.25",
   "pytest-mock>=3.14,<3.15",
-  "ruff>=0.6,<0.8",
+  "ruff>=0.6,<0.9",
 ]
 
 urls.Source = "https://github.com/pga2rn/simple-sqlite3-orm"
