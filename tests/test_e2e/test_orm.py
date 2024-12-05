@@ -101,7 +101,8 @@ class TestWithSampleDB:
                 batch_size=SELECT_ALL_BATCH_SIZE,
                 _distinct=True,
                 _order_by=(("prim_key", "ASC"),),
-            )
+            ),
+            start=1,
         ):
             assert _entry.prim_key in setup_test_data
         assert _cnt == len(setup_test_data)
