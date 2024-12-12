@@ -117,10 +117,10 @@ class ConstrainRepr(str):
             return str.__new__(cls, _buffer.getvalue().strip())
 
 
-def gen_sql_stmt(*stmts: str) -> str:
-    """Generate statement with input statement strings."""
+def gen_sql_stmt(*components: str) -> str:
+    """Combine each components into a single sql stmt."""
     with StringIO() as buffer:
-        for stmt in stmts:
+        for stmt in components:
             if not stmt:
                 continue
             buffer.write(" ")
