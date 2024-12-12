@@ -53,6 +53,13 @@ class TestORMBase:
             orm_inst = ORMTest(conn, table_name=TABLE_NAME)
             yield orm_inst
 
+    def test_create_without_rowid_table(self):
+        """NOTE: to test select_all_with_pagination, we cannot specify without_rowid, so we
+        create this test case dedicated for creating without_rowid table test."""
+        with sqlite3.connect(":memory") as conn:
+            orm_inst = ORMTest(conn, table_name=TABLE_NAME)
+            orm_inst.orm_create_table(without_rowid=True)
+
     def test_create_table(self, setup_connection: ORMTest):
         setup_connection.orm_create_table(allow_existed=False)
 
@@ -61,11 +68,9 @@ class TestORMBase:
                 "STRICT table option is only available after sqlite3 version 3.37, "
                 f"get {sqlite3.sqlite_version_info}, skip testing STRICT table option."
             )
-            setup_connection.orm_create_table(allow_existed=True, without_rowid=True)
+            setup_connection.orm_create_table(allow_existed=True)
         else:
-            setup_connection.orm_create_table(
-                allow_existed=True, strict=True, without_rowid=True
-            )
+            setup_connection.orm_create_table(allow_existed=True, strict=True)
 
         with pytest.raises(sqlite3.DatabaseError):
             setup_connection.orm_create_table(allow_existed=False)
