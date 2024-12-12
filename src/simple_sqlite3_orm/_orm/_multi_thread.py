@@ -20,6 +20,7 @@ from typing_extensions import ParamSpec, deprecated
 from simple_sqlite3_orm._orm._base import ORMBase
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR
 from simple_sqlite3_orm._table_spec import TableSpecType
+from simple_sqlite3_orm._types import RowFactoryType
 
 logger = logging.getLogger(__name__)
 
@@ -201,6 +202,24 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
 
         return self._pool.submit(_inner)
 
+    def orm_select_entry(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
+        _row_factory: RowFactoryType | None = None,
+        **col_values: Any,
+    ) -> Future[TableSpecType | Any | None]:
+        return self._pool.submit(
+            super().orm_select_entry,
+            _distinct=_distinct,
+            _order_by=_order_by,
+            _row_factory=_row_factory,
+            **col_values,
+        )
+
+    orm_select_entry.__doc__ = ORMBase.orm_select_entry.__doc__
+
     def orm_insert_entries(
         self, _in: Iterable[TableSpecType], *, or_option: INSERT_OR | None = None
     ) -> Future[int]:
@@ -240,3 +259,8 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         return self._pool.submit(_inner)
 
     orm_delete_entries.__doc__ = ORMBase.orm_delete_entries.__doc__
+
+    def orm_select_all_with_pagination(
+        self, *, batch_size: int
+    ) -> Generator[TableSpecType, None, None]:
+        raise NotImplementedError
