@@ -260,7 +260,5 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
 
     orm_delete_entries.__doc__ = ORMBase.orm_delete_entries.__doc__
 
-    def orm_select_all_with_pagination(
-        self, *, batch_size: int
-    ) -> Generator[TableSpecType, None, None]:
+    def orm_select_all_with_pagination(self, *, batch_size: int):
         raise NotImplementedError
