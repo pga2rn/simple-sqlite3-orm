@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from io import StringIO
-from typing import Any, Literal, TypeVar
+from typing import Any, Iterable, Literal, TypeVar
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -229,7 +229,7 @@ class TableSpec(BaseModel):
         return cls.model_validate(dict(zip(_fields, _row)))
 
     @classmethod
-    def table_from_tuple(cls, _row: tuple[Any, ...]) -> Self:
+    def table_from_tuple(cls, _row: Iterable[Any]) -> Self:
         """A raw row_factory that converts the input _row to TableSpec instance.
 
         Args:
