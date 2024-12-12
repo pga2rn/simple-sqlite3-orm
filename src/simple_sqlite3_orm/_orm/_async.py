@@ -230,3 +230,6 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
         )
 
     orm_insert_entry.__doc__ = ORMBase.orm_insert_entry.__doc__
+
+    def orm_select_all_with_pagination(self, *, batch_size: int):
+        raise NotImplementedError

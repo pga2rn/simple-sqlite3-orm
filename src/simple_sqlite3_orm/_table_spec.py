@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from io import StringIO
-from typing import Any, Literal, TypeVar
+from typing import Any, Iterable, Literal, TypeVar
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -229,6 +229,18 @@ class TableSpec(BaseModel):
         return cls.model_validate(dict(zip(_fields, _row)))
 
     @classmethod
+    def table_from_tuple(cls, _row: Iterable[Any]) -> Self:
+        """A raw row_factory that converts the input _row to TableSpec instance.
+
+        Args:
+            _row (tuple[Any, ...]): the raw table row as tuple.
+
+        Returns:
+            An instance of self.
+        """
+        return cls.model_validate(dict(zip(cls.model_fields, _row)))
+
+    @classmethod
     @lru_cache
     def table_insert_stmt(
         cls,
@@ -353,7 +365,7 @@ class TableSpec(BaseModel):
         cls,
         *,
         select_from: str,
-        select_cols: tuple[str, ...] | Literal["*"] = "*",
+        select_cols: tuple[str, ...] | Literal["*"] | str = "*",
         function: SQLiteBuiltInFuncs | None = None,
         where_stmt: str | None = None,
         where_cols: tuple[str, ...] | None = None,
@@ -370,7 +382,7 @@ class TableSpec(BaseModel):
 
         Args:
             select_from (str): The table name for the generated statement.
-            select_cols (tuple[str, ...] | Literal[, optional): A list of cols included in the result row. Defaults to "*".
+            select_cols (tuple[str, ...] | Literal["*"] | str, optional): A list of cols included in the result row. Defaults to "*".
             function (SQLiteBuiltInFuncs | None, optional): The sqlite3 function used in the selection. Defaults to None.
             where_cols (tuple[str, ...] | None, optional): A list of cols to be compared in where
                 statement. Defaults to None.
@@ -391,7 +403,7 @@ class TableSpec(BaseModel):
             cls.table_check_cols(select_cols)
             select_target = ",".join(select_cols)
         else:
-            select_target = "*"
+            select_target = select_cols
 
         if function:
             select_target = f"{function}({select_target})"

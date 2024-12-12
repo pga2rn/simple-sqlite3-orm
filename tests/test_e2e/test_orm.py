@@ -32,7 +32,7 @@ class TestWithSampleDB:
 
     def test_create_table(self):
         logger.info("test create table")
-        self.orm_inst.orm_create_table(without_rowid=True)
+        self.orm_inst.orm_create_table()
         assert utils.lookup_table(self.orm_inst.orm_con, self.orm_inst.orm_table_name)
 
     def test_insert_entries(self, setup_test_data: dict[str, SampleTable]):
@@ -97,10 +97,8 @@ class TestWithSampleDB:
     def test_select_all_entries(self, setup_test_data: dict[str, SampleTable]):
         logger.info("test lookup entries")
         for _cnt, _entry in enumerate(
-            self.orm_inst.orm_select_all_entries(
-                batch_size=SELECT_ALL_BATCH_SIZE,
-                _distinct=True,
-                _order_by=(("prim_key", "ASC"),),
+            self.orm_inst.orm_select_all_with_pagination(
+                batch_size=SELECT_ALL_BATCH_SIZE
             ),
             start=1,
         ):
