@@ -115,3 +115,15 @@ class ConstrainRepr(str):
                     _buffer.write(arg)
                 _buffer.write(" ")
             return str.__new__(cls, _buffer.getvalue().strip())
+
+
+def gen_sql_stmt(*stmts: str) -> str:
+    """Generate statement with input statement strings."""
+    with StringIO() as buffer:
+        for stmt in stmts:
+            if not stmt:
+                continue
+            buffer.write(" ")
+            buffer.write(stmt)
+        buffer.write(";")
+        return buffer.getvalue().strip()

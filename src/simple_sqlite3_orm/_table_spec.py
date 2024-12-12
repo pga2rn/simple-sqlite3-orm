@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from io import StringIO
 from typing import Any, Iterable, Literal, TypeVar
 
 from pydantic import BaseModel
@@ -15,21 +14,14 @@ from simple_sqlite3_orm._sqlite_spec import (
     SQLiteBuiltInFuncs,
     SQLiteStorageClass,
 )
-from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr, lru_cache
+from simple_sqlite3_orm._utils import (
+    ConstrainRepr,
+    TypeAffinityRepr,
+    gen_sql_stmt,
+    lru_cache,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def gen_sql_stmt(*stmts: str) -> str:
-    """Generate statement with input statement strings."""
-    with StringIO() as buffer:
-        for stmt in stmts:
-            if not stmt:
-                continue
-            buffer.write(" ")
-            buffer.write(stmt)
-        buffer.write(";")
-        return buffer.getvalue().strip()
 
 
 class TableSpec(BaseModel):
