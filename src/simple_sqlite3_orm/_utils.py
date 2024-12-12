@@ -115,3 +115,15 @@ class ConstrainRepr(str):
                     _buffer.write(arg)
                 _buffer.write(" ")
             return str.__new__(cls, _buffer.getvalue().strip())
+
+
+def gen_sql_stmt(*components: str) -> str:
+    """Combine each components into a single sql stmt."""
+    with StringIO() as buffer:
+        for comp in components:
+            if not comp:
+                continue
+            buffer.write(" ")
+            buffer.write(comp)
+        buffer.write(";")
+        return buffer.getvalue().strip()
