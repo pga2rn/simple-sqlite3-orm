@@ -119,10 +119,8 @@ class TestORMBase:
         assert select_result[0] == entry_for_test
 
     def test_select_all_entries(self, setup_connection: ORMTest):
-        select_result = setup_connection.orm_select_all_entries(
-            batch_size=SELECT_ALL_BATCH_SIZE,
-            _distinct=True,
-            _order_by=(("key_id", "DESC"),),
+        select_result = setup_connection.orm_select_all_with_pagination(
+            batch_size=SELECT_ALL_BATCH_SIZE
         )
         select_result = list(select_result)
 

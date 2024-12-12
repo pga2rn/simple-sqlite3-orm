@@ -97,10 +97,8 @@ class TestWithSampleDB:
     def test_select_all_entries(self, setup_test_data: dict[str, SampleTable]):
         logger.info("test lookup entries")
         for _cnt, _entry in enumerate(
-            self.orm_inst.orm_select_all_entries(
-                batch_size=SELECT_ALL_BATCH_SIZE,
-                _distinct=True,
-                _order_by=(("prim_key", "ASC"),),
+            self.orm_inst.orm_select_all_with_pagination(
+                batch_size=SELECT_ALL_BATCH_SIZE
             ),
             start=1,
         ):
