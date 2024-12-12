@@ -229,6 +229,18 @@ class TableSpec(BaseModel):
         return cls.model_validate(dict(zip(_fields, _row)))
 
     @classmethod
+    def table_from_tuple(cls, _row: tuple[Any, ...]) -> Self:
+        """A raw row_factory that converts the input _row to TableSpec instance.
+
+        Args:
+            _row (tuple[Any, ...]): the raw table row as tuple.
+
+        Returns:
+            An instance of self.
+        """
+        return cls.model_validate(dict(zip(cls.model_fields, _row)))
+
+    @classmethod
     @lru_cache
     def table_insert_stmt(
         cls,
