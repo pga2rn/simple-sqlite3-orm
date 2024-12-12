@@ -458,7 +458,7 @@ class ORMBase(Generic[TableSpecType]):
             raise ValueError("batch_size must be positive integer")
 
         _sql_stmt = self.orm_table_spec.table_select_stmt(
-            select_cols=("rowid", "*"),
+            select_cols="rowid,*",
             select_from=self.orm_table_name,
             where_stmt="WHERE rowid > :not_before",
             limit=batch_size,

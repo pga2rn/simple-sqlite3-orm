@@ -56,7 +56,7 @@ class TestORMBase:
     def test_create_without_rowid_table(self):
         """NOTE: to test select_all_with_pagination, we cannot specify without_rowid, so we
         create this test case dedicated for creating without_rowid table test."""
-        with sqlite3.connect(":memory") as conn:
+        with sqlite3.connect(":memory:") as conn:
             orm_inst = ORMTest(conn, table_name=TABLE_NAME)
             orm_inst.orm_create_table(without_rowid=True)
 
