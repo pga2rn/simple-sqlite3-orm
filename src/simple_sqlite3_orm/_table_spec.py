@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import logging
 import sqlite3
+from collections.abc import Mapping
 from typing import Any, Iterable, Literal, TypeVar
 
 from pydantic import BaseModel
@@ -12,7 +12,6 @@ from simple_sqlite3_orm._sqlite_spec import (
     INSERT_OR,
     ORDER_DIRECTION,
     SQLiteBuiltInFuncs,
-    SQLiteStorageClass,
 )
 from simple_sqlite3_orm._utils import (
     ConstrainRepr,
@@ -20,8 +19,6 @@ from simple_sqlite3_orm._utils import (
     gen_sql_stmt,
     lru_cache,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class TableSpec(BaseModel):
@@ -118,7 +115,6 @@ class TableSpec(BaseModel):
             raise ValueError("data affinity must be set")
 
         res = f"{column_name} {datatype_name} {constrain}".strip()
-        logger.debug(f"{column_name=}: {res}")
         return res
 
     @classmethod
@@ -154,7 +150,6 @@ class TableSpec(BaseModel):
             f"{table_name} ({cols_spec})",
             f"{','.join(table_options)}",
         )
-        logger.debug(res)
         return res
 
     @classmethod
@@ -198,7 +193,6 @@ class TableSpec(BaseModel):
             f"{index_name}",
             f"ON {table_name} {indexed_columns_stmt}",
         )
-        logger.debug(res)
         return res
 
     @classmethod
@@ -221,16 +215,44 @@ class TableSpec(BaseModel):
         return cls.model_validate(dict(zip(_fields, _row)))
 
     @classmethod
-    def table_from_tuple(cls, _row: Iterable[Any]) -> Self:
+    def table_from_tuple(
+        cls, _row: Iterable[Any], *, with_validation: bool = True, **kwargs
+    ) -> Self:
         """A raw row_factory that converts the input _row to TableSpec instance.
 
         Args:
             _row (tuple[Any, ...]): the raw table row as tuple.
+            with_validation (bool): if set to False, will use pydantic model_construct to directly
+                construct instance without validation. Default to True.
+            **kwargs: extra kwargs passed to pydantic model_validate API. Note that only when
+                with_validation is True, the kwargs will be used.
 
         Returns:
             An instance of self.
         """
-        return cls.model_validate(dict(zip(cls.model_fields, _row)))
+        if with_validation:
+            return cls.model_validate(dict(zip(cls.model_fields, _row)), **kwargs)
+        return cls.model_construct(**dict(zip(cls.model_fields, _row)))
+
+    @classmethod
+    def table_from_dict(
+        cls, _map: Mapping[str, Any], *, with_validation: bool = True, **kwargs
+    ) -> Self:
+        """A raw row_factory that converts the input mapping to TableSpec instance.
+
+        Args:
+            _map (Mapping[str, Any]): the raw table row as a dict.
+            with_validation (bool, optional): if set to False, will use pydantic model_construct to directly
+                construct instance without validation. Default to True.
+            **kwargs: extra kwargs passed to pydantic model_validate API. Note that only when
+                with_validation is True, the kwargs will be used.
+
+        Returns:
+            An instance of self.
+        """
+        if with_validation:
+            return cls.model_validate(_map, **kwargs)
+        return cls.model_construct(**_map)
 
     @classmethod
     @lru_cache
@@ -290,7 +312,6 @@ class TableSpec(BaseModel):
             gen_insert_value_stmt,
             gen_returning_stmt,
         )
-        logger.debug(res)
         return res
 
     @classmethod
@@ -348,7 +369,6 @@ class TableSpec(BaseModel):
             gen_order_by_stmt,
             gen_pagination,
         )
-        logger.debug(res)
         return res
 
     @classmethod
@@ -415,7 +435,6 @@ class TableSpec(BaseModel):
             gen_order_by_stmt,
             gen_limit_stmt,
         )
-        logger.debug(res)
         return res
 
     @classmethod
@@ -481,16 +500,18 @@ class TableSpec(BaseModel):
             gen_order_by_stmt,
             gen_limit_stmt,
         )
-        logger.debug(res)
         return res
 
-    def table_dump_asdict(self, *cols: str) -> dict[str, SQLiteStorageClass]:
-        """Dump self to a dict containing all col values.
+    def table_dump_asdict(self, *cols: str, **kwargs) -> dict[str, Any]:
+        """Dump self as a dict, containing all cols or specified cols.
 
+        Under the hook this method calls pydantic model_dump on self.
         The dumped dict can be used to directly insert into the table.
 
         Args:
             *cols: which cols to export, if not specified, export all cols.
+            **kwargs: any other kwargs that passed to pydantic model_dump method.
+                Note that the include kwarg is used to specific which cols to dump.
 
         Raises:
             ValueError if failed to serialize the model, wrapping underlying
@@ -501,9 +522,24 @@ class TableSpec(BaseModel):
         """
         try:
             _included_cols = set(cols) if cols else None
-            return self.model_dump(include=_included_cols)
+            return self.model_dump(include=_included_cols, **kwargs)
         except Exception as e:
             raise ValueError(f"failed to dump as dict: {e!r}") from e
+
+    def table_dump_astuple(self, *cols: str, **kwargs) -> tuple[Any, ...]:
+        """Dump self's values as a tuple, containing all cols or specified cols.
+
+        This method is basically the same as table_dump_asdict, but instead return a
+            tuple of the dumped values.
+
+        Returns:
+            A tuple of dumped col values.
+        """
+        try:
+            _included_cols = set(cols) if cols else None
+            return tuple(self.model_dump(include=_included_cols, **kwargs).values())
+        except Exception as e:
+            raise ValueError(f"failed to dump as tuple: {e!r}") from e
 
 
 TableSpecType = TypeVar("TableSpecType", bound=TableSpec)
