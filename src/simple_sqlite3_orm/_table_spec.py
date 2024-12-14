@@ -499,13 +499,16 @@ class TableSpec(BaseModel):
         )
         return res
 
-    def table_dump_asdict(self, *cols: str) -> dict[str, SQLiteStorageClass]:
-        """Dump self to a dict containing all col values.
+    def table_dump_asdict(self, *cols: str, **kwargs) -> dict[str, Any]:
+        """Dump self as a dict, containing all cols or specified cols.
 
+        Under the hook this method calls pydantic model_dump on self.
         The dumped dict can be used to directly insert into the table.
 
         Args:
             *cols: which cols to export, if not specified, export all cols.
+            **kwargs: any other kwargs that passed to pydantic model_dump method.
+                Note that the include kwarg is used to specific which cols to dump.
 
         Raises:
             ValueError if failed to serialize the model, wrapping underlying
@@ -516,9 +519,20 @@ class TableSpec(BaseModel):
         """
         try:
             _included_cols = set(cols) if cols else None
-            return self.model_dump(include=_included_cols)
+            return self.model_dump(include=_included_cols, **kwargs)
         except Exception as e:
             raise ValueError(f"failed to dump as dict: {e!r}") from e
+
+    def table_dump_astuple(self, *cols: str, **kwargs) -> tuple[Any, ...]:
+        """Dump self's values as a tuple, containing all cols or specified cols.
+
+        This method just wraps the table_dump_asdict method, parse the result dict
+            and return the values of the dict as tuple.
+
+        Returns:
+            A tuple of dumped col values.
+        """
+        return tuple(self.table_dump_asdict(*cols, **kwargs).values())
 
 
 TableSpecType = TypeVar("TableSpecType", bound=TableSpec)
