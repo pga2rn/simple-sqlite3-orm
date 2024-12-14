@@ -216,7 +216,7 @@ class TableSpec(BaseModel):
 
     @classmethod
     def table_from_tuple(
-        cls, _row: Iterable[Any], *, with_validation: bool = True
+        cls, _row: Iterable[Any], *, with_validation: bool = True, **kwargs
     ) -> Self:
         """A raw row_factory that converts the input _row to TableSpec instance.
 
@@ -224,17 +224,18 @@ class TableSpec(BaseModel):
             _row (tuple[Any, ...]): the raw table row as tuple.
             with_validation (bool): if set to False, will use pydantic model_construct to directly
                 construct instance without validation. Default to True.
+            **kwargs: extra kwargs passed to pydantic model_validate API.
 
         Returns:
             An instance of self.
         """
         if with_validation:
-            return cls.model_validate(dict(zip(cls.model_fields, _row)))
-        return cls.model_construct(**dict(zip(cls.model_fields, _row)))
+            return cls.model_validate(dict(zip(cls.model_fields, _row)), **kwargs)
+        return cls.model_construct(**dict(zip(cls.model_fields, _row)), **kwargs)
 
     @classmethod
     def table_from_dict(
-        cls, _map: Mapping[str, Any], *, with_validation: bool = True
+        cls, _map: Mapping[str, Any], *, with_validation: bool = True, **kwargs
     ) -> Self:
         """A raw row_factory that converts the input mapping to TableSpec instance.
 
@@ -242,13 +243,14 @@ class TableSpec(BaseModel):
             _map (Mapping[str, Any]): the raw table row as a dict.
             with_validation (bool, optional): if set to False, will use pydantic model_construct to directly
                 construct instance without validation. Default to True.. Defaults to True.
+            **kwargs: extra kwargs passed to pydantic model_validate API.
 
         Returns:
             An instance of self.
         """
         if with_validation:
-            return cls.model_validate(_map)
-        return cls.model_construct(**_map)
+            return cls.model_validate(_map, **kwargs)
+        return cls.model_construct(**_map, **kwargs)
 
     @classmethod
     @lru_cache
