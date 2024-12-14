@@ -29,24 +29,41 @@ class SimpleTableForTest(TableSpec):
 
 
 @pytest.mark.parametrize(
-    "_in, _expected",
-    (([1, "1", 1.0], SimpleTableForTest(id=1, id_str="1", extra=1.0)),),
+    "_in, _validate, _expected",
+    (
+        ([1, "1", 1.0], True, SimpleTableForTest(id=1, id_str="1", extra=1.0)),
+        ([1, "1", 1.0], False, SimpleTableForTest(id=1, id_str="1", extra=1.0)),
+    ),
 )
-def test_table_from_tuple(_in: Iterable[Any], _expected: SimpleTableForTest):
-    assert SimpleTableForTest.table_from_tuple(_in) == _expected
+def test_table_from_tuple(
+    _in: Iterable[Any], _validate: bool, _expected: SimpleTableForTest
+):
+    assert (
+        SimpleTableForTest.table_from_tuple(_in, with_validation=_validate) == _expected
+    )
 
 
 @pytest.mark.parametrize(
-    "_in, _expected",
+    "_in, _validate, _expected",
     (
         (
             {"id": 1, "id_str": "1", "extra": 1.0},
+            True,
+            SimpleTableForTest(id=1, id_str="1", extra=1.0),
+        ),
+        (
+            {"id": 1, "id_str": "1", "extra": 1.0},
+            False,
             SimpleTableForTest(id=1, id_str="1", extra=1.0),
         ),
     ),
 )
-def test_table_from_dict(_in: Mapping[str, Any], _expected: SimpleTableForTest):
-    assert SimpleTableForTest.table_from_dict(_in) == _expected
+def test_table_from_dict(
+    _in: Mapping[str, Any], _validate: bool, _expected: SimpleTableForTest
+):
+    assert (
+        SimpleTableForTest.table_from_dict(_in, with_validation=_validate) == _expected
+    )
 
 
 @pytest.mark.parametrize(
