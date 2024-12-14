@@ -109,6 +109,7 @@ class TestORMBase:
 
     def test_orm_check_entry_exist(self, setup_connection: ORMTest):
         assert setup_connection.orm_check_entry_exist(prim_key=entry_for_test.prim_key)
+        assert not setup_connection.orm_check_entry_exist(prim_key=Mystr("not_exist"))
 
     def test_select_entry(self, setup_connection: ORMTest):
         assert entry_for_test == setup_connection.orm_select_entry(prim_key=mstr)
