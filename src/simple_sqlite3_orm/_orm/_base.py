@@ -102,7 +102,7 @@ class ORMBase(Generic[TableSpecType]):
     def orm_con(self) -> sqlite3.Connection:
         """A reference to the underlying sqlite3.Connection.
 
-        This is for advanced database execution.
+        This is for directly executing sql stmts.
         """
         return self._con
 

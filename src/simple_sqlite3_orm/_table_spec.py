@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import logging
 import sqlite3
-from typing import Any, Iterable, Literal, Mapping, TypeVar
+from collections.abc import Mapping
+from typing import Any, Iterable, Literal, TypeVar
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -20,8 +20,6 @@ from simple_sqlite3_orm._utils import (
     gen_sql_stmt,
     lru_cache,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class TableSpec(BaseModel):
@@ -118,7 +116,6 @@ class TableSpec(BaseModel):
             raise ValueError("data affinity must be set")
 
         res = f"{column_name} {datatype_name} {constrain}".strip()
-        logger.debug(f"{column_name=}: {res}")
         return res
 
     @classmethod
@@ -154,7 +151,6 @@ class TableSpec(BaseModel):
             f"{table_name} ({cols_spec})",
             f"{','.join(table_options)}",
         )
-        logger.debug(res)
         return res
 
     @classmethod
@@ -198,7 +194,6 @@ class TableSpec(BaseModel):
             f"{index_name}",
             f"ON {table_name} {indexed_columns_stmt}",
         )
-        logger.debug(res)
         return res
 
     @classmethod
@@ -314,7 +309,6 @@ class TableSpec(BaseModel):
             gen_insert_value_stmt,
             gen_returning_stmt,
         )
-        logger.debug(res)
         return res
 
     @classmethod
@@ -372,7 +366,6 @@ class TableSpec(BaseModel):
             gen_order_by_stmt,
             gen_pagination,
         )
-        logger.debug(res)
         return res
 
     @classmethod
@@ -439,7 +432,6 @@ class TableSpec(BaseModel):
             gen_order_by_stmt,
             gen_limit_stmt,
         )
-        logger.debug(res)
         return res
 
     @classmethod
@@ -505,7 +497,6 @@ class TableSpec(BaseModel):
             gen_order_by_stmt,
             gen_limit_stmt,
         )
-        logger.debug(res)
         return res
 
     def table_dump_asdict(self, *cols: str) -> dict[str, SQLiteStorageClass]:
