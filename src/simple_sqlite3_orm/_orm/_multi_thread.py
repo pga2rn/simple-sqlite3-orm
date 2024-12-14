@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import atexit
 import logging
-import queue
 import sqlite3
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
+from functools import partial
+from queue import Queue, SimpleQueue
 from typing import (
     Any,
     Callable,
@@ -15,7 +16,7 @@ from typing import (
     TypeVar,
 )
 
-from typing_extensions import ParamSpec, deprecated
+from typing_extensions import Concatenate, ParamSpec, deprecated
 
 from simple_sqlite3_orm._orm._base import ORMBase
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR
@@ -36,6 +37,122 @@ def _python_exit():
 
 
 atexit.register(_python_exit)
+
+
+SENTINEL = object()
+
+
+class Sqlite3ConnWithThread:
+    """
+    NOTE: this class is NOT thread safe and should only be used in the same thread.
+    """
+
+    def __init__(self) -> None:
+        self._orm_pool: ORMThreadPoolBase = ""
+        self._context_handler: _FuncCallInContextHandler | None = None
+
+    def __getattribute__(self, name: str) -> Any:
+        if name in [
+            "_orm_pool",
+            "_within_with",
+            "__enter__",
+            "__exit__",
+        ]:
+            return super().__getattribute__(name)
+
+        _attr = getattr(sqlite3.Connection, name)
+        if not callable(_attr):
+            raise NotImplementedError(
+                "non-function attr access is not supported for now"
+            )
+
+        ctx_handler = self._context_handler
+        if not ctx_handler:
+            return _wrapped_func_call(self, _attr)
+        return partial(ctx_handler.call, _attr)
+
+    def __enter__(self):
+        if self._context_handler:
+            raise ValueError(f"{self.__qualname__}: nested with context is not allowed")
+        self._context_handler = _ctx_handler = _FuncCallInContextHandler(self)
+        _ctx_handler.enter()
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        if not self._context_handler:
+            raise ValueError(f"{self.__qualname__}: nested with context is not allowed")
+        self._context_handler.exit()
+        self._context_handler = None
+        return False
+
+
+def _wrapped_func_call(
+    ctx: Sqlite3ConnWithThread,
+    func: Callable[Concatenate[sqlite3.Connection, P], RT],
+) -> Callable[P, RT]:
+    def _outer(*args: P.args, **kwargs: P.kwargs) -> RT:
+        _orm_pool = ctx._orm_pool
+        if not _orm_pool:
+            raise ValueError
+
+        def _inner() -> RT:
+            _conn = _orm_pool._con
+            return func(_conn, *args, **kwargs)
+
+        return _orm_pool._pool.submit(_inner).result()
+
+    return _outer
+
+
+class _FuncCallInContextHandler:
+    def __init__(self, _ctx: Sqlite3ConnWithThread) -> None:
+        self._ctx = _ctx
+        self._req = Queue()
+        self._resp = Queue()
+
+    def enter(self):
+        threading.Thread(target=self._context_worker, daemon=True).start()
+        self.call(sqlite3.Connection.__enter__)
+
+    def exit(self):
+        self.call(sqlite3.Connection.__exit__, None, None, None)
+        self._req.put_nowait(SENTINEL)
+
+    def call(
+        self,
+        func: Callable[Concatenate[sqlite3.Connection, P], RT],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> RT:
+        self._req.put_nowait((func, args, kwargs))
+        _res = self._resp.get()
+        if _res is SENTINEL:
+            raise RuntimeError
+
+        if isinstance(_res, Exception):
+            try:
+                raise _res
+            finally:
+                _res = None
+        return _res
+
+    def _context_worker(self):
+        # when we are at within context, execute all the following up func calls
+        #   by this worker to ensure that all calls are done by the same thread.
+
+        # get thread scope sqlite3 connection
+        _conn = self._ctx._orm_pool._con
+
+        while not _global_shutdown:
+            _req = self._req.get()
+            if _req is SENTINEL:
+                return
+
+            func, args, kwargs = _req
+            try:
+                self._resp.put_nowait(func(_conn, *args, **kwargs))
+            except Exception as e:
+                self._resp.put_nowait(e)
 
 
 class ORMThreadPoolBase(ORMBase[TableSpecType]):
@@ -146,7 +263,7 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         **col_values: Any,
     ) -> Generator[TableSpecType, None, None]:
         """Select multiple entries and return a generator for yielding entries from."""
-        _queue = queue.SimpleQueue()
+        _queue = SimpleQueue()
 
         def _inner():
             global _global_shutdown
