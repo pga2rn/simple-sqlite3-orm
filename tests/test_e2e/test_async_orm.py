@@ -28,7 +28,6 @@ class SampleDBAsyncio(AsyncORMThreadPoolBase[SampleTable]):
 
 @pytest.mark.asyncio(loop_scope="class")
 class TestWithSampleDBWithAsyncIO:
-
     @pytest_asyncio.fixture(loop_scope="class")
     async def async_pool(
         self,

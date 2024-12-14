@@ -25,7 +25,6 @@ classifiers = [
 dynamic = [ "version" ]
 dependencies = [ "pydantic>=2.6,<3", "typing-extensions>=4" ]
 optional-dependencies.dev = [
-  "black>=24,<25",
   "coverage>=7.6,<7.7",
   "pytest>=8.3,<8.4",
   "pytest-asyncio>=0.24,<0.25",
@@ -35,10 +34,6 @@ optional-dependencies.dev = [
 
 urls.Source = "https://github.com/pga2rn/simple-sqlite3-orm"
 urls.Tracker = "https://github.com/pga2rn/simple-sqlite3-orm/issues"
-
-[tool.black]
-line-length = 88
-target-version = [ 'py38', 'py39', 'py310', 'py311', 'py312' ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

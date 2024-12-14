@@ -26,7 +26,6 @@ RT = TypeVar("RT")
 
 
 class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
-
     def __init__(
         self,
         table_name: str,
