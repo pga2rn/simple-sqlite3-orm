@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from typing import Any, Iterable, Literal, TypeVar
+from typing import Any, Iterable, Literal, Mapping, TypeVar
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -221,16 +221,40 @@ class TableSpec(BaseModel):
         return cls.model_validate(dict(zip(_fields, _row)))
 
     @classmethod
-    def table_from_tuple(cls, _row: Iterable[Any]) -> Self:
+    def table_from_tuple(
+        cls, _row: Iterable[Any], *, with_validation: bool = True
+    ) -> Self:
         """A raw row_factory that converts the input _row to TableSpec instance.
 
         Args:
             _row (tuple[Any, ...]): the raw table row as tuple.
+            with_validation (bool): if set to False, will use pydantic model_construct to directly
+                construct instance without validation. Default to True.
 
         Returns:
             An instance of self.
         """
-        return cls.model_validate(dict(zip(cls.model_fields, _row)))
+        if with_validation:
+            return cls.model_validate(dict(zip(cls.model_fields, _row)))
+        return cls.model_construct(**dict(zip(cls.model_fields, _row)))
+
+    @classmethod
+    def table_from_dict(
+        cls, _map: Mapping[str, Any], *, with_validation: bool = True
+    ) -> Self:
+        """A raw row_factory that converts the input mapping to TableSpec instance.
+
+        Args:
+            _map (Mapping[str, Any]): the raw table row as a dict.
+            with_validation (bool, optional): if set to False, will use pydantic model_construct to directly
+                construct instance without validation. Default to True.. Defaults to True.
+
+        Returns:
+            An instance of self.
+        """
+        if with_validation:
+            return cls.model_validate(_map)
+        return cls.model_construct(**_map)
 
     @classmethod
     @lru_cache
