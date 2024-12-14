@@ -12,7 +12,6 @@ from simple_sqlite3_orm._sqlite_spec import (
     INSERT_OR,
     ORDER_DIRECTION,
     SQLiteBuiltInFuncs,
-    SQLiteStorageClass,
 )
 from simple_sqlite3_orm._utils import (
     ConstrainRepr,
