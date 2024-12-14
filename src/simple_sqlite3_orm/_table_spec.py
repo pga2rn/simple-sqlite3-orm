@@ -224,14 +224,15 @@ class TableSpec(BaseModel):
             _row (tuple[Any, ...]): the raw table row as tuple.
             with_validation (bool): if set to False, will use pydantic model_construct to directly
                 construct instance without validation. Default to True.
-            **kwargs: extra kwargs passed to pydantic model_validate API.
+            **kwargs: extra kwargs passed to pydantic model_validate API. Note that only when
+                with_validation is True, the kwargs will be used.
 
         Returns:
             An instance of self.
         """
         if with_validation:
             return cls.model_validate(dict(zip(cls.model_fields, _row)), **kwargs)
-        return cls.model_construct(**dict(zip(cls.model_fields, _row)), **kwargs)
+        return cls.model_construct(**dict(zip(cls.model_fields, _row)))
 
     @classmethod
     def table_from_dict(
@@ -242,15 +243,16 @@ class TableSpec(BaseModel):
         Args:
             _map (Mapping[str, Any]): the raw table row as a dict.
             with_validation (bool, optional): if set to False, will use pydantic model_construct to directly
-                construct instance without validation. Default to True.. Defaults to True.
-            **kwargs: extra kwargs passed to pydantic model_validate API.
+                construct instance without validation. Default to True.
+            **kwargs: extra kwargs passed to pydantic model_validate API. Note that only when
+                with_validation is True, the kwargs will be used.
 
         Returns:
             An instance of self.
         """
         if with_validation:
             return cls.model_validate(_map, **kwargs)
-        return cls.model_construct(**_map, **kwargs)
+        return cls.model_construct(**_map)
 
     @classmethod
     @lru_cache
