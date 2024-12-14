@@ -529,13 +529,17 @@ class TableSpec(BaseModel):
     def table_dump_astuple(self, *cols: str, **kwargs) -> tuple[Any, ...]:
         """Dump self's values as a tuple, containing all cols or specified cols.
 
-        This method just wraps the table_dump_asdict method, parse the result dict
-            and return the values of the dict as tuple.
+        This method is basically the same as table_dump_asdict, but instead return a
+            tuple of the dumped values.
 
         Returns:
             A tuple of dumped col values.
         """
-        return tuple(self.table_dump_asdict(*cols, **kwargs).values())
+        try:
+            _included_cols = set(cols) if cols else None
+            return tuple(self.model_dump(include=_included_cols, **kwargs).values())
+        except Exception as e:
+            raise ValueError(f"failed to dump as tuple: {e!r}") from e
 
 
 TableSpecType = TypeVar("TableSpecType", bound=TableSpec)
