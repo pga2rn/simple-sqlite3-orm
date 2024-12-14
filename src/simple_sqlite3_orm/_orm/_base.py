@@ -498,7 +498,7 @@ class ORMBase(Generic[TableSpecType]):
         )
 
         with self._con as con:
-            _cur = con.execute(_stmt)
+            _cur = con.execute(_stmt, cols)
             _cur.row_factory = None  # bypass con scope row_factory
             _res: tuple[int] = _cur.fetchone()
             return _res[0] > 0
