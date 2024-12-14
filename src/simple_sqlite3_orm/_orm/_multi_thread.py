@@ -15,6 +15,7 @@ from typing import (
     Literal,
     TypeVar,
 )
+from weakref import ReferenceType, ref
 
 from typing_extensions import Concatenate, ParamSpec, deprecated
 
@@ -47,14 +48,14 @@ class Sqlite3ConnWithThread:
     NOTE: this class is NOT thread safe and should only be used in the same thread.
     """
 
-    def __init__(self) -> None:
-        self._orm_pool: ORMThreadPoolBase = ""
+    def __init__(self, orm_pool: ORMThreadPoolBase) -> None:
+        self._orm_pool_ref = ref(orm_pool)
         self._context_handler: _FuncCallInContextHandler | None = None
 
     def __getattribute__(self, name: str) -> Any:
         if name in [
-            "_orm_pool",
-            "_within_with",
+            "_orm_pool_ref",
+            "_context_handler",
             "__enter__",
             "__exit__",
         ]:
@@ -68,13 +69,15 @@ class Sqlite3ConnWithThread:
 
         ctx_handler = self._context_handler
         if not ctx_handler:
-            return _wrapped_func_call(self, _attr)
+            return _wrapped_func_call(self._orm_pool_ref, _attr)
         return partial(ctx_handler.call, _attr)
 
     def __enter__(self):
         if self._context_handler:
             raise ValueError(f"{self.__qualname__}: nested with context is not allowed")
-        self._context_handler = _ctx_handler = _FuncCallInContextHandler(self)
+        self._context_handler = _ctx_handler = _FuncCallInContextHandler(
+            self._orm_pool_ref
+        )
         _ctx_handler.enter()
         return self
 
@@ -87,11 +90,11 @@ class Sqlite3ConnWithThread:
 
 
 def _wrapped_func_call(
-    ctx: Sqlite3ConnWithThread,
+    orm_pool_ref: ReferenceType[ORMThreadPoolBase],
     func: Callable[Concatenate[sqlite3.Connection, P], RT],
 ) -> Callable[P, RT]:
     def _outer(*args: P.args, **kwargs: P.kwargs) -> RT:
-        _orm_pool = ctx._orm_pool
+        _orm_pool = orm_pool_ref()
         if not _orm_pool:
             raise ValueError
 
@@ -105,8 +108,11 @@ def _wrapped_func_call(
 
 
 class _FuncCallInContextHandler:
-    def __init__(self, _ctx: Sqlite3ConnWithThread) -> None:
-        self._ctx = _ctx
+    def __init__(
+        self,
+        orm_pool_ref: ReferenceType[ORMThreadPoolBase],
+    ) -> None:
+        self._orm_pool_ref = orm_pool_ref
         self._req = Queue()
         self._resp = Queue()
 
@@ -139,18 +145,18 @@ class _FuncCallInContextHandler:
     def _context_worker(self):
         # when we are at within context, execute all the following up func calls
         #   by this worker to ensure that all calls are done by the same thread.
-
-        # get thread scope sqlite3 connection
-        _conn = self._ctx._orm_pool._con
-
         while not _global_shutdown:
             _req = self._req.get()
             if _req is SENTINEL:
                 return
 
+            orm_pool = self._orm_pool_ref()
+            if not orm_pool:
+                return
+
             func, args, kwargs = _req
             try:
-                self._resp.put_nowait(func(_conn, *args, **kwargs))
+                self._resp.put_nowait(func(orm_pool._con, *args, **kwargs))
             except Exception as e:
                 self._resp.put_nowait(e)
 
@@ -379,3 +385,6 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
 
     def orm_select_all_with_pagination(self, *, batch_size: int):
         raise NotImplementedError
+
+
+ORMThreadPoolBaseType = TypeVar("ORMThreadPoolBaseType", bound=ORMThreadPoolBase)
