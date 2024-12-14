@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 class TestWithSampleDB:
-
     @pytest.fixture(autouse=True)
     def setup_test(
         self,

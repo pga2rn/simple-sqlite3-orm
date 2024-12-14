@@ -29,7 +29,6 @@ def _get_result(func: Callable[..., Future[Any]]):
 
 
 class TestWithSampleDBAndThreadPool:
-
     @pytest.fixture(autouse=True, scope="class")
     def thread_pool(self, setup_con_factory: Callable[[], sqlite3.Connection]):
         try:

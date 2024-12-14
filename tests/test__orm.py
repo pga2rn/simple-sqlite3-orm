@@ -46,7 +46,6 @@ def enable_debug_logging(caplog: pytest.LogCaptureFixture):
 
 
 class TestORMBase:
-
     @pytest.fixture(scope="class")
     def setup_connection(self):
         with sqlite3.connect(":memory:") as conn:
