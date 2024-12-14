@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import sqlite3
 import sys
 from functools import cached_property
@@ -27,7 +26,6 @@ _parameterized_orm_cache: WeakValueDictionary[
     tuple[type[ORMBase], type[TableSpec]], type[ORMBase[Any]]
 ] = WeakValueDictionary()
 
-logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
@@ -480,6 +478,30 @@ class ORMBase(Generic[TableSpecType]):
                 if rowid < 0:
                     return
                 not_before = rowid
+
+    def orm_check_entry_exist(self, **cols: Any) -> bool:
+        """A quick method to check whether entry(entries) indicated by cols exists.
+
+        This method uses COUNT function to count the selected entry.
+
+        Args:
+            **cols: cols pair to locate the entry(entries).
+
+        Returns:
+            Returns True if at least one entry matches the input cols exists, otherwise False.
+        """
+        _stmt = self.orm_table_spec.table_select_stmt(
+            select_from=self.orm_table_name,
+            select_cols="*",
+            function="count",
+            where_cols=tuple(cols),
+        )
+
+        with self._con as con:
+            _cur = con.execute(_stmt, cols)
+            _cur.row_factory = None  # bypass con scope row_factory
+            _res: tuple[int] = _cur.fetchone()
+            return _res[0] > 0
 
 
 ORMBaseType = TypeVar("ORMBaseType", bound=ORMBase)
