@@ -1,25 +1,23 @@
 from __future__ import annotations
 
 import atexit
-import logging
 import queue
 import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
-from typing import Callable, TypeVar
-from weakref import WeakSet
+from typing import Any, Callable, Generic, TypeVar
+from weakref import WeakSet, WeakValueDictionary
 
-from typing_extensions import ParamSpec, deprecated
+from typing_extensions import ParamSpec
 
-from simple_sqlite3_orm._orm._base import (
-    ORMBase,
-    RowFactorySpecifier,
-    row_factory_setter,
-)
-from simple_sqlite3_orm._table_spec import TableSpecType
+from simple_sqlite3_orm._orm._base import ORMBase, RowFactorySpecifier
+from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
+from simple_sqlite3_orm._utils import GenericAlias
 
-logger = logging.getLogger(__name__)
+_parameterized_orm_cache: WeakValueDictionary[
+    tuple[type[ORMThreadPoolBase], type[TableSpec]], type[ORMThreadPoolBase[Any]]
+] = WeakValueDictionary()
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
@@ -44,7 +42,11 @@ _SENTINEL = object()
 def _wrap_with_thread_ctx(func: Callable):
     @wraps(func)
     def _wrapped(self: ORMThreadPoolBase, *args, **kwargs):
-        return self._pool.submit(func, self, *args, **kwargs).result()
+        def _in_thread():
+            _orm_base = self._thread_scope_orm
+            return func(_orm_base, *args, **kwargs)
+
+        return self._pool.submit(_in_thread).result()
 
     return _wrapped
 
@@ -56,9 +58,10 @@ def _wrap_generator_with_thread_ctx(func: Callable):
         _global_queue_weakset.add(_queue)
 
         def _in_thread():
+            _orm_base = self._thread_scope_orm
             global _global_shutdown
             try:
-                for entry in func(self, *args, **kwargs):
+                for entry in func(_orm_base, *args, **kwargs):
                     if _global_shutdown:
                         return
                     _queue.put_nowait(entry)
@@ -87,12 +90,14 @@ def _wrap_generator_with_thread_ctx(func: Callable):
     return _wrapped
 
 
-class ORMThreadPoolBase(ORMBase[TableSpecType]):
+class ORMThreadPoolBase(Generic[TableSpecType]):
     """
     See https://www.sqlite.org/wal.html#concurrency for more details.
 
     For the row_factory arg, please see ORMBase.__init__ for more details.
     """
+
+    orm_table_spec: type[TableSpecType]
 
     def __init__(
         self,
@@ -107,7 +112,8 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         self._table_name = table_name
         self._schema_name = schema_name
 
-        self._thread_id_cons: dict[int, sqlite3.Connection] = {}
+        # thread_scope ORMBase instances
+        self._thread_id_orms: dict[int, ORMBase] = {}
 
         self._pool = ThreadPoolExecutor(
             max_workers=number_of_cons,
@@ -115,21 +121,39 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
             thread_name_prefix=thread_name_prefix,
         )
 
+    def __class_getitem__(cls, params: Any | type[Any] | type[TableSpecType]) -> Any:
+        # just for convienience, passthrough anything that is not type[TableSpecType]
+        #   to Generic's __class_getitem__ and return it.
+        # Typically this is for subscript ORMBase with TypeVar or another Generic.
+        if not (isinstance(params, type) and issubclass(params, TableSpec)):
+            return super().__class_getitem__(params)  # type: ignore
+
+        key = (cls, params)
+        if _cached_type := _parameterized_orm_cache.get(key):
+            return GenericAlias(_cached_type, params)
+
+        new_parameterized_ormbase: type[ORMThreadPoolBase] = type(
+            f"{cls.__name__}[{params.__name__}]", (cls,), {}
+        )
+        new_parameterized_ormbase.orm_table_spec = params  # type: ignore
+        _parameterized_orm_cache[key] = new_parameterized_ormbase
+        return GenericAlias(new_parameterized_ormbase, params)
+
     def _thread_initializer(self, con_factory, row_factory) -> None:
+        """Prepare thread_scope ORMBase instance for this worker thread."""
         thread_id = threading.get_native_id()
-        self._thread_id_cons[thread_id] = con = con_factory()
-        row_factory_setter(con, self.orm_table_spec, row_factory)
+        _orm = ORMBase[self.orm_table_spec](
+            con_factory(),
+            self._table_name,
+            self._schema_name,
+            row_factory=row_factory,
+        )
+        self._thread_id_orms[thread_id] = _orm
 
     @property
-    def _con(self) -> sqlite3.Connection:
+    def _thread_scope_orm(self) -> ORMBase[TableSpecType]:
         """Get thread-specific sqlite3 connection."""
-        return self._thread_id_cons[threading.get_native_id()]
-
-    @property
-    @deprecated("orm_con is not available in thread pool ORM")
-    def orm_con(self):
-        """Not implemented, orm_con is not available in thread pool ORM."""
-        raise NotImplementedError("orm_con is not available in thread pool ORM")
+        return self._thread_id_orms[threading.get_native_id()]
 
     def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
         """Shutdown the ORM connections thread pool.
@@ -144,9 +168,9 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         """
         self._pool.shutdown(wait=wait)
         if close_connections:
-            for con in self._thread_id_cons.values():
-                con.close()
-        self._thread_id_cons = {}
+            for orm_base in self._thread_id_orms.values():
+                orm_base._con.close()
+        self._thread_id_orms = {}
 
     orm_execute = _wrap_with_thread_ctx(ORMBase.orm_execute)
     orm_create_table = _wrap_with_thread_ctx(ORMBase.orm_create_table)
