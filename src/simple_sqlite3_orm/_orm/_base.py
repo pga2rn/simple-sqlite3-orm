@@ -13,7 +13,6 @@ from typing import (
     Literal,
     TypeVar,
     Union,
-    overload,
 )
 from weakref import WeakValueDictionary
 

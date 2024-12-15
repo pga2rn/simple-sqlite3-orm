@@ -157,23 +157,10 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
     orm_insert_entries = _wrap_with_thread_ctx(ORMBase.orm_insert_entries)
     orm_insert_entry = _wrap_with_thread_ctx(ORMBase.orm_insert_entry)
 
-    _orm_delete_entries_with_returning = _wrap_generator_with_thread_ctx(
-        ORMBase.orm_delete_entries
+    orm_delete_entries = _wrap_with_thread_ctx(ORMBase.orm_delete_entries)
+    orm_delete_entries_with_returning = _wrap_generator_with_thread_ctx(
+        ORMBase.orm_delete_entries_with_returning
     )
-    _orm_delete_entries = _wrap_with_thread_ctx(ORMBase.orm_delete_entries)
-
-    @wraps(ORMBase.orm_delete_entries)
-    def orm_delete_entries(
-        self,
-        *args,
-        **kwargs,
-    ):
-        # NOTE: also seee orm_base for more details about overloaded orm_delete_entries API.
-        _returning_cols = kwargs.get("_returning_cols", None)
-        if _returning_cols:
-            return self._orm_delete_entries_with_returning(*args, **kwargs)
-        return self._orm_delete_entries(*args, **kwargs)
-
     orm_select_all_with_pagination = _wrap_generator_with_thread_ctx(
         ORMBase.orm_select_all_with_pagination
     )
