@@ -63,7 +63,7 @@ For each option:
     2. None: do not set connection scope row_factory.
     3. "sqlite3_row_factory": set to use sqlite3.Row as row_factory.
     4. "table_spec": use TableSpec.table_row_factory as row_factory.
-    5. "table_spec_no_validation": use TableSpec.table_row_factory_no_validation as row_factory.
+    5. "table_spec_no_validation": use TableSpec.table_row_factory as row_factory, but with validation=False.
 """
 
 
