@@ -22,8 +22,8 @@ P = ParamSpec("P")
 RT = TypeVar("RT")
 
 _parameterized_orm_cache: WeakValueDictionary[
-    tuple[type[AsyncORMThreadPoolBase], type[TableSpec]],
-    type[AsyncORMThreadPoolBase[Any]],
+    tuple[type[AsyncORMBase], type[TableSpec]],
+    type[AsyncORMBase[Any]],
 ] = WeakValueDictionary()
 
 _global_shutdown = False
@@ -42,9 +42,7 @@ _SENTINEL = object()
 def _wrap_with_async_ctx(
     func: Callable[Concatenate[ORMBase, P], RT],
 ):
-    async def _wrapped(
-        self: AsyncORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs
-    ) -> RT:
+    async def _wrapped(self: AsyncORMBase, *args: P.args, **kwargs: P.kwargs) -> RT:
         _orm_threadpool = self._orm_threadpool
 
         def _in_thread() -> RT:
@@ -63,7 +61,7 @@ def _wrap_with_async_ctx(
 def _wrap_generator_with_async_ctx(
     func: Callable[Concatenate[ORMBase, P], Generator[TableSpecType]],
 ):
-    async def _wrapped(self: AsyncORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs):
+    async def _wrapped(self: AsyncORMBase, *args: P.args, **kwargs: P.kwargs):
         _orm_threadpool = self._orm_threadpool
         _async_queue = asyncio.Queue()
 
@@ -100,12 +98,12 @@ def _wrap_generator_with_async_ctx(
     return _wrapped
 
 
-class AsyncORMThreadPoolBase(Generic[TableSpecType]):
+class AsyncORMBase(Generic[TableSpecType]):
     """
     NOTE: the supoprt for async ORM is experimental! The APIs might be changed a lot
         in the following releases.
 
-    NOTE: AsyncORMThreadPoolBase is implemented based on ORMThreadPoolBase, but it is NOT a
+    NOTE: AsyncORMBase is implemented with using ORMThreadPoolBase, but it is NOT a
         subclass of ORMThreadPoolBase!
 
     For the row_factory arg, please see ORMBase.__init__ for more details.
@@ -149,7 +147,7 @@ class AsyncORMThreadPoolBase(Generic[TableSpecType]):
         if _cached_type := _parameterized_orm_cache.get(key):
             return GenericAlias(_cached_type, params)
 
-        new_parameterized_ormbase: type[AsyncORMThreadPoolBase] = type(
+        new_parameterized_ormbase: type[AsyncORMBase] = type(
             f"{cls.__name__}[{params.__name__}]", (cls,), {}
         )
         new_parameterized_ormbase.orm_table_spec = params  # type: ignore
@@ -199,3 +197,6 @@ class AsyncORMThreadPoolBase(Generic[TableSpecType]):
         ORMBase.orm_select_all_with_pagination
     )
     orm_check_entry_exist = _wrap_with_async_ctx(ORMBase.orm_check_entry_exist)
+
+
+AsyncORMBaseType = TypeVar("AsyncORMBaseType", bound=AsyncORMBase)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from simple_sqlite3_orm._orm import (
-    AsyncORMThreadPoolBase,
+    AsyncORMBase,
     ORMBase,
     ORMBaseType,
     ORMThreadPoolBase,
@@ -32,7 +32,7 @@ __all__ = [
     "TypeAffinityRepr",
     "TableSpec",
     "TableSpecType",
-    "AsyncORMThreadPoolBase",
+    "AsyncORMBase",
     "ORMBase",
     "ORMBaseType",
     "ORMThreadPoolBase",
