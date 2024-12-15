@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
-import sys
 from functools import cached_property, partial
 from itertools import count
 from typing import (
-    TYPE_CHECKING,
     Any,
     Generator,
     Generic,
@@ -21,6 +19,7 @@ from typing_extensions import ParamSpec
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR, ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
 from simple_sqlite3_orm._types import RowFactoryType
+from simple_sqlite3_orm._utils import GenericAlias
 
 _parameterized_orm_cache: WeakValueDictionary[
     tuple[type[ORMBase], type[TableSpec]], type[ORMBase[Any]]
@@ -29,21 +28,6 @@ _parameterized_orm_cache: WeakValueDictionary[
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
-
-if sys.version_info >= (3, 9):
-    from types import GenericAlias as _GenericAlias
-else:
-    from typing import List
-
-    if not TYPE_CHECKING:
-        _GenericAlias = type(List[int])
-    else:
-
-        class _GenericAlias(type(List)):
-            def __new__(
-                cls, _type: type[Any], _params: type[Any] | tuple[type[Any], ...]
-            ):
-                """For type check only, typing the _GenericAlias as GenericAlias."""
 
 
 RowFactorySpecifier = Union[
@@ -124,14 +108,14 @@ class ORMBase(Generic[TableSpecType]):
 
         key = (cls, params)
         if _cached_type := _parameterized_orm_cache.get(key):
-            return _GenericAlias(_cached_type, params)
+            return GenericAlias(_cached_type, params)
 
         new_parameterized_ormbase: type[ORMBase] = type(
             f"{cls.__name__}[{params.__name__}]", (cls,), {}
         )
         new_parameterized_ormbase.orm_table_spec = params  # type: ignore
         _parameterized_orm_cache[key] = new_parameterized_ormbase
-        return _GenericAlias(new_parameterized_ormbase, params)
+        return GenericAlias(new_parameterized_ormbase, params)
 
     @property
     def orm_con(self) -> sqlite3.Connection:
