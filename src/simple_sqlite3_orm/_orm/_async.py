@@ -169,6 +169,21 @@ class AsyncORMThreadPoolBase(Generic[TableSpecType]):
             else self._table_name
         )
 
+    def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
+        """Shutdown the ORM connections thread pool used by this async ORM instance.
+
+        It is safe to call this method multiple time.
+        This method is NOT thread-safe, and should be called at the main thread,
+            or the thread that creates this thread pool.
+
+        Args:
+            wait (bool, optional): Wait for threads join. Defaults to True.
+            close_connections (bool, optional): Close all the connections. Defaults to True.
+        """
+        self._orm_threadpool.orm_pool_shutdown(
+            wait=wait, close_connections=close_connections
+        )
+
     orm_execute = _wrap_with_async_ctx(ORMBase.orm_execute)
     orm_create_table = _wrap_with_async_ctx(ORMBase.orm_create_table)
     orm_create_index = _wrap_with_async_ctx(ORMBase.orm_create_index)
