@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
-from functools import cached_property
+from functools import cached_property, partial
 from itertools import count
 from typing import (
     TYPE_CHECKING,
@@ -80,7 +80,7 @@ def row_factory_setter(
     elif row_factory_specifier == "table_spec":
         con.row_factory = table_spec.table_row_factory
     elif row_factory_specifier == "table_spec_no_validation":
-        con.row_factory = table_spec.table_row_factory_no_validation
+        con.row_factory = partial(table_spec.table_row_factory, validation=False)
 
 
 class ORMBase(Generic[TableSpecType]):
