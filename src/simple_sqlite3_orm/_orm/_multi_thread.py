@@ -7,15 +7,9 @@ import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
-from typing import (
-    Any,
-    Callable,
-    Generator,
-    Literal,
-    TypeVar,
-)
+from typing import Callable, TypeVar
 
-from typing_extensions import Concatenate, ParamSpec, deprecated
+from typing_extensions import ParamSpec, deprecated
 
 from simple_sqlite3_orm._orm._base import (
     ORMBase,
@@ -39,11 +33,50 @@ def _python_exit():
 
 atexit.register(_python_exit)
 
+_SENTINEL = object()
 
-def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMThreadPoolBaseType, P], RT]):
+
+def _wrap_with_thread_ctx(func: Callable):
     @wraps(func)
-    def _wrapped(self: ORMThreadPoolBaseType, *args: P.args, **kwargs: P.kwargs) -> RT:
+    def _wrapped(self: ORMThreadPoolBase, *args, **kwargs):
         return self._pool.submit(func, self, *args, **kwargs).result()
+
+    return _wrapped
+
+
+def _wrap_generator_with_thread_ctx(func: Callable):
+    @wraps(func)
+    def _wrapped(self: ORMThreadPoolBase, *args, **kwargs):
+        _queue = queue.SimpleQueue()
+
+        def _in_thread():
+            global _global_shutdown
+            try:
+                for entry in func(self, *args, **kwargs):
+                    if _global_shutdown:
+                        return
+                    _queue.put_nowait(entry)
+            except Exception as e:
+                _queue.put_nowait(e)
+            finally:
+                _queue.put_nowait(_SENTINEL)
+
+        self._pool.submit(_in_thread)
+
+        def _gen():
+            while not _global_shutdown:
+                entry = _queue.get()
+                if entry is _SENTINEL:
+                    return
+
+                if isinstance(entry, Exception):
+                    try:
+                        raise entry
+                    finally:
+                        entry = None
+                yield entry
+
+        return _gen()
 
     return _wrapped
 
@@ -113,100 +146,27 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
     orm_create_table = _wrap_with_thread_ctx(ORMBase.orm_create_table)
     orm_create_index = _wrap_with_thread_ctx(ORMBase.orm_create_index)
 
-    def orm_select_entries_gen(
-        self,
-        *,
-        _distinct: bool = False,
-        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
-        _limit: int | None = None,
-        **col_values: Any,
-    ) -> Generator[TableSpecType, None, None]:
-        """Select multiple entries and return a generator for yielding entries from."""
-        _queue = queue.SimpleQueue()
-
-        def _inner():
-            global _global_shutdown
-            try:
-                for entry in ORMBase.orm_select_entries(
-                    self,
-                    _distinct=_distinct,
-                    _order_by=_order_by,
-                    _limit=_limit,
-                    **col_values,
-                ):
-                    if _global_shutdown:
-                        break
-                    _queue.put_nowait(entry)
-            except Exception as e:
-                _queue.put_nowait(e)
-            finally:
-                _queue.put_nowait(None)
-
-        self._pool.submit(_inner)
-
-        def _gen():
-            while entry := _queue.get():
-                if isinstance(entry, Exception):
-                    try:
-                        raise entry from None
-                    finally:
-                        del entry
-                yield entry
-
-        return _gen()
-
-    def orm_select_entries(
-        self,
-        *,
-        _distinct: bool = False,
-        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
-        _limit: int | None = None,
-        **col_values: Any,
-    ) -> list[TableSpecType]:
-        """Select multiple entries and return all the entries in a list."""
-
-        def _inner():
-            return list(
-                ORMBase.orm_select_entries(
-                    self,
-                    _distinct=_distinct,
-                    _order_by=_order_by,
-                    _limit=_limit,
-                    **col_values,
-                )
-            )
-
-        return self._pool.submit(_inner).result()
-
+    orm_select_entries = _wrap_generator_with_thread_ctx(ORMBase.orm_select_entries)
     orm_select_entry = _wrap_with_thread_ctx(ORMBase.orm_select_entry)
     orm_insert_entries = _wrap_with_thread_ctx(ORMBase.orm_insert_entries)
     orm_insert_entry = _wrap_with_thread_ctx(ORMBase.orm_insert_entry)
 
+    _orm_delete_entries_with_returning = _wrap_generator_with_thread_ctx(
+        ORMBase.orm_delete_entries
+    )
+    _orm_delete_entries = _wrap_with_thread_ctx(ORMBase.orm_delete_entries)
+
+    @wraps(ORMBase.orm_delete_entries)
     def orm_delete_entries(
         self,
-        *,
-        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]]] | None = None,
-        _limit: int | None = None,
-        _returning_cols: tuple[str, ...] | None | Literal["*"] = None,
-        **cols_value: Any,
-    ) -> int | list[TableSpecType]:
-        # NOTE(20240708): currently we don't support generator for delete with RETURNING statement
-        def _inner():
-            res = ORMBase.orm_delete_entries(
-                self,
-                _order_by=_order_by,
-                _limit=_limit,
-                _returning_cols=_returning_cols,
-                **cols_value,
-            )
-
-            if isinstance(res, int):
-                return res
-            return list(res)
-
-        return self._pool.submit(_inner).result()
-
-    orm_delete_entries.__doc__ = ORMBase.orm_delete_entries.__doc__
+        *args,
+        **kwargs,
+    ):
+        # NOTE: also seee orm_base for more details about overloaded orm_delete_entries API.
+        _returning_cols = kwargs.get("_returning_cols", None)
+        if _returning_cols:
+            return self._orm_delete_entries_with_returning(*args, **kwargs)
+        return self._orm_delete_entries(*args, **kwargs)
 
     def orm_select_all_with_pagination(self, *, batch_size: int):
         raise NotImplementedError
