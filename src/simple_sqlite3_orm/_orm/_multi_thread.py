@@ -5,7 +5,7 @@ import logging
 import queue
 import sqlite3
 import threading
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
 from typing import (
     Any,
@@ -189,7 +189,7 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         _limit: int | None = None,
         _returning_cols: tuple[str, ...] | None | Literal["*"] = None,
         **cols_value: Any,
-    ) -> Future[int | list[TableSpecType]]:
+    ) -> int | list[TableSpecType]:
         # NOTE(20240708): currently we don't support generator for delete with RETURNING statement
         def _inner():
             res = ORMBase.orm_delete_entries(
@@ -204,7 +204,7 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
                 return res
             return list(res)
 
-        return self._pool.submit(_inner)
+        return self._pool.submit(_inner).result()
 
     orm_delete_entries.__doc__ = ORMBase.orm_delete_entries.__doc__
 
