@@ -151,12 +151,10 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
     orm_execute = _wrap_with_thread_ctx(ORMBase.orm_execute)
     orm_create_table = _wrap_with_thread_ctx(ORMBase.orm_create_table)
     orm_create_index = _wrap_with_thread_ctx(ORMBase.orm_create_index)
-
     orm_select_entries = _wrap_generator_with_thread_ctx(ORMBase.orm_select_entries)
     orm_select_entry = _wrap_with_thread_ctx(ORMBase.orm_select_entry)
     orm_insert_entries = _wrap_with_thread_ctx(ORMBase.orm_insert_entries)
     orm_insert_entry = _wrap_with_thread_ctx(ORMBase.orm_insert_entry)
-
     orm_delete_entries = _wrap_with_thread_ctx(ORMBase.orm_delete_entries)
     orm_delete_entries_with_returning = _wrap_generator_with_thread_ctx(
         ORMBase.orm_delete_entries_with_returning

@@ -156,7 +156,7 @@ class ORMBase(Generic[TableSpecType]):
 
     def orm_execute(
         self, sql_stmt: str, params: tuple[Any, ...] | dict[str, Any] | None = None
-    ) -> list[TableSpecType | Any]:
+    ) -> list[Any]:
         """Execute one sql statement and get the all the result.
 
         The result will be fetched with fetchall API and returned as it.

@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from concurrent.futures import Future, ThreadPoolExecutor
-from functools import partial
-from typing import Any, Callable
+from concurrent.futures import ThreadPoolExecutor
+from typing import Callable
 
 import pytest
 
@@ -24,10 +23,6 @@ THREAD_NUM = 2
 WORKER_NUM = 6
 
 
-def _get_result(func: Callable[..., Future[Any]]):
-    return func().result()
-
-
 class TestWithSampleDBAndThreadPool:
     @pytest.fixture(autouse=True, scope="class")
     def thread_pool(self, setup_con_factory: Callable[[], sqlite3.Connection]):
@@ -43,7 +38,7 @@ class TestWithSampleDBAndThreadPool:
 
     def test_create_table(self, thread_pool: SampleDBConnectionPool):
         logger.info("test create table")
-        thread_pool.orm_create_table(without_rowid=True).result()
+        thread_pool.orm_create_table(without_rowid=True)
 
     def test_insert_entries_with_pool(
         self,
@@ -58,7 +53,7 @@ class TestWithSampleDBAndThreadPool:
                 batched(setup_test_data.values(), TEST_INSERT_BATCH_SIZE),
                 start=1,
             ):
-                pool.submit(_get_result, partial(thread_pool.orm_insert_entries, entry))
+                pool.submit(thread_pool.orm_insert_entries, entry)
 
             logger.info(
                 f"all insert tasks are dispatched: {_batch_count} batches with {TEST_INSERT_BATCH_SIZE=}"
@@ -66,7 +61,7 @@ class TestWithSampleDBAndThreadPool:
 
         logger.info("confirm data written")
         for _selected_entry_count, _entry in enumerate(
-            thread_pool.orm_select_entries_gen(), start=1
+            thread_pool.orm_select_entries(), start=1
         ):
             _corresponding_item = setup_test_data[_entry.prim_key]
             assert _corresponding_item == _entry
@@ -78,7 +73,7 @@ class TestWithSampleDBAndThreadPool:
             index_name=INDEX_NAME,
             index_keys=INDEX_KEYS,
             unique=True,
-        ).result()
+        )
 
     def test_orm_execute(
         self,
@@ -90,7 +85,7 @@ class TestWithSampleDBAndThreadPool:
             select_from=thread_pool.orm_table_name,
             function="count",
         )
-        res = thread_pool.orm_execute(sql_stmt).result()
+        res: list[tuple[int]] = thread_pool.orm_execute(sql_stmt)
 
         assert res and res[0][0] == len(setup_test_data)
 
@@ -102,7 +97,7 @@ class TestWithSampleDBAndThreadPool:
             _looked_up = thread_pool.orm_select_entries(
                 key_id=_entry.key_id,
                 prim_key_sha256hash=_entry.prim_key_sha256hash,
-            ).result()
+            )
             _looked_up = list(_looked_up)
             assert len(_looked_up) == 1
             assert _looked_up[0] == _entry
@@ -125,7 +120,7 @@ class TestWithSampleDBAndThreadPool:
                     key_id=entry.key_id,
                     prim_key_sha256hash=entry.prim_key_sha256hash,
                     _limit=1,
-                ).result()
+                )
                 assert _res == 1
         else:
             for entry in entries_to_remove:
@@ -134,7 +129,7 @@ class TestWithSampleDBAndThreadPool:
                     key_id=entry.key_id,
                     prim_key_sha256hash=entry.prim_key_sha256hash,
                     _limit=1,
-                ).result()
+                )
                 assert isinstance(_res, list)
 
                 assert len(_res) == 1
