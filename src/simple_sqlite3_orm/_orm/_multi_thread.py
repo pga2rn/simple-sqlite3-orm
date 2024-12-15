@@ -4,10 +4,10 @@ import atexit
 import queue
 import sqlite3
 import threading
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
-from typing import Any, Callable, Generic, TypeVar
+from functools import cached_property, partial
+from typing import Any, Generic, TypeVar
 from weakref import WeakSet, WeakValueDictionary
 
 from typing_extensions import Concatenate, ParamSpec
@@ -159,6 +159,19 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
     def _thread_scope_orm(self) -> ORMBase[TableSpecType]:
         """Get thread scope ORMBase instance."""
         return self._thread_id_orms[threading.get_native_id()]
+
+    @cached_property
+    def orm_table_name(self) -> str:
+        """The unique name of the table for use in sql statement.
+
+        If multiple databases are attached to <con> and <schema_name> is availabe,
+            return "<schema_name>.<table_name>", otherwise return <table_name>.
+        """
+        return (
+            f"{self._schema_name}.{self._table_name}"
+            if self._schema_name
+            else self._table_name
+        )
 
     def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
         """Shutdown the ORM connections thread pool.

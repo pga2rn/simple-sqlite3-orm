@@ -5,6 +5,7 @@ import atexit
 import logging
 import sqlite3
 from collections.abc import AsyncGenerator, Callable, Generator
+from functools import cached_property
 from typing import Any, Generic, TypeVar
 from weakref import WeakValueDictionary
 
@@ -104,6 +105,9 @@ class AsyncORMThreadPoolBase(Generic[TableSpecType]):
     NOTE: the supoprt for async ORM is experimental! The APIs might be changed a lot
         in the following releases.
 
+    NOTE: AsyncORMThreadPoolBase is implemented based on ORMThreadPoolBase, but it is NOT a
+        subclass of ORMThreadPoolBase!
+
     For the row_factory arg, please see ORMBase.__init__ for more details.
     """
 
@@ -119,6 +123,9 @@ class AsyncORMThreadPoolBase(Generic[TableSpecType]):
         thread_name_prefix: str = "",
         row_factory: RowFactorySpecifier = "table_spec",
     ) -> None:
+        self._table_name = table_name
+        self._schema_name = schema_name
+
         # setup the thread pool
         self._orm_threadpool = ORMThreadPoolBase[self.orm_table_spec](
             table_name,
@@ -148,6 +155,19 @@ class AsyncORMThreadPoolBase(Generic[TableSpecType]):
         new_parameterized_ormbase.orm_table_spec = params  # type: ignore
         _parameterized_orm_cache[key] = new_parameterized_ormbase
         return GenericAlias(new_parameterized_ormbase, params)
+
+    @cached_property
+    def orm_table_name(self) -> str:
+        """The unique name of the table for use in sql statement.
+
+        If multiple databases are attached to <con> and <schema_name> is availabe,
+            return "<schema_name>.<table_name>", otherwise return <table_name>.
+        """
+        return (
+            f"{self._schema_name}.{self._table_name}"
+            if self._schema_name
+            else self._table_name
+        )
 
     orm_execute = _wrap_with_async_ctx(ORMBase.orm_execute)
     orm_create_table = _wrap_with_async_ctx(ORMBase.orm_create_table)
