@@ -128,7 +128,7 @@ class TestWithSampleDB:
                 assert _res == 1
         else:
             for entry in entries_to_remove:
-                _res = self.orm_inst.orm_delete_entries(
+                _res = self.orm_inst.orm_delete_entries_with_returning(
                     _returning_cols="*",
                     key_id=entry.key_id,
                     prim_key_sha256hash=entry.prim_key_sha256hash,

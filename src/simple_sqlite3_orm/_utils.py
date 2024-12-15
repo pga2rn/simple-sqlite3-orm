@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from io import StringIO
 from typing import (
     TYPE_CHECKING,
@@ -31,6 +32,22 @@ if TYPE_CHECKING:
 
 else:
     from functools import lru_cache  # noqa: F401
+
+
+if sys.version_info >= (3, 9):
+    from types import GenericAlias
+else:
+    from typing import List
+
+    if not TYPE_CHECKING:
+        GenericAlias = type(List[int])
+    else:
+
+        class GenericAlias(type(List)):
+            def __new__(
+                cls, _type: type[Any], _params: type[Any] | tuple[type[Any], ...]
+            ):
+                """For type check only, typing the _GenericAlias as GenericAlias."""
 
 
 class TypeAffinityRepr(str):

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
-import sys
 from functools import cached_property, partial
 from itertools import count
 from typing import (
-    TYPE_CHECKING,
     Any,
     Generator,
     Generic,
@@ -13,7 +11,6 @@ from typing import (
     Literal,
     TypeVar,
     Union,
-    overload,
 )
 from weakref import WeakValueDictionary
 
@@ -22,6 +19,7 @@ from typing_extensions import ParamSpec
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR, ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
 from simple_sqlite3_orm._types import RowFactoryType
+from simple_sqlite3_orm._utils import GenericAlias
 
 _parameterized_orm_cache: WeakValueDictionary[
     tuple[type[ORMBase], type[TableSpec]], type[ORMBase[Any]]
@@ -30,21 +28,6 @@ _parameterized_orm_cache: WeakValueDictionary[
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
-
-if sys.version_info >= (3, 9):
-    from types import GenericAlias as _GenericAlias
-else:
-    from typing import List
-
-    if not TYPE_CHECKING:
-        _GenericAlias = type(List[int])
-    else:
-
-        class _GenericAlias(type(List)):
-            def __new__(
-                cls, _type: type[Any], _params: type[Any] | tuple[type[Any], ...]
-            ):
-                """For type check only, typing the _GenericAlias as GenericAlias."""
 
 
 RowFactorySpecifier = Union[
@@ -125,14 +108,14 @@ class ORMBase(Generic[TableSpecType]):
 
         key = (cls, params)
         if _cached_type := _parameterized_orm_cache.get(key):
-            return _GenericAlias(_cached_type, params)
+            return GenericAlias(_cached_type, params)
 
         new_parameterized_ormbase: type[ORMBase] = type(
             f"{cls.__name__}[{params.__name__}]", (cls,), {}
         )
         new_parameterized_ormbase.orm_table_spec = params  # type: ignore
         _parameterized_orm_cache[key] = new_parameterized_ormbase
-        return _GenericAlias(new_parameterized_ormbase, params)
+        return GenericAlias(new_parameterized_ormbase, params)
 
     @property
     def orm_con(self) -> sqlite3.Connection:
@@ -242,28 +225,6 @@ class ORMBase(Generic[TableSpecType]):
         with self._con as con:
             con.execute(index_create_stmt)
 
-    @overload
-    def orm_select_entries(
-        self,
-        *,
-        _distinct: bool = False,
-        _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
-        _limit: int | None = None,
-        _row_factory: RowFactoryType,
-        **col_values: Any,
-    ) -> Generator[Any, None, None]: ...
-
-    @overload
-    def orm_select_entries(
-        self,
-        *,
-        _distinct: bool = False,
-        _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
-        _limit: int | None = None,
-        _row_factory: None = None,
-        **col_values: Any,
-    ) -> Generator[TableSpecType, None, None]: ...
-
     def orm_select_entries(
         self,
         *,
@@ -272,7 +233,7 @@ class ORMBase(Generic[TableSpecType]):
         _limit: int | None = None,
         _row_factory: RowFactoryType | None = None,
         **col_values: Any,
-    ) -> Generator[TableSpecType, None, None]:
+    ) -> Generator[TableSpecType | Any]:
         """Select entries from the table accordingly.
 
         Args:
@@ -391,61 +352,62 @@ class ORMBase(Generic[TableSpecType]):
             _cur = con.execute(insert_stmt, _in.table_dump_asdict())
             return _cur.rowcount
 
-    @overload
     def orm_delete_entries(
         self,
         *,
         _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
         _limit: int | None = None,
-        _returning_cols: None = None,
-        _row_factory: None = None,
-        **cols_value: Any,
-    ) -> int: ...
-
-    @overload
-    def orm_delete_entries(
-        self,
-        *,
-        _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
-        _limit: int | None = None,
-        _returning_cols: tuple[str, ...] | Literal["*"],
-        _row_factory: None = None,
-        **cols_value: Any,
-    ) -> Generator[TableSpecType, None, None]: ...
-
-    @overload
-    def orm_delete_entries(
-        self,
-        *,
-        _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
-        _limit: int | None = None,
-        _returning_cols: tuple[str, ...] | Literal["*"],
-        _row_factory: RowFactoryType,
-        **cols_value: Any,
-    ) -> Generator[Any, None, None]: ...
-
-    def orm_delete_entries(
-        self,
-        *,
-        _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
-        _limit: int | None = None,
-        _returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         _row_factory: RowFactoryType | None = None,
         **cols_value: Any,
-    ) -> int | Generator[TableSpecType, None, None]:
+    ) -> int:
         """Delete entries from the table accordingly.
 
         Args:
             _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION]] | None, optional): Order the matching entries
                 before executing the deletion, used together with <_limit>. Defaults to None.
             _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
-            _returning_cols (tuple[str, ...] | Literal[, optional): Return the deleted entries on execution.
-                NOTE that only sqlite3 version >= 3.35 supports returning statement. Defaults to None.
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
                 as row factory, set this argument to use different row factory. Defaults to None.
 
         Returns:
             int: The num of entries deleted.
+        """
+        delete_stmt = self.orm_table_spec.table_delete_stmt(
+            delete_from=self.orm_table_name,
+            limit=_limit,
+            order_by=_order_by,
+            returning_cols=None,
+            where_cols=tuple(cols_value),
+        )
+
+        with self._con as con:
+            _cur = con.execute(delete_stmt, cols_value)
+            if _row_factory:
+                _cur.row_factory = _row_factory
+            return _cur.rowcount
+
+    def orm_delete_entries_with_returning(
+        self,
+        *,
+        _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        _limit: int | None = None,
+        _returning_cols: tuple[str, ...] | Literal["*"],
+        _row_factory: RowFactoryType | None = None,
+        **cols_value: Any,
+    ) -> Generator[TableSpecType]:
+        """Delete entries from the table accordingly.
+
+        NOTE that only sqlite3 version >= 3.35 supports returning statement.
+
+        Args:
+            _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION]] | None, optional): Order the matching entries
+                before executing the deletion, used together with <_limit>. Defaults to None.
+            _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
+            _returning_cols (tuple[str, ...] | Literal["*"] ): Return the deleted entries on execution.
+            _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
+                as row factory, set this argument to use different row factory. Defaults to None.
+
+        Returns:
             Generator[TableSpecType, None, None]: If <_returning_cols> is defined, returns a generator which can
                 be used to yield the deleted entries from.
         """
@@ -457,25 +419,18 @@ class ORMBase(Generic[TableSpecType]):
             where_cols=tuple(cols_value),
         )
 
-        if _returning_cols:
-
-            def _gen():
-                with self._con as con:
-                    _cur = con.execute(delete_stmt, cols_value)
-                    if _row_factory is not None:
-                        _cur.row_factory = _row_factory
-                    yield from _cur
-
-            return _gen()
-
-        else:
+        def _gen():
             with self._con as con:
                 _cur = con.execute(delete_stmt, cols_value)
-                return _cur.rowcount
+                if _row_factory is not None:
+                    _cur.row_factory = _row_factory
+                yield from _cur
+
+        return _gen()
 
     def orm_select_all_with_pagination(
         self, *, batch_size: int
-    ) -> Generator[TableSpecType, None, None]:
+    ) -> Generator[TableSpecType | Any]:
         """Select all entries from the table accordingly with pagination.
 
         This is implemented by seek with rowid, so it will not work on without_rowid table.
