@@ -162,7 +162,7 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
         _limit: int | None = None,
         **col_values: Any,
-    ) -> Future[list[TableSpecType]]:
+    ) -> list[TableSpecType]:
         """Select multiple entries and return all the entries in a list."""
 
         def _inner():
@@ -176,7 +176,7 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
                 )
             )
 
-        return self._pool.submit(_inner)
+        return self._pool.submit(_inner).result()
 
     orm_select_entry = _wrap_with_thread_ctx(ORMBase.orm_select_entry)
     orm_insert_entries = _wrap_with_thread_ctx(ORMBase.orm_insert_entries)
