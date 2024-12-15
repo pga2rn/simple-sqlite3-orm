@@ -130,7 +130,7 @@ class TestWithSampleDBAndThreadPool:
                     prim_key_sha256hash=entry.prim_key_sha256hash,
                     _limit=1,
                 )
-                assert isinstance(_res, list)
+                _res_list = list(_res)
 
-                assert len(_res) == 1
-                assert _res[0] == entry
+                assert len(_res_list) == 1
+                assert _res_list[0] == entry
