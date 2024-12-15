@@ -6,26 +6,23 @@ import queue
 import sqlite3
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
-from functools import partial
+from functools import partial, wraps
 from typing import (
     Any,
     Callable,
     Generator,
-    Iterable,
     Literal,
     TypeVar,
 )
 
-from typing_extensions import ParamSpec, deprecated
+from typing_extensions import Concatenate, ParamSpec, deprecated
 
 from simple_sqlite3_orm._orm._base import (
     ORMBase,
     RowFactorySpecifier,
     row_factory_setter,
 )
-from simple_sqlite3_orm._sqlite_spec import INSERT_OR
 from simple_sqlite3_orm._table_spec import TableSpecType
-from simple_sqlite3_orm._types import RowFactoryType
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +38,14 @@ def _python_exit():
 
 
 atexit.register(_python_exit)
+
+
+def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMThreadPoolBaseType, P], RT]):
+    @wraps(func)
+    def _wrapped(self: ORMThreadPoolBaseType, *args: P.args, **kwargs: P.kwargs) -> RT:
+        return self._pool.submit(func, self, *args, **kwargs).result()
+
+    return _wrapped
 
 
 class ORMThreadPoolBase(ORMBase[TableSpecType]):
@@ -104,46 +109,9 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
                 con.close()
         self._thread_id_cons = {}
 
-    def orm_execute(
-        self, sql_stmt: str, params: tuple[Any, ...] | dict[str, Any] | None = None
-    ) -> Future[list[Any]]:
-        return self._pool.submit(super().orm_execute, sql_stmt, params)
-
-    orm_execute.__doc__ = ORMBase.orm_execute.__doc__
-
-    def orm_create_table(
-        self,
-        *,
-        allow_existed: bool = False,
-        strict: bool = False,
-        without_rowid: bool = False,
-    ) -> Future[None]:
-        return self._pool.submit(
-            super().orm_create_table,
-            allow_existed=allow_existed,
-            strict=strict,
-            without_rowid=without_rowid,
-        )
-
-    orm_create_table.__doc__ = ORMBase.orm_create_table.__doc__
-
-    def orm_create_index(
-        self,
-        *,
-        index_name: str,
-        index_keys: tuple[str, ...],
-        allow_existed: bool = False,
-        unique: bool = False,
-    ) -> Future[None]:
-        return self._pool.submit(
-            super().orm_create_index,
-            index_name=index_name,
-            index_keys=index_keys,
-            allow_existed=allow_existed,
-            unique=unique,
-        )
-
-    orm_create_index.__doc__ = ORMBase.orm_create_index.__doc__
+    orm_execute = _wrap_with_thread_ctx(ORMBase.orm_execute)
+    orm_create_table = _wrap_with_thread_ctx(ORMBase.orm_create_table)
+    orm_create_index = _wrap_with_thread_ctx(ORMBase.orm_create_index)
 
     def orm_select_entries_gen(
         self,
@@ -210,37 +178,9 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
 
         return self._pool.submit(_inner)
 
-    def orm_select_entry(
-        self,
-        *,
-        _distinct: bool = False,
-        _order_by: tuple[str | tuple[str, Literal["ASC", "DESC"]], ...] | None = None,
-        _row_factory: RowFactoryType | None = None,
-        **col_values: Any,
-    ) -> Future[TableSpecType | Any | None]:
-        return self._pool.submit(
-            super().orm_select_entry,
-            _distinct=_distinct,
-            _order_by=_order_by,
-            _row_factory=_row_factory,
-            **col_values,
-        )
-
-    orm_select_entry.__doc__ = ORMBase.orm_select_entry.__doc__
-
-    def orm_insert_entries(
-        self, _in: Iterable[TableSpecType], *, or_option: INSERT_OR | None = None
-    ) -> Future[int]:
-        return self._pool.submit(super().orm_insert_entries, _in, or_option=or_option)
-
-    orm_insert_entries.__doc__ = ORMBase.orm_insert_entries.__doc__
-
-    def orm_insert_entry(
-        self, _in: TableSpecType, *, or_option: INSERT_OR | None = None
-    ) -> Future[int]:
-        return self._pool.submit(super().orm_insert_entry, _in, or_option=or_option)
-
-    orm_insert_entry.__doc__ = ORMBase.orm_insert_entry.__doc__
+    orm_select_entry = _wrap_with_thread_ctx(ORMBase.orm_select_entry)
+    orm_insert_entries = _wrap_with_thread_ctx(ORMBase.orm_insert_entries)
+    orm_insert_entry = _wrap_with_thread_ctx(ORMBase.orm_insert_entry)
 
     def orm_delete_entries(
         self,
@@ -270,3 +210,8 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
 
     def orm_select_all_with_pagination(self, *, batch_size: int):
         raise NotImplementedError
+
+    orm_check_entry_exist = _wrap_with_thread_ctx(ORMBase.orm_check_entry_exist)
+
+
+ORMThreadPoolBaseType = TypeVar("ORMThreadPoolBaseType", bound=ORMThreadPoolBase)
