@@ -157,10 +157,13 @@ class TestWithSampleDBWithAsyncIO:
                     prim_key_sha256hash=entry.prim_key_sha256hash,
                     _limit=1,
                 )
-                assert isinstance(_res, list)
 
-                assert len(_res) == 1
-                assert _res[0] == entry
+                _deleted_entry_list = []
+                async for _item in _res:
+                    _deleted_entry_list.append(_item)
+
+                assert len(_deleted_entry_list) == 1
+                assert _deleted_entry_list[0] == entry
 
     async def test_check_timer(
         self, start_timer: tuple[asyncio.Task[None], asyncio.Event]
