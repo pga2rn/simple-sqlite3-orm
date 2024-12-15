@@ -4,12 +4,13 @@ import atexit
 import queue
 import sqlite3
 import threading
+from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial, wraps
+from functools import partial
 from typing import Any, Callable, Generic, TypeVar
 from weakref import WeakSet, WeakValueDictionary
 
-from typing_extensions import ParamSpec
+from typing_extensions import Concatenate, ParamSpec
 
 from simple_sqlite3_orm._orm._base import ORMBase, RowFactorySpecifier
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
@@ -39,21 +40,24 @@ atexit.register(_python_exit)
 _SENTINEL = object()
 
 
-def _wrap_with_thread_ctx(func: Callable):
-    @wraps(func)
-    def _wrapped(self: ORMThreadPoolBase, *args, **kwargs):
-        def _in_thread():
+def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase, P], RT]):
+    def _wrapped(self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs) -> RT:
+        def _in_thread() -> RT:
             _orm_base = self._thread_scope_orm
             return func(_orm_base, *args, **kwargs)
 
         return self._pool.submit(_in_thread).result()
 
+    _wrapped.__doc__ = func.__doc__
     return _wrapped
 
 
-def _wrap_generator_with_thread_ctx(func: Callable):
-    @wraps(func)
-    def _wrapped(self: ORMThreadPoolBase, *args, **kwargs):
+def _wrap_generator_with_thread_ctx(
+    func: Callable[Concatenate[ORMBase, P], Generator[TableSpecType]],
+):
+    def _wrapped(
+        self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs
+    ) -> Generator[TableSpecType]:
         _queue = queue.SimpleQueue()
         _global_queue_weakset.add(_queue)
 
@@ -87,6 +91,7 @@ def _wrap_generator_with_thread_ctx(func: Callable):
 
         return _gen()
 
+    _wrapped.__doc__ = func.__doc__
     return _wrapped
 
 
@@ -152,7 +157,7 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
 
     @property
     def _thread_scope_orm(self) -> ORMBase[TableSpecType]:
-        """Get thread-specific sqlite3 connection."""
+        """Get thread scope ORMBase instance."""
         return self._thread_id_orms[threading.get_native_id()]
 
     def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
