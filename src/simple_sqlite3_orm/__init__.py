@@ -18,6 +18,7 @@ from simple_sqlite3_orm._types import (
     DatetimeISO8601,
     DatetimeUnixTimestamp,
     DatetimeUnixTimestampInt,
+    RowFactoryType,
 )
 from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr
 
@@ -38,5 +39,6 @@ __all__ = [
     "DatetimeISO8601",
     "DatetimeUnixTimestamp",
     "DatetimeUnixTimestampInt",
+    "RowFactoryType",
     "gen_sql_stmt",
 ]

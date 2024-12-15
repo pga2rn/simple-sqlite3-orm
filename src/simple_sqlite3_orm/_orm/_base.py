@@ -49,12 +49,9 @@ else:
 class ORMBase(Generic[TableSpecType]):
     """ORM layer for <TableSpecType>.
 
-    NOTE that ORMBase will set the connection scope row_factory to <tablespec>'s table_row_factory.
-        See TableSpec.table_row_factory for more details.
-
-    NOTE that instance of ORMBase cannot be used in multi-threaded environment as the underlying
-        sqlite3 connection. Use ORMThreadPoolBase for multi-threaded environment. For asyncio,
-        use AsyncORMThreadPoolBase.
+    NOTE that instance of ORMBase cannot be used in multi-threaded environment.
+        Use ORMThreadPoolBase for multi-threaded environment.
+        For asyncio, use AsyncORMThreadPoolBase.
 
     The underlying connection can be used in multiple connection for accessing different table in
         the connected database.
@@ -62,7 +59,17 @@ class ORMBase(Generic[TableSpecType]):
     Attributes:
         con (sqlite3.Connection): The sqlite3 connection used by this ORM.
         table_name (str): The name of the table in the database <con> connected to.
-        schema_name (str): the schema of the table if multiple databases are attached to <con>.
+        schema_name (str): The schema of the table if multiple databases are attached to <con>.
+        row_factory (RowFactoryType | Literal[
+                "sqlite3_row_factory",
+                "table_spec",
+                "table_spec_no_validation",
+            ] | None): The connection scope row_factory to use. Default to "table_sepc". For each option:
+                1. RowFactoryType: specify arbitrary row_factory.
+                2. None: do not set connection scope row_factory.
+                3. "sqlite3_row_factory": set to use sqlite3.Row as row_factory.
+                4. "table_spec": use TableSpec.table_row_factory as row_factory.
+                5. "table_spec_no_validation": use TableSpec.table_row_factory_no_validation as row_factory.
     """
 
     orm_table_spec: type[TableSpecType]
@@ -72,11 +79,26 @@ class ORMBase(Generic[TableSpecType]):
         con: sqlite3.Connection,
         table_name: str,
         schema_name: str | Literal["temp"] | None = None,
+        *,
+        row_factory: RowFactoryType
+        | Literal[
+            "sqlite3_row_factory",
+            "table_spec",
+            "table_spec_no_validation",
+        ] = "table_spec",
     ) -> None:
         self._table_name = table_name
         self._schema_name = schema_name
         self._con = con
-        con.row_factory = self.orm_table_spec.table_row_factory
+
+        if callable(row_factory):
+            con.row_factory = row_factory
+        elif row_factory == "sqlite3_row_factory":
+            con.row_factory = sqlite3.Row
+        elif row_factory == "table_spec":
+            con.row_factory = self.orm_table_spec.table_row_factory
+        elif row_factory == "table_spec_no_validation":
+            con.row_factory = self.orm_table_spec.table_row_factory_no_validation
 
     def __class_getitem__(cls, params: Any | type[Any] | type[TableSpecType]) -> Any:
         # just for convienience, passthrough anything that is not type[TableSpecType]
