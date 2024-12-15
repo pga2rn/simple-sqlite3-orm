@@ -48,13 +48,13 @@ else:
 
 
 RowFactorySpecifier = Union[
-    RowFactoryType
-    | Literal[
+    RowFactoryType,
+    Literal[
         "sqlite3_row_factory",
         "table_spec",
         "table_spec_no_validation",
-    ]
-    | None
+    ],
+    None,
 ]
 """Specifiy which row_factory to use.
 
