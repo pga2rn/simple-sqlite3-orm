@@ -164,6 +164,50 @@ class ORMBase(Generic[TableSpecType]):
                 cur = con.execute(sql_stmt)
             return cur.fetchall()
 
+    def orm_executemany(
+        self,
+        sql_stmt: str,
+        params: Iterable[tuple[Any, ...] | dict[str, Any]],
+    ) -> list[Any]:
+        """Execute one sql statement with a set of params and get the all the result.
+
+        The result will be fetched with fetchall API and returned as it.
+
+        This method is inteneded for executing simple sql_stmt with small result.
+        For complicated sql statement and large result, please use sqlite3.Connection object
+            exposed by orm_con and manipulate the Cursor object by yourselves.
+
+        Args:
+            sql_stmt (str): The sqlite statement to be executed.
+            params (Iterable[tuple[Any, ...] | dict[str, Any]]): The set of parameters to be bound
+                to the sql statement execution.
+
+        Returns:
+            list[Any]: A list contains all the result entries.
+        """
+        with self._con as con:
+            cur = con.executemany(sql_stmt, params)
+            return cur.fetchall()
+
+    def orm_executescript(self, sql_script: str) -> list[Any]:
+        """Execute one sql script and get the all the result.
+
+        The result will be fetched with fetchall API and returned as it.
+
+        This method is inteneded for executing simple sql_stmt with small result.
+        For complicated sql statement and large result, please use sqlite3.Connection object
+            exposed by orm_con and manipulate the Cursor object by yourselves.
+
+        Args:
+            sql_stmt (str): The sqlite script to be executed.
+
+        Returns:
+            list[Any]: A list contains all the result entries.
+        """
+        with self._con as con:
+            cur = con.executescript(sql_script)
+            return cur.fetchall()
+
     def orm_create_table(
         self,
         *,
