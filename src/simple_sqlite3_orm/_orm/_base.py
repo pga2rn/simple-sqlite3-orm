@@ -71,16 +71,17 @@ def row_factory_setter(
     con: sqlite3.Connection,
     table_spec: type[TableSpec],
     row_factory_specifier: RowFactorySpecifier,
-) -> None:
+) -> None:  # pragma: no cover
     """Helper function to set connection scope row_factory by row_factory_specifier."""
     if callable(row_factory_specifier):
         con.row_factory = row_factory_specifier
-    elif row_factory_specifier == "sqlite3_row_factory":
-        con.row_factory = sqlite3.Row
     elif row_factory_specifier == "table_spec":
         con.row_factory = table_spec.table_row_factory
     elif row_factory_specifier == "table_spec_no_validation":
         con.row_factory = partial(table_spec.table_row_factory, validation=False)
+    elif row_factory_specifier == "sqlite3_row_factory":
+        con.row_factory = sqlite3.Row
+    # do nothing means not changing connection scope row_factory
 
 
 class ORMBase(Generic[TableSpecType]):
