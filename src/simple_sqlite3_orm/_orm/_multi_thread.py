@@ -6,6 +6,7 @@ import queue
 import sqlite3
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
+from functools import partial
 from typing import (
     Any,
     Callable,
@@ -17,7 +18,11 @@ from typing import (
 
 from typing_extensions import ParamSpec, deprecated
 
-from simple_sqlite3_orm._orm._base import ORMBase
+from simple_sqlite3_orm._orm._base import (
+    ORMBase,
+    RowFactorySpecifier,
+    row_factory_setter,
+)
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR
 from simple_sqlite3_orm._table_spec import TableSpecType
 from simple_sqlite3_orm._types import RowFactoryType
@@ -41,6 +46,8 @@ atexit.register(_python_exit)
 class ORMThreadPoolBase(ORMBase[TableSpecType]):
     """
     See https://www.sqlite.org/wal.html#concurrency for more details.
+
+    For the row_factory arg, please see ORMBase.__init__ for more details.
     """
 
     def __init__(
@@ -51,22 +58,23 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
         con_factory: Callable[[], sqlite3.Connection],
         number_of_cons: int,
         thread_name_prefix: str = "",
+        row_factory: RowFactorySpecifier = "table_spec",
     ) -> None:
         self._table_name = table_name
         self._schema_name = schema_name
 
         self._thread_id_cons: dict[int, sqlite3.Connection] = {}
 
-        def _thread_initializer():
-            thread_id = threading.get_native_id()
-            self._thread_id_cons[thread_id] = con = con_factory()
-            con.row_factory = self.orm_table_spec.table_row_factory
-
         self._pool = ThreadPoolExecutor(
             max_workers=number_of_cons,
-            initializer=_thread_initializer,
+            initializer=partial(self._thread_initializer, con_factory, row_factory),
             thread_name_prefix=thread_name_prefix,
         )
+
+    def _thread_initializer(self, con_factory, row_factory) -> None:
+        thread_id = threading.get_native_id()
+        self._thread_id_cons[thread_id] = con = con_factory()
+        row_factory_setter(con, self.orm_table_spec, row_factory)
 
     @property
     def _con(self) -> sqlite3.Connection:
