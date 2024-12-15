@@ -8,6 +8,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
 from typing import Callable, TypeVar
+from weakref import WeakSet
 
 from typing_extensions import ParamSpec, deprecated
 
@@ -24,11 +25,15 @@ P = ParamSpec("P")
 RT = TypeVar("RT")
 
 _global_shutdown = False
+_global_queue_weakset: WeakSet[queue.SimpleQueue] = WeakSet()
 
 
 def _python_exit():
     global _global_shutdown
     _global_shutdown = True
+
+    for _q in _global_queue_weakset:
+        _q.put_nowait(_SENTINEL)
 
 
 atexit.register(_python_exit)
@@ -48,6 +53,7 @@ def _wrap_generator_with_thread_ctx(func: Callable):
     @wraps(func)
     def _wrapped(self: ORMThreadPoolBase, *args, **kwargs):
         _queue = queue.SimpleQueue()
+        _global_queue_weakset.add(_queue)
 
         def _in_thread():
             global _global_shutdown
@@ -168,9 +174,9 @@ class ORMThreadPoolBase(ORMBase[TableSpecType]):
             return self._orm_delete_entries_with_returning(*args, **kwargs)
         return self._orm_delete_entries(*args, **kwargs)
 
-    def orm_select_all_with_pagination(self, *, batch_size: int):
-        raise NotImplementedError
-
+    orm_select_all_with_pagination = _wrap_generator_with_thread_ctx(
+        ORMBase.orm_select_all_with_pagination
+    )
     orm_check_entry_exist = _wrap_with_thread_ctx(ORMBase.orm_check_entry_exist)
 
 
