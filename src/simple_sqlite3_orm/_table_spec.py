@@ -197,12 +197,15 @@ class TableSpec(BaseModel):
 
     @classmethod
     def table_row_factory(
-        cls, _cursor: sqlite3.Cursor, _row: tuple[Any, ...]
+        cls, _cursor: sqlite3.Cursor, _row: tuple[Any, ...], *, validation: bool = True
     ) -> Self | tuple[Any, ...]:
         """row_factory implement for used in sqlite3 connection.
 
         When the input <_row> is not a row but something like function output,
             this method will return the raw input tuple as it.
+
+        Args:
+            validation (bool): whether enable pydantic validation when importing row. Default to True.
 
         Also see https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.description
             for more details.
@@ -212,7 +215,10 @@ class TableSpec(BaseModel):
         # when we realize that the input is not a row, but something like function call's output.
         if not all(col in cls.model_fields for col in _fields):
             return _row
-        return cls.model_validate(dict(zip(_fields, _row)))
+
+        if validation:
+            return cls.model_validate(dict(zip(_fields, _row)))
+        return cls.model_construct(**dict(zip(_fields, _row)))
 
     @classmethod
     def table_from_tuple(
