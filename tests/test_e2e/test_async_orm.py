@@ -86,7 +86,7 @@ class TestWithSampleDBWithAsyncIO:
 
         logger.info("confirm data written with orm_select_entries_gen")
         _count = 0
-        async for _entry in async_pool.orm_select_entries_gen():
+        async for _entry in await async_pool.orm_select_entries():
             _corresponding_item = setup_test_data[_entry.prim_key]
             assert _corresponding_item == _entry
             _count += 1
@@ -109,8 +109,13 @@ class TestWithSampleDBWithAsyncIO:
                 key_id=_entry.key_id,
                 prim_key_sha256hash=_entry.prim_key_sha256hash,
             )
-            assert len(_looked_up) == 1
-            assert _looked_up[0] == _entry
+
+            _looked_up_list = []
+            async for _item in _looked_up:
+                _looked_up_list.append(_item)
+
+            assert len(_looked_up_list) == 1
+            assert _looked_up_list[0] == _entry
 
     async def test_orm_execute(
         self, async_pool: SampleDBAsyncio, setup_test_data: dict[str, SampleTable]
