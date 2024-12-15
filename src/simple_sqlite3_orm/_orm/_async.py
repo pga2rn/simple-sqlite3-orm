@@ -15,6 +15,7 @@ from typing import (
 from typing_extensions import ParamSpec, deprecated
 
 from simple_sqlite3_orm._orm import _multi_thread as _orm_multi_thread
+from simple_sqlite3_orm._orm._base import RowFactorySpecifier
 from simple_sqlite3_orm._orm._multi_thread import ORMBase, ORMThreadPoolBase
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR
 from simple_sqlite3_orm._table_spec import TableSpecType
@@ -26,6 +27,13 @@ RT = TypeVar("RT")
 
 
 class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
+    """
+    NOTE: the supoprt for async ORM is experimental! The APIs might be changed a lot
+        in the following releases.
+
+    For the row_factory arg, please see ORMBase.__init__ for more details.
+    """
+
     def __init__(
         self,
         table_name: str,
@@ -34,6 +42,7 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
         con_factory: Callable[[], sqlite3.Connection],
         number_of_cons: int,
         thread_name_prefix: str = "",
+        row_factory: RowFactorySpecifier = "table_spec",
     ) -> None:
         # setup the thread pool
         super().__init__(
@@ -42,6 +51,7 @@ class AsyncORMThreadPoolBase(ORMThreadPoolBase[TableSpecType]):
             con_factory=con_factory,
             number_of_cons=number_of_cons,
             thread_name_prefix=thread_name_prefix,
+            row_factory=row_factory,
         )
 
         self._loop = asyncio.get_running_loop()
