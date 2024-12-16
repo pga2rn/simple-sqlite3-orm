@@ -27,7 +27,7 @@ dependencies = [ "pydantic>=2.6,<3", "typing-extensions>=4" ]
 optional-dependencies.dev = [
   "coverage>=7.6,<7.7",
   "pytest>=8.3,<8.4",
-  "pytest-asyncio>=0.24,<0.25",
+  "pytest-asyncio>=0.24,<0.26",
   "pytest-mock>=3.14,<3.15",
   "ruff>=0.6,<0.9",
 ]
