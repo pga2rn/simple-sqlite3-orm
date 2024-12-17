@@ -158,10 +158,6 @@ class ORMBase(Generic[TableSpecType]):
 
         The result will be fetched with fetchall API and returned as it.
 
-        This method is inteneded for executing simple sql_stmt with small result.
-        For complicated sql statement and large result, please use sqlite3.Connection object
-            exposed by orm_con and manipulate the Cursor object by yourselves.
-
         Args:
             sql_stmt (str): The sqlite statement to be executed.
             params (tuple[Any, ...] | dict[str, Any] | None, optional): The parameters to be bound
@@ -186,10 +182,6 @@ class ORMBase(Generic[TableSpecType]):
 
         NOTE that any returning values will be discarded, including with RETURNING stmt.
 
-        This method is inteneded for executing simple sql_stmt with small result.
-        For complicated sql statement and large result, please use sqlite3.Connection object
-            exposed by orm_con and manipulate the Cursor object by yourselves.
-
         Args:
             sql_stmt (str): The sqlite statement to be executed.
             params (Iterable[tuple[Any, ...] | dict[str, Any]]): The set of parameters to be bound
@@ -206,10 +198,6 @@ class ORMBase(Generic[TableSpecType]):
         """Execute one sql script.
 
         NOTE that any returning values will be discarded, including with RETURNING stmt.
-
-        This method is inteneded for executing simple sql_stmt with small result.
-        For complicated sql statement and large result, please use sqlite3.Connection object
-            exposed by orm_con and manipulate the Cursor object by yourselves.
 
         Args:
             sql_script (str): The sqlite script to be executed.
