@@ -18,7 +18,7 @@ from typing_extensions import ParamSpec
 
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR, ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
-from simple_sqlite3_orm._types import RowFactoryType
+from simple_sqlite3_orm._types import ConnectionFactoryType, RowFactoryType
 from simple_sqlite3_orm._utils import GenericAlias
 
 _parameterized_orm_cache: WeakValueDictionary[
@@ -78,7 +78,8 @@ class ORMBase(Generic[TableSpecType]):
         the connected database.
 
     Attributes:
-        con (sqlite3.Connection): The sqlite3 connection used by this ORM.
+        con (sqlite3.Connection | ConnectionFactoryType): The sqlite3 connection used by this ORM, or a factory
+            function that returns a sqlite3.Connection object on calling.
         table_name (str): The name of the table in the database <con> connected to. This field will take prior over the
             table_name specified by _orm_table_name attr.
         schema_name (str): The schema of the table if multiple databases are attached to <con>.
@@ -91,7 +92,7 @@ class ORMBase(Generic[TableSpecType]):
 
     def __init__(
         self,
-        con: sqlite3.Connection,
+        con: sqlite3.Connection | ConnectionFactoryType,
         table_name: str | None = None,
         schema_name: str | Literal["temp"] | None = None,
         *,
@@ -104,8 +105,12 @@ class ORMBase(Generic[TableSpecType]):
                 "table_name must be either set by <table_name> init param, or by defining <_orm_table_name> attr."
             )
         self._schema_name = schema_name
-        self._con = con
-        row_factory_setter(con, self.orm_table_spec, row_factory)
+
+        if isinstance(con, sqlite3.Connection):
+            self._con = con
+        elif callable(con):
+            self._con = con()
+        row_factory_setter(self._con, self.orm_table_spec, row_factory)
 
     def __class_getitem__(cls, params: Any | type[Any] | type[TableSpecType]) -> Any:
         # just for convienience, passthrough anything that is not type[TableSpecType]

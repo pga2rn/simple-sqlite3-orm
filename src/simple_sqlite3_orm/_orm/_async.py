@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import atexit
 import logging
-import sqlite3
 from collections.abc import AsyncGenerator, Callable, Generator
 from functools import cached_property
 from typing import Any, Generic, TypeVar
@@ -14,6 +13,7 @@ from typing_extensions import Concatenate, ParamSpec
 from simple_sqlite3_orm._orm._base import RowFactorySpecifier
 from simple_sqlite3_orm._orm._multi_thread import ORMBase, ORMThreadPoolBase
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
+from simple_sqlite3_orm._types import ConnectionFactoryType
 from simple_sqlite3_orm._utils import GenericAlias
 
 logger = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ class AsyncORMBase(Generic[TableSpecType]):
         table_name: str | None = None,
         schema_name: str | None = None,
         *,
-        con_factory: Callable[[], sqlite3.Connection],
+        con_factory: ConnectionFactoryType,
         number_of_cons: int,
         thread_name_prefix: str = "",
         row_factory: RowFactorySpecifier = "table_spec",
