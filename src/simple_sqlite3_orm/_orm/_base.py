@@ -103,7 +103,6 @@ class ORMBase(Generic[TableSpecType]):
             raise ValueError(
                 "table_name must be either set by <table_name> init param, or by defining <_orm_table_name> attr."
             )
-
         self._schema_name = schema_name
         self._con = con
         row_factory_setter(con, self.orm_table_spec, row_factory)
