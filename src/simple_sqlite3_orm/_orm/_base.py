@@ -86,8 +86,8 @@ class ORMBase(Generic[TableSpecType]):
     """
 
     orm_table_spec: type[TableSpecType]
-    _orm_table_name: str | None = None
-    """Pre-defined table_name for the ORM. This is for pinning table_name when creating ORM object."""
+    _orm_table_name: str
+    """table_name for the ORM. This can be used for pinning table_name when creating ORM object."""
 
     def __init__(
         self,
@@ -97,12 +97,12 @@ class ORMBase(Generic[TableSpecType]):
         *,
         row_factory: RowFactorySpecifier = "table_spec",
     ) -> None:
-        _table_name = table_name or self._orm_table_name
-        if not _table_name:
+        if table_name:
+            self._orm_table_name = table_name
+        if getattr(self, "_orm_table_name", None) is None:
             raise ValueError(
                 "table_name must be either set by <table_name> init param, or by defining <_orm_table_name> attr."
             )
-        self._table_name = _table_name
 
         self._schema_name = schema_name
         self._con = con
@@ -142,9 +142,9 @@ class ORMBase(Generic[TableSpecType]):
             return "<schema_name>.<table_name>", otherwise return <table_name>.
         """
         return (
-            f"{self._schema_name}.{self._table_name}"
+            f"{self._schema_name}.{self._orm_table_name}"
             if self._schema_name
-            else self._table_name
+            else self._orm_table_name
         )
 
     def orm_execute(
