@@ -25,6 +25,8 @@ TIMER_INTERVAL = 0.1
 class SampleDBAsyncio(AsyncORMBase[SampleTable]):
     """Test connection pool with async API."""
 
+    _orm_table_name = TABLE_NAME
+
 
 @pytest.mark.asyncio(loop_scope="class")
 class TestWithSampleDBWithAsyncIO:
@@ -35,7 +37,6 @@ class TestWithSampleDBWithAsyncIO:
     ):
         try:
             pool = SampleDBAsyncio(
-                TABLE_NAME,
                 con_factory=setup_con_factory,
                 number_of_cons=THREAD_NUM,
             )
