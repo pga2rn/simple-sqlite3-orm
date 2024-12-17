@@ -103,10 +103,12 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
     """
 
     orm_table_spec: type[TableSpecType]
+    _orm_table_name: str
+    """table_name for the ORM. This can be used for pinning table_name when creating ORM object."""
 
     def __init__(
         self,
-        table_name: str,
+        table_name: str | None = None,
         schema_name: str | None = None,
         *,
         con_factory: Callable[[], sqlite3.Connection],
@@ -114,7 +116,12 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
         thread_name_prefix: str = "",
         row_factory: RowFactorySpecifier = "table_spec",
     ) -> None:
-        self._table_name = table_name
+        if table_name:
+            self._orm_table_name = table_name
+        if getattr(self, "_orm_table_name", None) is None:
+            raise ValueError(
+                "table_name must be either set by <table_name> init param, or by defining <_orm_table_name> attr."
+            )
         self._schema_name = schema_name
 
         # thread_scope ORMBase instances
@@ -149,7 +156,7 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
         thread_id = threading.get_native_id()
         _orm = ORMBase[self.orm_table_spec](
             con_factory(),
-            self._table_name,
+            self._orm_table_name,
             self._schema_name,
             row_factory=row_factory,
         )
@@ -168,9 +175,9 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
             return "<schema_name>.<table_name>", otherwise return <table_name>.
         """
         return (
-            f"{self._schema_name}.{self._table_name}"
+            f"{self._schema_name}.{self._orm_table_name}"
             if self._schema_name
-            else self._table_name
+            else self._orm_table_name
         )
 
     def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
