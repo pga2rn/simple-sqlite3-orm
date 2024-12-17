@@ -79,22 +79,31 @@ class ORMBase(Generic[TableSpecType]):
 
     Attributes:
         con (sqlite3.Connection): The sqlite3 connection used by this ORM.
-        table_name (str): The name of the table in the database <con> connected to.
+        table_name (str): The name of the table in the database <con> connected to. This field will take prior over the
+            table_name specified by _orm_table_name attr.
         schema_name (str): The schema of the table if multiple databases are attached to <con>.
         row_factory (RowFactorySpecifier): The connection scope row_factory to use. Default to "table_sepc".
     """
 
     orm_table_spec: type[TableSpecType]
+    _orm_table_name: str | None = None
+    """Pre-defined table_name for the ORM. This is for pinning table_name when creating ORM object."""
 
     def __init__(
         self,
         con: sqlite3.Connection,
-        table_name: str,
+        table_name: str | None = None,
         schema_name: str | Literal["temp"] | None = None,
         *,
         row_factory: RowFactorySpecifier = "table_spec",
     ) -> None:
-        self._table_name = table_name
+        _table_name = table_name or self._orm_table_name
+        if not _table_name:
+            raise ValueError(
+                "table_name must be either set by <table_name> init param, or by defining <_orm_table_name> attr."
+            )
+        self._table_name = _table_name
+
         self._schema_name = schema_name
         self._con = con
         row_factory_setter(con, self.orm_table_spec, row_factory)
