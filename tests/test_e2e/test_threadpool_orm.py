@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 class SampleDBConnectionPool(ORMThreadPoolBase[SampleTable]):
     """Test connection pool."""
 
+    _orm_table_name = TABLE_NAME
+
 
 THREAD_NUM = 2
 WORKER_NUM = 6
@@ -28,7 +30,6 @@ class TestWithSampleDBAndThreadPool:
     def thread_pool(self, setup_con_factory: Callable[[], sqlite3.Connection]):
         try:
             pool = SampleDBConnectionPool(
-                TABLE_NAME,
                 con_factory=setup_con_factory,
                 number_of_cons=THREAD_NUM,
             )
