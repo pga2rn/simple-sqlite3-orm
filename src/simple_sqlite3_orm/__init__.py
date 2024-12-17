@@ -15,6 +15,7 @@ from simple_sqlite3_orm._sqlite_spec import (
 )
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType, gen_sql_stmt
 from simple_sqlite3_orm._types import (
+    ConnectionFactoryType,
     DatetimeISO8601,
     DatetimeUnixTimestamp,
     DatetimeUnixTimestampInt,
@@ -46,6 +47,7 @@ __all__ = [
     "DatetimeUnixTimestamp",
     "DatetimeUnixTimestampInt",
     "RowFactoryType",
+    "ConnectionFactoryType",
     "gen_sql_stmt",
     "__version__",
     "__version_tuple__",

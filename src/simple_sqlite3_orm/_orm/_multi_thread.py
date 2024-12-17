@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import atexit
 import queue
-import sqlite3
 import threading
 from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +13,7 @@ from typing_extensions import Concatenate, ParamSpec
 
 from simple_sqlite3_orm._orm._base import ORMBase, RowFactorySpecifier
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
+from simple_sqlite3_orm._types import ConnectionFactoryType
 from simple_sqlite3_orm._utils import GenericAlias
 
 _parameterized_orm_cache: WeakValueDictionary[
@@ -111,7 +111,7 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
         table_name: str | None = None,
         schema_name: str | None = None,
         *,
-        con_factory: Callable[[], sqlite3.Connection],
+        con_factory: ConnectionFactoryType,
         number_of_cons: int,
         thread_name_prefix: str = "",
         row_factory: RowFactorySpecifier = "table_spec",
@@ -155,7 +155,7 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
         """Prepare thread_scope ORMBase instance for this worker thread."""
         thread_id = threading.get_native_id()
         _orm = ORMBase[self.orm_table_spec](
-            con_factory(),
+            con_factory,
             self._orm_table_name,
             self._schema_name,
             row_factory=row_factory,
