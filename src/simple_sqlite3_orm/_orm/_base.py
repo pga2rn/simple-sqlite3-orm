@@ -158,10 +158,6 @@ class ORMBase(Generic[TableSpecType]):
 
         The result will be fetched with fetchall API and returned as it.
 
-        This method is inteneded for executing simple sql_stmt with small result.
-        For complicated sql statement and large result, please use sqlite3.Connection object
-            exposed by orm_con and manipulate the Cursor object by yourselves.
-
         Args:
             sql_stmt (str): The sqlite statement to be executed.
             params (tuple[Any, ...] | dict[str, Any] | None, optional): The parameters to be bound
@@ -176,6 +172,42 @@ class ORMBase(Generic[TableSpecType]):
             else:
                 cur = con.execute(sql_stmt)
             return cur.fetchall()
+
+    def orm_executemany(
+        self,
+        sql_stmt: str,
+        params: Iterable[tuple[Any, ...] | dict[str, Any]],
+    ) -> int:
+        """Repeatedly execute the parameterized DML SQL statement sql.
+
+        NOTE that any returning values will be discarded, including with RETURNING stmt.
+
+        Args:
+            sql_stmt (str): The sqlite statement to be executed.
+            params (Iterable[tuple[Any, ...] | dict[str, Any]]): The set of parameters to be bound
+                to the sql statement execution.
+
+        Returns:
+            The affected row count.
+        """
+        with self._con as con:
+            cur = con.executemany(sql_stmt, params)
+            return cur.rowcount
+
+    def orm_executescript(self, sql_script: str) -> int:
+        """Execute one sql script.
+
+        NOTE that any returning values will be discarded, including with RETURNING stmt.
+
+        Args:
+            sql_script (str): The sqlite script to be executed.
+
+        Returns:
+            The affected row count.
+        """
+        with self._con as con:
+            cur = con.executescript(sql_script)
+            return cur.rowcount
 
     def orm_create_table(
         self,

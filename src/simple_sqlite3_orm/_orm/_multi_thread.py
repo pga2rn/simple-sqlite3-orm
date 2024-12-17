@@ -198,6 +198,8 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
         self._thread_id_orms = {}
 
     orm_execute = _wrap_with_thread_ctx(ORMBase.orm_execute)
+    orm_executemany = _wrap_with_thread_ctx(ORMBase.orm_executemany)
+    orm_executescript = _wrap_with_thread_ctx(ORMBase.orm_executescript)
     orm_create_table = _wrap_with_thread_ctx(ORMBase.orm_create_table)
     orm_create_index = _wrap_with_thread_ctx(ORMBase.orm_create_index)
     orm_select_entries = _wrap_generator_with_thread_ctx(ORMBase.orm_select_entries)
