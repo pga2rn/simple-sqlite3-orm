@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import atexit
 import queue
-import sqlite3
 import threading
 from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +13,7 @@ from typing_extensions import Concatenate, ParamSpec
 
 from simple_sqlite3_orm._orm._base import ORMBase, RowFactorySpecifier
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
+from simple_sqlite3_orm._types import ConnectionFactoryType
 from simple_sqlite3_orm._utils import GenericAlias
 
 _parameterized_orm_cache: WeakValueDictionary[
@@ -103,18 +103,25 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
     """
 
     orm_table_spec: type[TableSpecType]
+    _orm_table_name: str
+    """table_name for the ORM. This can be used for pinning table_name when creating ORM object."""
 
     def __init__(
         self,
-        table_name: str,
+        table_name: str | None = None,
         schema_name: str | None = None,
         *,
-        con_factory: Callable[[], sqlite3.Connection],
+        con_factory: ConnectionFactoryType,
         number_of_cons: int,
         thread_name_prefix: str = "",
         row_factory: RowFactorySpecifier = "table_spec",
     ) -> None:
-        self._table_name = table_name
+        if table_name:
+            self._orm_table_name = table_name
+        if getattr(self, "_orm_table_name", None) is None:
+            raise ValueError(
+                "table_name must be either set by <table_name> init param, or by defining <_orm_table_name> attr."
+            )
         self._schema_name = schema_name
 
         # thread_scope ORMBase instances
@@ -148,8 +155,8 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
         """Prepare thread_scope ORMBase instance for this worker thread."""
         thread_id = threading.get_native_id()
         _orm = ORMBase[self.orm_table_spec](
-            con_factory(),
-            self._table_name,
+            con_factory,
+            self._orm_table_name,
             self._schema_name,
             row_factory=row_factory,
         )
@@ -168,9 +175,9 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
             return "<schema_name>.<table_name>", otherwise return <table_name>.
         """
         return (
-            f"{self._schema_name}.{self._table_name}"
+            f"{self._schema_name}.{self._orm_table_name}"
             if self._schema_name
-            else self._table_name
+            else self._orm_table_name
         )
 
     def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
@@ -191,6 +198,8 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
         self._thread_id_orms = {}
 
     orm_execute = _wrap_with_thread_ctx(ORMBase.orm_execute)
+    orm_executemany = _wrap_with_thread_ctx(ORMBase.orm_executemany)
+    orm_executescript = _wrap_with_thread_ctx(ORMBase.orm_executescript)
     orm_create_table = _wrap_with_thread_ctx(ORMBase.orm_create_table)
     orm_create_index = _wrap_with_thread_ctx(ORMBase.orm_create_index)
     orm_select_entries = _wrap_generator_with_thread_ctx(ORMBase.orm_select_entries)

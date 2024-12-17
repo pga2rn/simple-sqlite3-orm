@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import atexit
 import logging
-import sqlite3
 from collections.abc import AsyncGenerator, Callable, Generator
 from functools import cached_property
 from typing import Any, Generic, TypeVar
@@ -14,6 +13,7 @@ from typing_extensions import Concatenate, ParamSpec
 from simple_sqlite3_orm._orm._base import RowFactorySpecifier
 from simple_sqlite3_orm._orm._multi_thread import ORMBase, ORMThreadPoolBase
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
+from simple_sqlite3_orm._types import ConnectionFactoryType
 from simple_sqlite3_orm._utils import GenericAlias
 
 logger = logging.getLogger(__name__)
@@ -110,23 +110,30 @@ class AsyncORMBase(Generic[TableSpecType]):
     """
 
     orm_table_spec: type[TableSpecType]
+    _orm_table_name: str
+    """table_name for the ORM. This can be used for pinning table_name when creating ORM object."""
 
     def __init__(
         self,
-        table_name: str,
+        table_name: str | None = None,
         schema_name: str | None = None,
         *,
-        con_factory: Callable[[], sqlite3.Connection],
+        con_factory: ConnectionFactoryType,
         number_of_cons: int,
         thread_name_prefix: str = "",
         row_factory: RowFactorySpecifier = "table_spec",
     ) -> None:
-        self._table_name = table_name
+        if table_name:
+            self._orm_table_name = table_name
+        if getattr(self, "_orm_table_name", None) is None:
+            raise ValueError(
+                "table_name must be either set by <table_name> init param, or by defining <_orm_table_name> attr."
+            )
         self._schema_name = schema_name
 
         # setup the thread pool
         self._orm_threadpool = ORMThreadPoolBase[self.orm_table_spec](
-            table_name,
+            self._orm_table_name,
             schema_name,
             con_factory=con_factory,
             number_of_cons=number_of_cons,
@@ -162,9 +169,9 @@ class AsyncORMBase(Generic[TableSpecType]):
             return "<schema_name>.<table_name>", otherwise return <table_name>.
         """
         return (
-            f"{self._schema_name}.{self._table_name}"
+            f"{self._schema_name}.{self._orm_table_name}"
             if self._schema_name
-            else self._table_name
+            else self._orm_table_name
         )
 
     def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
@@ -183,6 +190,8 @@ class AsyncORMBase(Generic[TableSpecType]):
         )
 
     orm_execute = _wrap_with_async_ctx(ORMBase.orm_execute)
+    orm_executemany = _wrap_with_async_ctx(ORMBase.orm_executemany)
+    orm_executescript = _wrap_with_async_ctx(ORMBase.orm_executescript)
     orm_create_table = _wrap_with_async_ctx(ORMBase.orm_create_table)
     orm_create_index = _wrap_with_async_ctx(ORMBase.orm_create_index)
     orm_select_entries = _wrap_generator_with_async_ctx(ORMBase.orm_select_entries)

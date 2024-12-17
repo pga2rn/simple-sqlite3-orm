@@ -24,7 +24,7 @@ from simple_sqlite3_orm._sqlite_spec import COMPARE_OPERATORS, CONDITION_OPERATO
 
 if TYPE_CHECKING:
     from simple_sqlite3_orm._orm import ORMBase
-    from simple_sqlite3_orm._table_spec import TableSpec
+    from simple_sqlite3_orm._table_spec import TableSpecType
 
 logger = logging.getLogger(__name__)
 
@@ -345,7 +345,7 @@ def gen_sql_script(*stmts: str) -> str:
 
 
 def sort_and_replace(
-    _orm: ORMBase[TableSpec], table_name: str, *, order_by_col: str
+    _orm: ORMBase[TableSpecType], table_name: str, *, order_by_col: str
 ) -> None:
     """Sort the table, and then replace the old table with the sorted one."""
     _original_table_name = table_name

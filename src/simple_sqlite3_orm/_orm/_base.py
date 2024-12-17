@@ -18,7 +18,7 @@ from typing_extensions import ParamSpec
 
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR, ORDER_DIRECTION
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
-from simple_sqlite3_orm._types import RowFactoryType
+from simple_sqlite3_orm._types import ConnectionFactoryType, RowFactoryType
 from simple_sqlite3_orm._utils import GenericAlias
 
 _parameterized_orm_cache: WeakValueDictionary[
@@ -78,26 +78,39 @@ class ORMBase(Generic[TableSpecType]):
         the connected database.
 
     Attributes:
-        con (sqlite3.Connection): The sqlite3 connection used by this ORM.
-        table_name (str): The name of the table in the database <con> connected to.
+        con (sqlite3.Connection | ConnectionFactoryType): The sqlite3 connection used by this ORM, or a factory
+            function that returns a sqlite3.Connection object on calling.
+        table_name (str): The name of the table in the database <con> connected to. This field will take prior over the
+            table_name specified by _orm_table_name attr.
         schema_name (str): The schema of the table if multiple databases are attached to <con>.
         row_factory (RowFactorySpecifier): The connection scope row_factory to use. Default to "table_sepc".
     """
 
     orm_table_spec: type[TableSpecType]
+    _orm_table_name: str
+    """table_name for the ORM. This can be used for pinning table_name when creating ORM object."""
 
     def __init__(
         self,
-        con: sqlite3.Connection,
-        table_name: str,
+        con: sqlite3.Connection | ConnectionFactoryType,
+        table_name: str | None = None,
         schema_name: str | Literal["temp"] | None = None,
         *,
         row_factory: RowFactorySpecifier = "table_spec",
     ) -> None:
-        self._table_name = table_name
+        if table_name:
+            self._orm_table_name = table_name
+        if getattr(self, "_orm_table_name", None) is None:
+            raise ValueError(
+                "table_name must be either set by <table_name> init param, or by defining <_orm_table_name> attr."
+            )
         self._schema_name = schema_name
-        self._con = con
-        row_factory_setter(con, self.orm_table_spec, row_factory)
+
+        if isinstance(con, sqlite3.Connection):
+            self._con = con
+        elif callable(con):
+            self._con = con()
+        row_factory_setter(self._con, self.orm_table_spec, row_factory)
 
     def __class_getitem__(cls, params: Any | type[Any] | type[TableSpecType]) -> Any:
         # just for convienience, passthrough anything that is not type[TableSpecType]
@@ -133,9 +146,9 @@ class ORMBase(Generic[TableSpecType]):
             return "<schema_name>.<table_name>", otherwise return <table_name>.
         """
         return (
-            f"{self._schema_name}.{self._table_name}"
+            f"{self._schema_name}.{self._orm_table_name}"
             if self._schema_name
-            else self._table_name
+            else self._orm_table_name
         )
 
     def orm_execute(
@@ -144,10 +157,6 @@ class ORMBase(Generic[TableSpecType]):
         """Execute one sql statement and get the all the result.
 
         The result will be fetched with fetchall API and returned as it.
-
-        This method is inteneded for executing simple sql_stmt with small result.
-        For complicated sql statement and large result, please use sqlite3.Connection object
-            exposed by orm_con and manipulate the Cursor object by yourselves.
 
         Args:
             sql_stmt (str): The sqlite statement to be executed.
@@ -163,6 +172,42 @@ class ORMBase(Generic[TableSpecType]):
             else:
                 cur = con.execute(sql_stmt)
             return cur.fetchall()
+
+    def orm_executemany(
+        self,
+        sql_stmt: str,
+        params: Iterable[tuple[Any, ...] | dict[str, Any]],
+    ) -> int:
+        """Repeatedly execute the parameterized DML SQL statement sql.
+
+        NOTE that any returning values will be discarded, including with RETURNING stmt.
+
+        Args:
+            sql_stmt (str): The sqlite statement to be executed.
+            params (Iterable[tuple[Any, ...] | dict[str, Any]]): The set of parameters to be bound
+                to the sql statement execution.
+
+        Returns:
+            The affected row count.
+        """
+        with self._con as con:
+            cur = con.executemany(sql_stmt, params)
+            return cur.rowcount
+
+    def orm_executescript(self, sql_script: str) -> int:
+        """Execute one sql script.
+
+        NOTE that any returning values will be discarded, including with RETURNING stmt.
+
+        Args:
+            sql_script (str): The sqlite script to be executed.
+
+        Returns:
+            The affected row count.
+        """
+        with self._con as con:
+            cur = con.executescript(sql_script)
+            return cur.rowcount
 
     def orm_create_table(
         self,
