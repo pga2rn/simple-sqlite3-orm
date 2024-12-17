@@ -176,10 +176,10 @@ class ORMBase(Generic[TableSpecType]):
         self,
         sql_stmt: str,
         params: Iterable[tuple[Any, ...] | dict[str, Any]],
-    ) -> list[Any]:
-        """Execute one sql statement with a set of params and get the all the result.
+    ) -> int:
+        """Repeatedly execute the parameterized DML SQL statement sql.
 
-        The result will be fetched with fetchall API and returned as it.
+        NOTE that any returning values will be discarded, including with RETURNING stmt.
 
         This method is inteneded for executing simple sql_stmt with small result.
         For complicated sql statement and large result, please use sqlite3.Connection object
@@ -191,30 +191,30 @@ class ORMBase(Generic[TableSpecType]):
                 to the sql statement execution.
 
         Returns:
-            list[Any]: A list contains all the result entries.
+            The affected row count.
         """
         with self._con as con:
             cur = con.executemany(sql_stmt, params)
-            return cur.fetchall()
+            return cur.rowcount
 
-    def orm_executescript(self, sql_script: str) -> list[Any]:
-        """Execute one sql script and get the all the result.
+    def orm_executescript(self, sql_script: str) -> int:
+        """Execute one sql script.
 
-        The result will be fetched with fetchall API and returned as it.
+        NOTE that any returning values will be discarded, including with RETURNING stmt.
 
         This method is inteneded for executing simple sql_stmt with small result.
         For complicated sql statement and large result, please use sqlite3.Connection object
             exposed by orm_con and manipulate the Cursor object by yourselves.
 
         Args:
-            sql_stmt (str): The sqlite script to be executed.
+            sql_script (str): The sqlite script to be executed.
 
         Returns:
-            list[Any]: A list contains all the result entries.
+            The affected row count.
         """
         with self._con as con:
             cur = con.executescript(sql_script)
-            return cur.fetchall()
+            return cur.rowcount
 
     def orm_create_table(
         self,
