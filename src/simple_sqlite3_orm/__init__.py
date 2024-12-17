@@ -21,6 +21,7 @@ from simple_sqlite3_orm._types import (
     RowFactoryType,
 )
 from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr
+from simple_sqlite3_orm._version import __version__, __version_tuple__, version
 
 __all__ = [
     "ConstrainRepr",
@@ -41,4 +42,7 @@ __all__ = [
     "DatetimeUnixTimestampInt",
     "RowFactoryType",
     "gen_sql_stmt",
+    "__version__",
+    "__version_tuple__",
+    "version",
 ]
