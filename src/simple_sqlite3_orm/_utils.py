@@ -77,7 +77,9 @@ class TypeAffinityRepr(str):
             and _args[-1] is type(None)
         ):
             # Optional[X] is actually Union[X, type(None)]
-            return cls._map_from_type(_args[0])
+            # after extract the actual types from Optional,
+            #   do mapping from the beginning.
+            return cls.__new__(cls, _args[0])
         if _origin is not None:
             raise TypeError(f"not one of Literal or Optional: {_in}")
 
