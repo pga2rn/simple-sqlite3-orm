@@ -39,7 +39,7 @@ class SampleTable(TableSpec):
 
     # ------ enums ------ #
     choice_abc: Annotated[
-        "ChoiceABC",
+        ChoiceABC,
         ConstrainRepr(
             "NOT NULL",
             (
@@ -52,7 +52,7 @@ class SampleTable(TableSpec):
         ),
     ] = ChoiceABC.A
     optional_choice_123: Annotated[
-        "Optional[Choice123]",
+        Optional[Choice123],
         ConstrainRepr(
             (
                 "CHECK",
@@ -69,7 +69,7 @@ class SampleTable(TableSpec):
 
     # ------ literals ------ #
     optional_num_literal: Annotated[
-        Optional["SomeIntLiteral"],
+        Optional[SomeIntLiteral],
         ConstrainRepr(
             (
                 "CHECK",
@@ -121,13 +121,5 @@ class SampleTable(TableSpec):
         ConstrainRepr("NOT NULL", "UNIQUE"),
         SkipValidation,
     ]
-    prim_key_magicf: Annotated[
-        float,
-        ConstrainRepr("NOT NULL"),
-        SkipValidation,
-    ]
-    prim_key_bln: Annotated[
-        bool,
-        ConstrainRepr("NOT NULL"),
-        SkipValidation,
-    ]
+    prim_key_magicf: float
+    prim_key_bln: bool
