@@ -22,6 +22,10 @@ from tests.sample_db._types import Choice123, ChoiceABC, SomeIntLiteral, SomeStr
         (SomeIntLiteral, SQLiteTypeAffinity.INTEGER),
         (SomeStrLiteral, SQLiteTypeAffinity.TEXT),
         (Optional[bytes], SQLiteTypeAffinity.BLOB),
+        (Optional[Choice123], SQLiteTypeAffinity.INTEGER),
+        (Optional[ChoiceABC], SQLiteTypeAffinity.TEXT),
+        (Optional[SomeIntLiteral], SQLiteTypeAffinity.INTEGER),
+        (Optional[SomeStrLiteral], SQLiteTypeAffinity.TEXT),
     ),
 )
 def test_typeafinityrepr(_in, expected):
