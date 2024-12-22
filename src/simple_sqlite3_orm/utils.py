@@ -317,8 +317,12 @@ def wrap_value(value: Any) -> str:
     For bytes, the value will be converted as x'<bytes_in_hex>'.
     """
     if isinstance(value, (int, float)):
+        if isinstance(value, Enum):
+            return f"{value.value}"
         return f"{value}"
     if isinstance(value, str):
+        if isinstance(value, Enum):
+            return f"{value.value}"
         return rf'"{value}"'
     if isinstance(value, bytes):
         return rf"x'{value.hex()}'"
