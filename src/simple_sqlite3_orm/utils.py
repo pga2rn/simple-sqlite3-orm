@@ -322,7 +322,7 @@ def wrap_value(value: Any) -> str:
         return f"{value}"
     if isinstance(value, str):
         if isinstance(value, Enum):
-            return f"{value.value}"
+            return rf'"{value.value}"'
         return rf'"{value}"'
     if isinstance(value, bytes):
         return rf"x'{value.hex()}'"
