@@ -14,7 +14,7 @@ _parameterized_orm_cache: WeakValueDictionary[
 def parameterized_class_getitem(
     cls, params: Any | type[Any] | type[TableSpecType] | tuple[type[Any], ...]
 ) -> Any:
-    if isinstance(params, tuple) or not isinstance(params, type):
+    if not isinstance(params, type):
         raise TypeError(
             f"{cls.__name__} only allows to be parameterized with exactly one type, but get {params=}"
         )
