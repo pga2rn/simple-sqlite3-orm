@@ -7,8 +7,7 @@ from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
 from simple_sqlite3_orm._utils import GenericAlias
 
 _parameterized_orm_cache: WeakValueDictionary[
-    tuple[type[Any], type[TableSpec]],
-    type[Any[TableSpec]],
+    tuple[type[Any], type[TableSpec]], type[Any[TableSpec]]
 ] = WeakValueDictionary()
 
 
