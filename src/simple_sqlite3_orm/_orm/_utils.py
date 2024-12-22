@@ -12,7 +12,9 @@ _parameterized_orm_cache: WeakValueDictionary[
 ] = WeakValueDictionary()
 
 
-def class_getitem(cls, params: Any | type[Any] | type[TableSpecType]) -> Any:
+def parameterized_class_getitem(
+    cls, params: Any | type[Any] | type[TableSpecType]
+) -> Any:
     # just for convienience, passthrough anything that is not type[TableSpecType]
     #   to Generic's __class_getitem__ and return it.
     # Typically this is for subscript ORMBase with TypeVar or another Generic.

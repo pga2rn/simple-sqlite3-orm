@@ -6,19 +6,15 @@ import threading
 from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property, partial
-from typing import Any, Generic, TypeVar
-from weakref import WeakSet, WeakValueDictionary
+from typing import Generic, TypeVar
+from weakref import WeakSet
 
 from typing_extensions import Concatenate, ParamSpec
 
 from simple_sqlite3_orm._orm._base import ORMBase, RowFactorySpecifier
-from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
+from simple_sqlite3_orm._orm._utils import parameterized_class_getitem
+from simple_sqlite3_orm._table_spec import TableSpecType
 from simple_sqlite3_orm._types import ConnectionFactoryType
-from simple_sqlite3_orm._utils import GenericAlias
-
-_parameterized_orm_cache: WeakValueDictionary[
-    tuple[type[ORMThreadPoolBase], type[TableSpec]], type[ORMThreadPoolBase[Any]]
-] = WeakValueDictionary()
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
@@ -133,23 +129,7 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
             thread_name_prefix=thread_name_prefix,
         )
 
-    def __class_getitem__(cls, params: Any | type[Any] | type[TableSpecType]) -> Any:
-        # just for convienience, passthrough anything that is not type[TableSpecType]
-        #   to Generic's __class_getitem__ and return it.
-        # Typically this is for subscript ORMBase with TypeVar or another Generic.
-        if not (isinstance(params, type) and issubclass(params, TableSpec)):
-            return super().__class_getitem__(params)  # type: ignore
-
-        key = (cls, params)
-        if _cached_type := _parameterized_orm_cache.get(key):
-            return GenericAlias(_cached_type, params)
-
-        new_parameterized_ormbase: type[ORMThreadPoolBase] = type(
-            f"{cls.__name__}[{params.__name__}]", (cls,), {}
-        )
-        new_parameterized_ormbase.orm_table_spec = params  # type: ignore
-        _parameterized_orm_cache[key] = new_parameterized_ormbase
-        return GenericAlias(new_parameterized_ormbase, params)
+    __class_method__ = classmethod(parameterized_class_getitem)
 
     def _thread_initializer(self, con_factory, row_factory) -> None:
         """Prepare thread_scope ORMBase instance for this worker thread."""

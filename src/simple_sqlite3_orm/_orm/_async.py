@@ -5,26 +5,20 @@ import atexit
 import logging
 from collections.abc import AsyncGenerator, Callable, Generator
 from functools import cached_property
-from typing import Any, Generic, TypeVar
-from weakref import WeakValueDictionary
+from typing import Generic, TypeVar
 
 from typing_extensions import Concatenate, ParamSpec
 
 from simple_sqlite3_orm._orm._base import RowFactorySpecifier
 from simple_sqlite3_orm._orm._multi_thread import ORMBase, ORMThreadPoolBase
-from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
+from simple_sqlite3_orm._orm._utils import parameterized_class_getitem
+from simple_sqlite3_orm._table_spec import TableSpecType
 from simple_sqlite3_orm._types import ConnectionFactoryType
-from simple_sqlite3_orm._utils import GenericAlias
 
 logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
-
-_parameterized_orm_cache: WeakValueDictionary[
-    tuple[type[AsyncORMBase], type[TableSpec]],
-    type[AsyncORMBase[Any]],
-] = WeakValueDictionary()
 
 _global_shutdown = False
 
@@ -143,23 +137,7 @@ class AsyncORMBase(Generic[TableSpecType]):
 
         self._loop = asyncio.get_running_loop()
 
-    def __class_getitem__(cls, params: Any | type[Any] | type[TableSpecType]) -> Any:
-        # just for convienience, passthrough anything that is not type[TableSpecType]
-        #   to Generic's __class_getitem__ and return it.
-        # Typically this is for subscript ORMBase with TypeVar or another Generic.
-        if not (isinstance(params, type) and issubclass(params, TableSpec)):
-            return super().__class_getitem__(params)  # type: ignore
-
-        key = (cls, params)
-        if _cached_type := _parameterized_orm_cache.get(key):
-            return GenericAlias(_cached_type, params)
-
-        new_parameterized_ormbase: type[AsyncORMBase] = type(
-            f"{cls.__name__}[{params.__name__}]", (cls,), {}
-        )
-        new_parameterized_ormbase.orm_table_spec = params  # type: ignore
-        _parameterized_orm_cache[key] = new_parameterized_ormbase
-        return GenericAlias(new_parameterized_ormbase, params)
+    __class_getitem__ = classmethod(parameterized_class_getitem)
 
     @cached_property
     def orm_table_name(self) -> str:
