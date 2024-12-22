@@ -35,7 +35,7 @@ else:
 
 
 if sys.version_info >= (3, 9):
-    from types import GenericAlias
+    from types import GenericAlias  # noqa: F401
 else:
     from typing import List
 
