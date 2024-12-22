@@ -61,18 +61,20 @@ def _wrap_generator_with_async_ctx(
 
         def _in_thread():
             global _global_shutdown
-            _orm_base = _orm_threadpool._thread_scope_orm
+            _thread_scope_orm = _orm_threadpool._thread_scope_orm
+            _schedule_callback = self._loop.call_soon_threadsafe
+
             try:
-                for entry in func(_orm_base, *args, **kwargs):
+                for entry in func(_thread_scope_orm, *args, **kwargs):
                     if _global_shutdown:
                         return
-                    self._loop.call_soon_threadsafe(_async_queue.put_nowait, entry)
+                    _schedule_callback(_async_queue.put_nowait, entry)
             except Exception as e:
-                self._loop.call_soon_threadsafe(_async_queue.put_nowait, e)
+                _schedule_callback(_async_queue.put_nowait, e)
             finally:
-                self._loop.call_soon_threadsafe(_async_queue.put_nowait, _SENTINEL)
+                _schedule_callback(_async_queue.put_nowait, _SENTINEL)
 
-        self._orm_threadpool._pool.submit(_in_thread)
+        _orm_threadpool._pool.submit(_in_thread)
 
         async def _gen() -> AsyncGenerator[TableSpecType]:
             while not _global_shutdown:
