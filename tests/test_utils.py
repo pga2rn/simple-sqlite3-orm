@@ -144,6 +144,8 @@ def test_concatenate_condition(stmts, with_parenthese, expected):
         ("a_string", r'"a_string"'),
         (None, r"NULL"),
         (bytes.fromhex("1234567890AABBCC"), r"x'1234567890aabbcc'"),
+        (Choice123.ONE, r"1"),
+        (ChoiceABC.A, r'"A"'),
     ),
 )
 def test_wrap_value(value, expected):

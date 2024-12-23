@@ -6,26 +6,21 @@ from typing import Any, Iterable, Optional
 import pytest
 from typing_extensions import Annotated
 
-from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr
+from simple_sqlite3_orm import ConstrainRepr, TableSpec
 
 
 class SimpleTableForTest(TableSpec):
     id: Annotated[
         int,
-        TypeAffinityRepr(int),
         ConstrainRepr("PRIMARY KEY"),
     ]
 
     id_str: Annotated[
         str,
-        TypeAffinityRepr(str),
         ConstrainRepr("NOT NULL"),
     ]
 
-    extra: Annotated[
-        Optional[float],
-        TypeAffinityRepr(float),
-    ] = None
+    extra: Optional[float] = None
 
 
 @pytest.mark.parametrize(

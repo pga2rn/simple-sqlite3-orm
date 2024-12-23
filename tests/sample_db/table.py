@@ -40,7 +40,6 @@ class SampleTable(TableSpec):
     # ------ enums ------ #
     choice_abc: Annotated[
         ChoiceABC,
-        TypeAffinityRepr(ChoiceABC),
         ConstrainRepr(
             "NOT NULL",
             (
@@ -54,7 +53,6 @@ class SampleTable(TableSpec):
     ] = ChoiceABC.A
     optional_choice_123: Annotated[
         Optional[Choice123],
-        TypeAffinityRepr(Choice123),
         ConstrainRepr(
             (
                 "CHECK",
@@ -72,7 +70,6 @@ class SampleTable(TableSpec):
     # ------ literals ------ #
     optional_num_literal: Annotated[
         Optional[SomeIntLiteral],
-        TypeAffinityRepr(SomeIntLiteral),
         ConstrainRepr(
             (
                 "CHECK",
@@ -89,7 +86,6 @@ class SampleTable(TableSpec):
     ] = None
     str_literal: Annotated[
         SomeStrLiteral,
-        TypeAffinityRepr(SomeStrLiteral),
         ConstrainRepr(
             "NOT NULL",
             (
@@ -111,7 +107,6 @@ class SampleTable(TableSpec):
     #   derived by prim_key, check MyStr's methods for mor details.
     prim_key: Annotated[
         Mystr,
-        TypeAffinityRepr(Mystr),
         ConstrainRepr(
             "PRIMARY KEY",
             (
@@ -123,13 +118,8 @@ class SampleTable(TableSpec):
     ]
     prim_key_sha256hash: Annotated[
         bytes,
-        TypeAffinityRepr(bytes),
         ConstrainRepr("NOT NULL", "UNIQUE"),
         SkipValidation,
     ]
-    prim_key_magicf: Annotated[
-        float, TypeAffinityRepr(float), ConstrainRepr("NOT NULL"), SkipValidation
-    ]
-    prim_key_bln: Annotated[
-        bool, TypeAffinityRepr(bool), ConstrainRepr("NOT NULL"), SkipValidation
-    ]
+    prim_key_magicf: float
+    prim_key_bln: bool

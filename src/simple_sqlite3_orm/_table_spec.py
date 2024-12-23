@@ -106,13 +106,15 @@ class TableSpec(BaseModel):
             ValueError on col doesn't exist or invalid col definition.
         """
         datatype_name, constrain = "", ""
-        for metadata in cls.table_get_col_fieldinfo(column_name).metadata:
+        column_meta = cls.table_get_col_fieldinfo(column_name)
+
+        for metadata in column_meta.metadata:
             if isinstance(metadata, TypeAffinityRepr):
                 datatype_name = metadata
             elif isinstance(metadata, ConstrainRepr):
                 constrain = metadata
         if not datatype_name:
-            raise ValueError("data affinity must be set")
+            datatype_name = TypeAffinityRepr(column_meta.annotation)
 
         res = f"{column_name} {datatype_name} {constrain}".strip()
         return res
