@@ -106,8 +106,7 @@ class ORMBase(Generic[TableSpecType]):
             self._con = con()
         row_factory_setter(self._con, self.orm_table_spec, row_factory)
 
-    def __class_getitem__(cls, params):
-        return parameterized_class_getitem(cls, params)
+    __class_getitem__ = classmethod(parameterized_class_getitem)
 
     @property
     def orm_con(self) -> sqlite3.Connection:

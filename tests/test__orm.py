@@ -16,10 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 class ORMTest(ORMBase[SampleTable]):
-    pass
+    _orm_table_name = "test_orm_table"
 
-
-TABLE_NAME = "test_orm_table"
 
 _cur_timestamp = time.time()
 mstr = Mystr(_generate_random_str())
@@ -49,14 +47,14 @@ class TestORMBase:
     @pytest.fixture(scope="class")
     def setup_connection(self):
         with sqlite3.connect(":memory:") as conn:
-            orm_inst = ORMTest(conn, table_name=TABLE_NAME)
+            orm_inst = ORMTest(conn)
             yield orm_inst
 
     def test_create_without_rowid_table(self):
         """NOTE: to test select_all_with_pagination, we cannot specify without_rowid, so we
         create this test case dedicated for creating without_rowid table test."""
         with sqlite3.connect(":memory:") as conn:
-            orm_inst = ORMTest(conn, table_name=TABLE_NAME)
+            orm_inst = ORMTest(conn)
             orm_inst.orm_create_table(without_rowid=True)
 
     def test_create_table(self, setup_connection: ORMTest):
@@ -137,7 +135,7 @@ class TestORMBase:
 
     def test_function_call(self, setup_connection: ORMTest):
         with setup_connection.orm_con as con:
-            cur = con.execute(f"SELECT count(*) FROM {TABLE_NAME};")
+            cur = con.execute(f"SELECT count(*) FROM {ORMTest._orm_table_name};")
             res = cur.fetchone()
             assert res[0] == 1
 
