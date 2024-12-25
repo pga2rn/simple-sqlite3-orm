@@ -139,8 +139,7 @@ class AsyncORMBase(Generic[TableSpecType]):
 
         self._loop = asyncio.get_running_loop()
 
-    def __class_getitem__(cls, params):
-        return parameterized_class_getitem(cls, params)
+    __class_getitem__ = classmethod(parameterized_class_getitem)
 
     @cached_property
     def orm_table_name(self) -> str:

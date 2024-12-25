@@ -129,8 +129,7 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
             thread_name_prefix=thread_name_prefix,
         )
 
-    def __class_getitem__(cls, params):
-        return parameterized_class_getitem(cls, params)
+    __class_getitem__ = classmethod(parameterized_class_getitem)
 
     def _thread_initializer(self, con_factory, row_factory) -> None:
         """Prepare thread_scope ORMBase instance for this worker thread."""
