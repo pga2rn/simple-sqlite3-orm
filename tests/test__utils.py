@@ -29,7 +29,7 @@ from tests.sample_db._types import Choice123, ChoiceABC, SomeIntLiteral, SomeStr
     ),
 )
 def test_typeafinityrepr(_in, expected):
-    assert TypeAffinityRepr(_in) == expected
+    assert TypeAffinityRepr(_in).type_affinity == expected
 
 
 @pytest.mark.parametrize(
