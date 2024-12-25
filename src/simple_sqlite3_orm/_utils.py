@@ -50,7 +50,67 @@ else:
                 """For type check only, typing the _GenericAlias as GenericAlias."""
 
 
-class TypeAffinityRepr(str):
+def map_type(
+    _in: type[Any] | SQLiteTypeAffinityLiteral | Any,
+) -> SQLiteTypeAffinity | str:
+    """Mapping python types to corresponding sqlite storage classes.
+
+    Currently this function suports the following input:
+    1. sqlite3 native types(and wrapped in Optional).
+    2. Literal types.
+    3. Enum types with str or int as data type.
+    4. user defined affinity string, will be used as it.
+
+    """
+    if _in is None or _in is type(None):
+        return SQLiteTypeAffinity.NULL
+
+    if isinstance(_in, str):  # user-define type affinity, use as it
+        return _in
+
+    _origin = get_origin(_in)
+    if _origin is Literal:
+        return _map_from_literal(_in)
+    if (
+        _origin is Union
+        and len(_args := get_args(_in)) == 2
+        and _args[-1] is type(None)
+    ):
+        # Optional[X] is actually Union[X, type(None)]
+        # after extract the actual types from Optional,
+        #   do mapping from the beginning.
+        return map_type(_args[0])
+    if _origin is not None:
+        raise TypeError(f"not one of Literal or Optional: {_in}")
+
+    if not isinstance(_in, type):
+        raise TypeError(f"expecting type or str object, get {type(_in)=}")
+    return _map_from_type(_in)
+
+
+def _map_from_literal(_in: Any) -> SQLiteTypeAffinity:
+    """Support for literal of supported datatypes."""
+    _first_literal, *_literals = get_args(_in)
+    literal_type = type(_first_literal)
+
+    if any(not isinstance(_literal, literal_type) for _literal in _literals):
+        raise TypeError(f"mix types in literal is not allowed: {_in}")
+    return _map_from_type(literal_type)
+
+
+def _map_from_type(_in: type[Any]) -> SQLiteTypeAffinity:
+    if issubclass(_in, int):  # NOTE: also include IntEnum
+        return SQLiteTypeAffinity.INTEGER
+    elif issubclass(_in, str):  # NOTE: also include StrEnum
+        return SQLiteTypeAffinity.TEXT
+    elif issubclass(_in, bytes):
+        return SQLiteTypeAffinity.BLOB
+    elif issubclass(_in, float):
+        return SQLiteTypeAffinity.REAL
+    raise TypeError(f"cannot map {_in} to any sqlite3 type affinity")
+
+
+class TypeAffinityRepr:
     """Map python types to sqlite3 data types with type affinity.
 
     Currently supports:
@@ -58,56 +118,23 @@ class TypeAffinityRepr(str):
     2. StrEnum and IntEnum, will map to TEXT and INT accordingly.
     3. Optional types, will map against the args inside the Optional.
     4. Literal types, will map against the values type inside the Literal.
+
+    Attrs:
+        type_affinity (SQLiteTypeAffinity | str)
+        origin (type[Any] | SQLiteTypeAffinityLiteral | Any)
     """
 
-    def __new__(cls, _in: type[Any] | SQLiteTypeAffinityLiteral | Any) -> Self:
-        """Mapping python types to corresponding sqlite storage classes."""
-        if _in is None or _in is type(None):
-            return str.__new__(cls, SQLiteTypeAffinity.NULL.value)
+    def __init__(self, _in: type[Any] | SQLiteTypeAffinityLiteral | Any) -> None:
+        self.type_affinity = map_type(_in)
+        self.origin = _in
 
-        if isinstance(_in, str):  # user-define type affinity, use as it
-            return str.__new__(cls, _in)
+    def __str__(self) -> str:
+        if isinstance(self.type_affinity, SQLiteTypeAffinity):
+            return self.type_affinity.value
+        return self.type_affinity
 
-        _origin = get_origin(_in)
-        if _origin is Literal:
-            return cls._map_from_literal(_in)
-        if (
-            _origin is Union
-            and len(_args := get_args(_in)) == 2
-            and _args[-1] is type(None)
-        ):
-            # Optional[X] is actually Union[X, type(None)]
-            # after extract the actual types from Optional,
-            #   do mapping from the beginning.
-            return cls.__new__(cls, _args[0])
-        if _origin is not None:
-            raise TypeError(f"not one of Literal or Optional: {_in}")
-
-        if not isinstance(_in, type):
-            raise TypeError(f"expecting type or str object, get {type(_in)=}")
-        return cls._map_from_type(_in)
-
-    @classmethod
-    def _map_from_literal(cls, _in: Any) -> Self:
-        """Support for literal of supported datatypes."""
-        _first_literal, *_literals = get_args(_in)
-        literal_type = type(_first_literal)
-
-        if any(not isinstance(_literal, literal_type) for _literal in _literals):
-            raise TypeError(f"mix types in literal is not allowed: {_in}")
-        return cls._map_from_type(literal_type)
-
-    @classmethod
-    def _map_from_type(cls, _in: type[Any]) -> Self:
-        if issubclass(_in, int):  # NOTE: also include IntEnum
-            return str.__new__(cls, SQLiteTypeAffinity.INTEGER.value)
-        elif issubclass(_in, str):  # NOTE: also include StrEnum
-            return str.__new__(cls, SQLiteTypeAffinity.TEXT.value)
-        elif issubclass(_in, bytes):
-            return str.__new__(cls, SQLiteTypeAffinity.BLOB.value)
-        elif issubclass(_in, float):
-            return str.__new__(cls, SQLiteTypeAffinity.REAL.value)
-        raise TypeError(f"cannot map {_in} to any sqlite3 type affinity")
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<{self.__qualname__}: {self}>"
 
 
 class ConstrainRepr(str):
