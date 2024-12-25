@@ -91,6 +91,7 @@ def _wrap_generator_with_async_ctx(
 
         return _gen()
 
+    _wrapped.__doc__ = func.__doc__
     return _wrapped
 
 
