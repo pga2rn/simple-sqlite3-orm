@@ -134,7 +134,7 @@ class TypeAffinityRepr:
         return self.type_affinity
 
     def __repr__(self) -> str:  # pragma: no cover
-        return f"<{self.__qualname__}: {self}>"
+        return f'<{self.__class__.__qualname__}: "{self}">'
 
     def __eq__(self, other: object) -> bool:  # pragma: no cover
         return (
@@ -179,7 +179,7 @@ class ConstrainRepr:
             return _buffer.getvalue().strip()
 
     def __repr__(self) -> str:  # pragma: no cover
-        return f"<{self.__qualname__}: {self} >"
+        return f'<{self.__class__.__qualname__}: "{self}">'
 
     def __eq__(self, other: Any) -> bool:  # pragma: no cover
         return isinstance(other, self.__class__) and other.contrains == self.contrains
