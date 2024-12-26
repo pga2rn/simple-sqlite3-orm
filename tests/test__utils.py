@@ -48,4 +48,4 @@ def test_typeafinityrepr(_in, expected):
     ),
 )
 def test_constrainrepr(_in, expected):
-    assert ConstrainRepr(_in) == expected
+    assert f"{_in}" == expected
