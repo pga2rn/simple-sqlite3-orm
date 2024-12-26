@@ -160,17 +160,17 @@ class ConstrainRepr:
         )
 
     Attrs:
-        constrains (set[str | tuple[str, str]]): a set of constrains.
+        constraints (set[str | tuple[str, str]]): a set of constrains.
     """
 
     def __init__(
         self, *params: ConstrainLiteral | tuple[ConstrainLiteral, str] | Any
     ) -> None:
-        self.constrains = tuple(params)
+        self.constraints = tuple(params)
 
     def __str__(self) -> str:
         with StringIO() as _buffer:
-            for arg in self.constrains:
+            for arg in self.constraints:
                 if isinstance(arg, tuple):
                     _buffer.write(" ".join(arg))
                 else:
@@ -182,10 +182,12 @@ class ConstrainRepr:
         return f'<{self.__class__.__qualname__}: "{self}">'
 
     def __eq__(self, other: Any) -> bool:  # pragma: no cover
-        return isinstance(other, self.__class__) and other.constrains == self.constrains
+        return (
+            isinstance(other, self.__class__) and other.constraints == self.constraints
+        )
 
     def __hash__(self) -> int:  # pragma: no cover
-        return hash(self.constrains)
+        return hash(self.constraints)
 
 
 def gen_sql_stmt(*components: str) -> str:
