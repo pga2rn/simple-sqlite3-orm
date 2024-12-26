@@ -13,7 +13,7 @@ from typing import (
     get_origin,
 )
 
-from typing_extensions import ParamSpec, Self
+from typing_extensions import ParamSpec
 
 from simple_sqlite3_orm._sqlite_spec import (
     ConstrainLiteral,
@@ -136,8 +136,18 @@ class TypeAffinityRepr:
     def __repr__(self) -> str:  # pragma: no cover
         return f"<{self.__qualname__}: {self}>"
 
+    def __eq__(self, other: object) -> bool:  # pragma: no cover
+        return (
+            isinstance(other, self.__class__)
+            and other.type_affinity == self.type_affinity
+            and other.origin == self.origin
+        )
 
-class ConstrainRepr(str):
+    def __hash__(self) -> int:  # pragma: no cover
+        return hash(self.origin)
+
+
+class ConstrainRepr:
     """Helper class for composing full constrain statement string.
 
     For example, for constrain statement like the following:
@@ -148,19 +158,34 @@ class ConstrainRepr(str):
             ("DEFAULT", "NULL"),
             ("CHECK", r"(column IN (1, 2, 3))")
         )
+
+    Attrs:
+        contrains (set[str | tuple[str, str]]): a set of constrains.
     """
 
-    def __new__(
-        cls, *args: ConstrainLiteral | tuple[ConstrainLiteral, str] | Any
-    ) -> Self:
+    def __init__(
+        self, *params: ConstrainLiteral | tuple[ConstrainLiteral, str] | Any
+    ) -> None:
+        self.contrains = frozenset(params)
+
+    def __str__(self) -> str:
         with StringIO() as _buffer:
-            for arg in args:
+            for arg in self.contrains:
                 if isinstance(arg, tuple):
                     _buffer.write(" ".join(arg))
                 else:
                     _buffer.write(arg)
                 _buffer.write(" ")
-            return str.__new__(cls, _buffer.getvalue().strip())
+            return _buffer.getvalue().strip()
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<{self.__qualname__}: {self} >"
+
+    def __eq__(self, other: Any) -> bool:  # pragma: no cover
+        return isinstance(other, self.__class__) and other.contrains == self.contrains
+
+    def __hash__(self) -> int:  # pragma: no cover
+        return hash(self.contrains)
 
 
 def gen_sql_stmt(*components: str) -> str:
