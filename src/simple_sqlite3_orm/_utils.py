@@ -166,7 +166,7 @@ class ConstrainRepr:
     def __init__(
         self, *params: ConstrainLiteral | tuple[ConstrainLiteral, str] | Any
     ) -> None:
-        self.contrains = frozenset(params)
+        self.contrains = tuple(params)
 
     def __str__(self) -> str:
         with StringIO() as _buffer:
