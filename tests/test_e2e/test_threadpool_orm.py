@@ -120,7 +120,7 @@ class TestWithSampleDBAndThreadPool:
                 _res = thread_pool.orm_delete_entries(
                     key_id=entry.key_id,
                     prim_key_sha256hash=entry.prim_key_sha256hash,
-                    _limit=1,
+                    # _limit=1,
                 )
                 assert _res == 1
         else:
@@ -129,7 +129,7 @@ class TestWithSampleDBAndThreadPool:
                     _returning_cols="*",
                     key_id=entry.key_id,
                     prim_key_sha256hash=entry.prim_key_sha256hash,
-                    _limit=1,
+                    # _limit=1,
                 )
                 _res_list = list(_res)
 
