@@ -12,8 +12,7 @@ authors = [ { name = "pga2rn", email = "aaronpigybd@gmail.com" } ]
 requires-python = ">=3.8"
 classifiers = [
   "License :: OSI Approved :: Apache Software License",
-  "Operating System :: Microsoft :: Windows",
-  "Operating System :: Unix",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",

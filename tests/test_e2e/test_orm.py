@@ -123,7 +123,9 @@ class TestWithSampleDB:
                 _res = self.orm_inst.orm_delete_entries(
                     key_id=entry.key_id,
                     prim_key_sha256hash=entry.prim_key_sha256hash,
-                    _limit=1,
+                    # NOTE(20241230): limit on update/delete requires compile flag SQLITE_ENABLE_UPDATE_DELETE_LIMIT enabled,
+                    #   which is not set to be enabled by default. See https://www.sqlite.org/compile.html for more details.
+                    # _limit=1,
                 )
                 assert _res == 1
         else:
@@ -132,7 +134,7 @@ class TestWithSampleDB:
                     _returning_cols="*",
                     key_id=entry.key_id,
                     prim_key_sha256hash=entry.prim_key_sha256hash,
-                    _limit=1,
+                    # _limit=1,
                 )
                 assert isinstance(_res, Generator)
 
