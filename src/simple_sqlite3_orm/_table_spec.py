@@ -201,13 +201,19 @@ class TableSpec(BaseModel):
     def table_row_factory(
         cls, _cursor: sqlite3.Cursor, _row: tuple[Any, ...], *, validation: bool = True
     ) -> Self | tuple[Any, ...]:
-        """row_factory implement for used in sqlite3 connection.
+        """A general row_factory implement for used in sqlite3 connection.
 
         When the input <_row> is not a row but something like function output,
             this method will return the raw input tuple as it.
 
         Args:
             validation (bool): whether enable pydantic validation when importing row. Default to True.
+
+        Raises:
+            Any exception raised from pydantic model_validate or model_construct.
+
+        Returns:
+            An instance of <TableSpec>, or the raw tuple if the input row has different schema.
 
         Also see https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.description
             for more details.
@@ -221,6 +227,37 @@ class TableSpec(BaseModel):
         if validation:
             return cls.model_validate(dict(zip(_fields, _row)))
         return cls.model_construct(**dict(zip(_fields, _row)))
+
+    @classmethod
+    def table_row_factory2(
+        cls,
+        _cursor: sqlite3.Cursor,
+        _row: tuple[Any, ...],
+        *,
+        validation: bool = True,
+    ) -> Self:
+        """Another version of row_factory implementation for specific use case.
+
+        Unlike table_row_factory that checks the cols definition and ensure all cols
+            are valid and presented in table def, table_row_factory2 just picks the valid
+            cols from the input raw table row, and ignore unknown col/value pairs.
+
+        Args:
+            validation (bool): whether enable pydantic validation when importing row. Default to True.
+
+        Raises:
+            Any exception raised from pydantic model_validate or model_construct.
+
+        Returns:
+            An instance of <TableSpec>.
+        """
+        _fields = [col[0] for col in _cursor.description]
+        _to_be_processed = {
+            k: v for k, v in zip(_fields, _row) if k in cls.model_fields
+        }
+        if validation:
+            return cls.model_validate(_to_be_processed)
+        return cls.model_construct(**_to_be_processed)
 
     @classmethod
     def table_from_tuple(
