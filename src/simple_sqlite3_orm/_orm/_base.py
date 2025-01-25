@@ -273,7 +273,7 @@ class ORMBase(Generic[TableSpecType]):
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
                 as row factory, set this argument to use different row factory. Defaults to None.
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
-            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have higher priority over
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
 
         Raises:
@@ -282,9 +282,8 @@ class ORMBase(Generic[TableSpecType]):
         Yields:
             Generator[TableSpecType, None, None]: A generator that can be used to yield entry from result.
         """
-        if not _col_values_dict:
-            _col_values_dict = {}
-        _col_values_dict.update(col_values)
+        if _col_values_dict:
+            col_values.update(_col_values_dict)
 
         _parsed_order_by = None
         if _order_by:
@@ -295,11 +294,11 @@ class ORMBase(Generic[TableSpecType]):
             distinct=_distinct,
             order_by=_parsed_order_by,
             limit=_limit,
-            where_cols=tuple(_col_values_dict),
+            where_cols=tuple(col_values),
         )
 
         with self._con as con:
-            _cur = con.execute(table_select_stmt, _col_values_dict)
+            _cur = con.execute(table_select_stmt, col_values)
             if _row_factory is not None:
                 _cur.row_factory = _row_factory
             yield from _cur
@@ -325,7 +324,7 @@ class ORMBase(Generic[TableSpecType]):
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
                 as row factory, set this argument to use different row factory. Defaults to None.
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
-            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have higher priority over
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
 
         Raises:
@@ -334,9 +333,8 @@ class ORMBase(Generic[TableSpecType]):
         Returns:
             Exactly one <TableSpecType> entry, or None if not hit.
         """
-        if not _col_values_dict:
-            _col_values_dict = {}
-        _col_values_dict.update(col_values)
+        if _col_values_dict:
+            col_values.update(_col_values_dict)
 
         _parsed_order_by = None
         if _order_by:
@@ -347,11 +345,11 @@ class ORMBase(Generic[TableSpecType]):
             distinct=_distinct,
             order_by=_parsed_order_by,
             limit=1,
-            where_cols=tuple(_col_values_dict),
+            where_cols=tuple(col_values),
         )
 
         with self._con as con:
-            _cur = con.execute(table_select_stmt, _col_values_dict)
+            _cur = con.execute(table_select_stmt, col_values)
             if _row_factory is not None:
                 _cur.row_factory = _row_factory
             return _cur.fetchone()
@@ -422,15 +420,14 @@ class ORMBase(Generic[TableSpecType]):
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
                 as row factory, set this argument to use different row factory. Defaults to None.
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
-            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have higher priority over
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
 
         Returns:
             int: The num of entries deleted.
         """
-        if not _col_values_dict:
-            _col_values_dict = {}
-        _col_values_dict.update(col_values)
+        if _col_values_dict:
+            col_values.update(_col_values_dict)
 
         _parsed_order_by = None
         if _order_by:
@@ -441,11 +438,11 @@ class ORMBase(Generic[TableSpecType]):
             limit=_limit,
             order_by=_parsed_order_by,
             returning_cols=None,
-            where_cols=tuple(_col_values_dict),
+            where_cols=tuple(col_values),
         )
 
         with self._con as con:
-            _cur = con.execute(delete_stmt, _col_values_dict)
+            _cur = con.execute(delete_stmt, col_values)
             if _row_factory:
                 _cur.row_factory = _row_factory
             return _cur.rowcount
@@ -472,16 +469,15 @@ class ORMBase(Generic[TableSpecType]):
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
                 as row factory, set this argument to use different row factory. Defaults to None.
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
-            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have higher priority over
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
 
         Returns:
             Generator[TableSpecType, None, None]: If <_returning_cols> is defined, returns a generator which can
                 be used to yield the deleted entries from.
         """
-        if not _col_values_dict:
-            _col_values_dict = {}
-        _col_values_dict.update(col_values)
+        if _col_values_dict:
+            col_values.update(_col_values_dict)
 
         _parsed_order_by = None
         if _order_by:
@@ -492,12 +488,12 @@ class ORMBase(Generic[TableSpecType]):
             limit=_limit,
             order_by=_parsed_order_by,
             returning_cols=tuple(_returning_cols),
-            where_cols=tuple(_col_values_dict),
+            where_cols=tuple(col_values),
         )
 
         def _gen():
             with self._con as con:
-                _cur = con.execute(delete_stmt, _col_values_dict)
+                _cur = con.execute(delete_stmt, col_values)
                 if _row_factory is not None:
                     _cur.row_factory = _row_factory
                 yield from _cur
