@@ -16,9 +16,14 @@ from typing import (
 from typing_extensions import ParamSpec
 
 from simple_sqlite3_orm._orm._utils import parameterized_class_getitem
-from simple_sqlite3_orm._sqlite_spec import INSERT_OR, ORDER_DIRECTION
+from simple_sqlite3_orm._sqlite_spec import INSERT_OR
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
-from simple_sqlite3_orm._types import ConnectionFactoryType, RowFactoryType
+from simple_sqlite3_orm._typing import (
+    ColsDefinition,
+    ColsDefinitionWithDirection,
+    ConnectionFactoryType,
+    RowFactoryType,
+)
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
@@ -223,7 +228,7 @@ class ORMBase(Generic[TableSpecType]):
         self,
         *,
         index_name: str,
-        index_keys: tuple[str, ...],
+        index_keys: ColsDefinition | ColsDefinitionWithDirection,
         allow_existed: bool = False,
         unique: bool = False,
     ) -> None:
@@ -231,7 +236,7 @@ class ORMBase(Generic[TableSpecType]):
 
         Args:
             index_name (str): The name of the index.
-            index_keys (tuple[str, ...]): The columns for the index.
+            index_keys (ColsDefinition | ColsDefinitionWithDirection): The columns for the index.
             allow_existed (bool, optional): Not abort on index already created. Defaults to False.
             unique (bool, optional): Not allow duplicated entries in the index. Defaults to False.
 
@@ -252,20 +257,24 @@ class ORMBase(Generic[TableSpecType]):
         self,
         *,
         _distinct: bool = False,
-        _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
+        _order_by: ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _row_factory: RowFactoryType | None = None,
+        _col_values_dict: dict[str, Any] | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType | Any]:
         """Select entries from the table accordingly.
 
         Args:
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
-            _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
+            _order_by (ColsDefinitionWithDirection | None, optional):
                 Order the result accordingly. Defaults to None, not sorting the result.
             _limit (int | None, optional): Limit the number of result entries. Defaults to None.
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
                 as row factory, set this argument to use different row factory. Defaults to None.
+            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have higher priority over
+                the one specified by <_col_vlues_dict>.
 
         Raises:
             sqlite3.DatabaseError on failed sql execution.
@@ -273,16 +282,20 @@ class ORMBase(Generic[TableSpecType]):
         Yields:
             Generator[TableSpecType, None, None]: A generator that can be used to yield entry from result.
         """
+        if not _col_values_dict:
+            _col_values_dict = {}
+        _col_values_dict.update(col_values)
+
         table_select_stmt = self.orm_table_spec.table_select_stmt(
             select_from=self.orm_table_name,
             distinct=_distinct,
             order_by=_order_by,
             limit=_limit,
-            where_cols=tuple(col_values),
+            where_cols=_col_values_dict,
         )
 
         with self._con as con:
-            _cur = con.execute(table_select_stmt, col_values)
+            _cur = con.execute(table_select_stmt, _col_values_dict)
             if _row_factory is not None:
                 _cur.row_factory = _row_factory
             yield from _cur
@@ -291,8 +304,9 @@ class ORMBase(Generic[TableSpecType]):
         self,
         *,
         _distinct: bool = False,
-        _order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
+        _order_by: ColsDefinitionWithDirection | None = None,
         _row_factory: RowFactoryType | None = None,
+        _col_values_dict: dict[str, Any] | None = None,
         **col_values: Any,
     ) -> TableSpecType | Any | None:
         """Select exactly one entry from the table accordingly.
@@ -302,10 +316,13 @@ class ORMBase(Generic[TableSpecType]):
 
         Args:
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
-            _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
+            _order_by (ColsDefinitionWithDirection | None, optional):
                 Order the result accordingly. Defaults to None, not sorting the result.
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
                 as row factory, set this argument to use different row factory. Defaults to None.
+            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have higher priority over
+                the one specified by <_col_vlues_dict>.
 
         Raises:
             sqlite3.DatabaseError on failed sql execution.
@@ -313,16 +330,20 @@ class ORMBase(Generic[TableSpecType]):
         Returns:
             Exactly one <TableSpecType> entry, or None if not hit.
         """
+        if not _col_values_dict:
+            _col_values_dict = {}
+        _col_values_dict.update(col_values)
+
         table_select_stmt = self.orm_table_spec.table_select_stmt(
             select_from=self.orm_table_name,
             distinct=_distinct,
             order_by=_order_by,
             limit=1,
-            where_cols=tuple(col_values),
+            where_cols=_col_values_dict,
         )
 
         with self._con as con:
-            _cur = con.execute(table_select_stmt, col_values)
+            _cur = con.execute(table_select_stmt, _col_values_dict)
             if _row_factory is not None:
                 _cur.row_factory = _row_factory
             return _cur.fetchone()
@@ -378,33 +399,41 @@ class ORMBase(Generic[TableSpecType]):
     def orm_delete_entries(
         self,
         *,
-        _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        _order_by: ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _row_factory: RowFactoryType | None = None,
-        **cols_value: Any,
+        _col_values_dict: dict[str, Any] | None = None,
+        **col_values: Any,
     ) -> int:
         """Delete entries from the table accordingly.
 
         Args:
-            _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION]] | None, optional): Order the matching entries
+            _order_by (ColsDefinitionWithDirection | None, optional): Order the matching entries
                 before executing the deletion, used together with <_limit>. Defaults to None.
             _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
                 as row factory, set this argument to use different row factory. Defaults to None.
+            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have higher priority over
+                the one specified by <_col_vlues_dict>.
 
         Returns:
             int: The num of entries deleted.
         """
+        if not _col_values_dict:
+            _col_values_dict = {}
+        _col_values_dict.update(col_values)
+
         delete_stmt = self.orm_table_spec.table_delete_stmt(
             delete_from=self.orm_table_name,
             limit=_limit,
             order_by=_order_by,
             returning_cols=None,
-            where_cols=tuple(cols_value),
+            where_cols=tuple(_col_values_dict),
         )
 
         with self._con as con:
-            _cur = con.execute(delete_stmt, cols_value)
+            _cur = con.execute(delete_stmt, _col_values_dict)
             if _row_factory:
                 _cur.row_factory = _row_factory
             return _cur.rowcount
@@ -412,39 +441,47 @@ class ORMBase(Generic[TableSpecType]):
     def orm_delete_entries_with_returning(
         self,
         *,
-        _order_by: tuple[str | tuple[str, ORDER_DIRECTION]] | None = None,
+        _order_by: ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
-        _returning_cols: tuple[str, ...] | Literal["*"],
+        _returning_cols: ColsDefinition | Literal["*"],
         _row_factory: RowFactoryType | None = None,
-        **cols_value: Any,
+        _col_values_dict: dict[str, Any] | None = None,
+        **col_values: Any,
     ) -> Generator[TableSpecType]:
         """Delete entries from the table accordingly.
 
         NOTE that only sqlite3 version >= 3.35 supports returning statement.
 
         Args:
-            _order_by (tuple[str  |  tuple[str, ORDER_DIRECTION]] | None, optional): Order the matching entries
+            _order_by (ColsDefinitionWithDirection | None, optional): Order the matching entries
                 before executing the deletion, used together with <_limit>. Defaults to None.
             _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
-            _returning_cols (tuple[str, ...] | Literal["*"] ): Return the deleted entries on execution.
+            _returning_cols (ColsDefinition | Literal["*"] ): Return the deleted entries on execution.
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
                 as row factory, set this argument to use different row factory. Defaults to None.
+            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have higher priority over
+                the one specified by <_col_vlues_dict>.
 
         Returns:
             Generator[TableSpecType, None, None]: If <_returning_cols> is defined, returns a generator which can
                 be used to yield the deleted entries from.
         """
+        if not _col_values_dict:
+            _col_values_dict = {}
+        _col_values_dict.update(col_values)
+
         delete_stmt = self.orm_table_spec.table_delete_stmt(
             delete_from=self.orm_table_name,
             limit=_limit,
             order_by=_order_by,
             returning_cols=_returning_cols,
-            where_cols=tuple(cols_value),
+            where_cols=tuple(_col_values_dict),
         )
 
         def _gen():
             with self._con as con:
-                _cur = con.execute(delete_stmt, cols_value)
+                _cur = con.execute(delete_stmt, _col_values_dict)
                 if _row_factory is not None:
                     _cur.row_factory = _row_factory
                 yield from _cur
