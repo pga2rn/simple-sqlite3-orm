@@ -101,7 +101,7 @@ class TestWithSampleDB:
             ),
             start=1,
         ):
-            assert _entry.prim_key in setup_test_data
+            assert setup_test_data[_entry.prim_key] == _entry
         assert _cnt == len(setup_test_data)
 
     def test_delete_entries(
