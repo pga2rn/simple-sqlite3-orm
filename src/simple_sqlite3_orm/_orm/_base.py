@@ -257,7 +257,7 @@ class ORMBase(Generic[TableSpecType]):
         self,
         *,
         _distinct: bool = False,
-        _order_by: ColsDefinitionWithDirection | None = None,
+        _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _row_factory: RowFactoryType | None = None,
         _col_values_dict: dict[str, Any] | None = None,
@@ -267,7 +267,7 @@ class ORMBase(Generic[TableSpecType]):
 
         Args:
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
-            _order_by (ColsDefinitionWithDirection | None, optional):
+            _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional):
                 Order the result accordingly. Defaults to None, not sorting the result.
             _limit (int | None, optional): Limit the number of result entries. Defaults to None.
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
@@ -304,7 +304,7 @@ class ORMBase(Generic[TableSpecType]):
         self,
         *,
         _distinct: bool = False,
-        _order_by: ColsDefinitionWithDirection | None = None,
+        _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _row_factory: RowFactoryType | None = None,
         _col_values_dict: dict[str, Any] | None = None,
         **col_values: Any,
@@ -316,7 +316,7 @@ class ORMBase(Generic[TableSpecType]):
 
         Args:
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
-            _order_by (ColsDefinitionWithDirection | None, optional):
+            _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional):
                 Order the result accordingly. Defaults to None, not sorting the result.
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
                 as row factory, set this argument to use different row factory. Defaults to None.
@@ -399,7 +399,7 @@ class ORMBase(Generic[TableSpecType]):
     def orm_delete_entries(
         self,
         *,
-        _order_by: ColsDefinitionWithDirection | None = None,
+        _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _row_factory: RowFactoryType | None = None,
         _col_values_dict: dict[str, Any] | None = None,
@@ -408,7 +408,7 @@ class ORMBase(Generic[TableSpecType]):
         """Delete entries from the table accordingly.
 
         Args:
-            _order_by (ColsDefinitionWithDirection | None, optional): Order the matching entries
+            _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional): Order the matching entries
                 before executing the deletion, used together with <_limit>. Defaults to None.
             _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
             _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
@@ -441,7 +441,7 @@ class ORMBase(Generic[TableSpecType]):
     def orm_delete_entries_with_returning(
         self,
         *,
-        _order_by: ColsDefinitionWithDirection | None = None,
+        _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _returning_cols: ColsDefinition | Literal["*"],
         _row_factory: RowFactoryType | None = None,
@@ -453,7 +453,7 @@ class ORMBase(Generic[TableSpecType]):
         NOTE that only sqlite3 version >= 3.35 supports returning statement.
 
         Args:
-            _order_by (ColsDefinitionWithDirection | None, optional): Order the matching entries
+            _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional): Order the matching entries
                 before executing the deletion, used together with <_limit>. Defaults to None.
             _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
             _returning_cols (ColsDefinition | Literal["*"] ): Return the deleted entries on execution.
