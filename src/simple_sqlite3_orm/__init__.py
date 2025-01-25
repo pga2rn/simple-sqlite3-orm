@@ -15,10 +15,14 @@ from simple_sqlite3_orm._sqlite_spec import (
 )
 from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType, gen_sql_stmt
 from simple_sqlite3_orm._types import (
-    ConnectionFactoryType,
     DatetimeISO8601,
     DatetimeUnixTimestamp,
     DatetimeUnixTimestampInt,
+)
+from simple_sqlite3_orm._typing import (
+    ColsDefinition,
+    ColsDefinitionWithDirection,
+    ConnectionFactoryType,
     RowFactoryType,
 )
 from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr
@@ -52,4 +56,6 @@ __all__ = [
     "__version__",
     "__version_tuple__",
     "version",
+    "ColsDefinition",
+    "ColsDefinitionWithDirection",
 ]
