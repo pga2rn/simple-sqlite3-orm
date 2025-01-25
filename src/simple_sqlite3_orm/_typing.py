@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import sqlite3
 from sqlite3 import Cursor, Row
-from typing import Any, Callable, TypeAlias
+from typing import Any, Callable
+
+from typing_extensions import TypeAlias
 
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 
