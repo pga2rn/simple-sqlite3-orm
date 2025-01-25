@@ -483,11 +483,17 @@ class ORMBase(Generic[TableSpecType]):
         if _order_by:
             _parsed_order_by = tuple(_order_by)
 
+        _parsed_returning_cols = None
+        if _returning_cols == "*":
+            _parsed_returning_cols = "*"
+        else:
+            _parsed_returning_cols = tuple(_returning_cols)
+
         delete_stmt = self.orm_table_spec.table_delete_stmt(
             delete_from=self.orm_table_name,
             limit=_limit,
             order_by=_parsed_order_by,
-            returning_cols=tuple(_returning_cols),
+            returning_cols=_parsed_returning_cols,
             where_cols=tuple(col_values),
         )
 
