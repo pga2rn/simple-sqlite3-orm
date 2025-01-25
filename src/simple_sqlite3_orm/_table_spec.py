@@ -199,7 +199,11 @@ class TableSpec(BaseModel):
 
     @classmethod
     def table_row_factory(
-        cls, _cursor: sqlite3.Cursor, _row: tuple[Any, ...], *, validation: bool = True
+        cls,
+        _cursor: sqlite3.Cursor,
+        _row: tuple[Any, ...] | Any,
+        *,
+        validation: bool = True,
     ) -> Self | tuple[Any, ...]:
         """A general row_factory implement for used in sqlite3 connection.
 
@@ -232,7 +236,7 @@ class TableSpec(BaseModel):
     def table_row_factory2(
         cls,
         _cursor: sqlite3.Cursor,
-        _row: tuple[Any, ...],
+        _row: tuple[Any, ...] | Any,
         *,
         validation: bool = True,
     ) -> Self:
