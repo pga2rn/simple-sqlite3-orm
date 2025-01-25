@@ -14,7 +14,7 @@ from typing_extensions import Concatenate, ParamSpec
 from simple_sqlite3_orm._orm._base import ORMBase, RowFactorySpecifier
 from simple_sqlite3_orm._orm._utils import parameterized_class_getitem
 from simple_sqlite3_orm._table_spec import TableSpecType
-from simple_sqlite3_orm._types import ConnectionFactoryType
+from simple_sqlite3_orm._typing import ConnectionFactoryType
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
