@@ -8,8 +8,11 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from typing_extensions import Self
 
-from simple_sqlite3_orm._sqlite_spec import INSERT_OR, SQLiteBuiltInFuncs
-from simple_sqlite3_orm._typing import ColsDefinition, ColsDefinitionWithDirection
+from simple_sqlite3_orm._sqlite_spec import (
+    INSERT_OR,
+    ORDER_DIRECTION,
+    SQLiteBuiltInFuncs,
+)
 from simple_sqlite3_orm._utils import (
     ConstrainRepr,
     TypeAffinityRepr,
@@ -24,7 +27,7 @@ class TableSpec(BaseModel):
     @classmethod
     def _generate_where_stmt(
         cls,
-        where_cols: ColsDefinition | None = None,
+        where_cols: tuple[str, ...] | None = None,
         where_stmt: str | None = None,
     ) -> str:
         if where_stmt:
@@ -39,7 +42,7 @@ class TableSpec(BaseModel):
     @classmethod
     def _generate_order_by_stmt(
         cls,
-        order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
+        order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
         order_by_stmt: str | None = None,
     ) -> str:
         if order_by_stmt:
@@ -59,7 +62,7 @@ class TableSpec(BaseModel):
     @classmethod
     def _generate_returning_stmt(
         cls,
-        returning_cols: ColsDefinition | Literal["*"] | None = None,
+        returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         returning_stmt: str | None = None,
     ) -> str:
         if returning_stmt:
@@ -84,7 +87,7 @@ class TableSpec(BaseModel):
 
     @classmethod
     @lru_cache
-    def table_check_cols(cls, cols: ColsDefinition) -> None:
+    def table_check_cols(cls, cols: tuple[str, ...]) -> None:
         """Ensure all cols in <cols> existed in the table definition.
 
         Raises:
@@ -158,7 +161,7 @@ class TableSpec(BaseModel):
         *,
         table_name: str,
         index_name: str,
-        index_cols: ColsDefinition | ColsDefinitionWithDirection,
+        index_cols: tuple[str | tuple[str, ORDER_DIRECTION], ...],
         if_not_exists: bool = False,
         unique: bool = False,
     ) -> str:
@@ -306,10 +309,10 @@ class TableSpec(BaseModel):
         cls,
         *,
         insert_into: str,
-        insert_cols: ColsDefinition | None = None,
+        insert_cols: tuple[str, ...] | None = None,
         insert_default: bool = False,
         or_option: INSERT_OR | None = None,
-        returning_cols: ColsDefinition | Literal["*"] | None = None,
+        returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         returning_stmt: str | None = None,
     ) -> str:
         """Get sql for inserting row(s) into <table_name>.
@@ -318,12 +321,12 @@ class TableSpec(BaseModel):
 
         Args:
             insert_into (str): The name of table insert into.
-            insert_cols (ColsDefinition | None, optional): The cols to be assigned for entry to be inserted.
+            insert_cols (tuple[str, ...] | None, optional): The cols to be assigned for entry to be inserted.
                 Defaults to None, means we will assign all cols of the row.
             insert_default (bool, optional): No values will be assigned, all cols will be assigned with
                 default value, this precedes the <insert_cols> param. Defaults to False.
             or_option (INSERT_OR | None, optional): The fallback operation if insert failed. Defaults to None.
-            returning_cols (ColsDefinition | Literal["*"] | None): Which cols are included in the returned entries.
+            returning_cols (tuple[str, ...] | Literal["*"] | None): Which cols are included in the returned entries.
                 Defaults to None.
             returning_stmt (str | None, optional): The full returning statement string, this
                 precedes the <returning_cols> param. Defaults to None.
@@ -368,7 +371,7 @@ class TableSpec(BaseModel):
         select_from: str,
         batch_idx: int | None = None,
         batch_size: int | None = None,
-        order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
+        order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
         order_by_stmt: str | None = None,
         distinct: bool = False,
     ) -> str:
@@ -380,7 +383,7 @@ class TableSpec(BaseModel):
             select_from (str): The table name for the generated statement.
             batch_idx (int | None, optional): If specified, the batch index of current page. Defaults to None.
             batch_size (int | None, optional): If specified, the batch size of each page. Defaults to None.
-            order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional):
+            order_by (tuple[str | tuple[str, ORDER_DIRECTION], ...] | None, optional):
                 A list of cols for ordering result. Defaults to None.
             order_by_stmt (str | None, optional): The order_by statement string, this
                 precedes the <order_by> param if set. Defaults to None.
@@ -423,12 +426,12 @@ class TableSpec(BaseModel):
         cls,
         *,
         select_from: str,
-        select_cols: ColsDefinition | Literal["*"] | str = "*",
+        select_cols: tuple[str, ...] | Literal["*"] | str = "*",
         function: SQLiteBuiltInFuncs | None = None,
         where_stmt: str | None = None,
-        where_cols: ColsDefinition | None = None,
-        group_by: ColsDefinition | None = None,
-        order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
+        where_cols: tuple[str, ...] | None = None,
+        group_by: tuple[str, ...] | None = None,
+        order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
         order_by_stmt: str | None = None,
         limit: int | None = None,
         distinct: bool = False,
@@ -440,14 +443,14 @@ class TableSpec(BaseModel):
 
         Args:
             select_from (str): The table name for the generated statement.
-            select_cols (ColsDefinition | Literal["*"] | str, optional): A list of cols included in the result row. Defaults to "*".
+            select_cols (tuple[str, ...] | Literal["*"] | str, optional): A list of cols included in the result row. Defaults to "*".
             function (SQLiteBuiltInFuncs | None, optional): The sqlite3 function used in the selection. Defaults to None.
-            where_cols (ColsDefinition | None, optional): A list of cols to be compared in where
+            where_cols (tuple[str, ...] | None, optional): A list of cols to be compared in where
                 statement. Defaults to None.
             where_stmt (str | None, optional): The full where statement string, this
                 precedes the <where_cols> param if set. Defaults to None.
-            group_by (ColsDefinition | None, optional): A list of cols for group_by statement. Defaults to None.
-            order_by ( ColsDefinition | ColsDefinitionWithDirection | None, optional):
+            group_by (tuple[str, ...] | None, optional): A list of cols for group_by statement. Defaults to None.
+            order_by (Iterable[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
                 A list of cols for ordering result. Defaults to None.
             order_by_stmt (str | None, optional): The order_by statement string, this
                 precedes the <order_by> param if set. Defaults to None.
@@ -489,12 +492,12 @@ class TableSpec(BaseModel):
         cls,
         *,
         delete_from: str,
-        where_cols: ColsDefinition | None = None,
+        where_cols: tuple[str, ...] | None = None,
         where_stmt: str | None = None,
-        order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
+        order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
         order_by_stmt: str | None = None,
         limit: int | str | None = None,
-        returning_cols: ColsDefinition | Literal["*"] | None = None,
+        returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         returning_stmt: str | None = None,
     ) -> str:
         """Get sql for deleting row(s) from <table_name> with specifying col value(s).
@@ -515,15 +518,15 @@ class TableSpec(BaseModel):
         Args:
             delete_from (str): The table name for the generated statement.
             limit (int | str | None, optional): The value for limit expr. Defaults to None.
-            order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional):
+            order_by (Iterable[str  |  tuple[str, ORDER_DIRECTION]] | None, optional):
                 A list of cols for ordering result. Defaults to None.
             order_by_stmt (str | None, optional): The order_by statement string, this
                 precedes the <order_by> param if set. Defaults to None.
-            where_cols (ColsDefinition | None, optional): A list of cols to be compared in where
+            where_cols (tuple[str, ...] | None, optional): A list of cols to be compared in where
                 statement. Defaults to None.
             where_stmt (str | None, optional): The full where statement string, this
                 precedes the <where_cols> param if set. Defaults to None.
-            returning_cols (ColsDefinition | Literal["*"] | None): Which cols are included in the returned entries.
+            returning_cols (tuple[str, ...] | Literal["*"] | None): Which cols are included in the returned entries.
                 Defaults to None.
             returning_stmt (str | None, optional): The full returning statement string, this
                 precedes the <returning_cols> param. Defaults to None.
