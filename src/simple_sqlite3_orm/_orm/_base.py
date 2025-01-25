@@ -473,29 +473,28 @@ class ORMBase(Generic[TableSpecType]):
         if batch_size < 0:
             raise ValueError("batch_size must be positive integer")
 
-        # first, check how many rows we have in the table
         _check_rows_num = self.orm_table_spec.table_select_stmt(
             function="count",
             select_from=self.orm_table_name,
         )
-        with self._con as con:
-            _cur = con.execute(_check_rows_num)
-            _res = _cur.fetchone()
-            assert _res
-        total_rows_count: int = _res[0]
-
-        # second, iter through the table with rowid
-        _sql_stmt = self.orm_table_spec.table_select_stmt(
+        _iter_all_stmt = self.orm_table_spec.table_select_stmt(
             select_cols="rowid,*",
             select_from=self.orm_table_name,
             where_stmt="WHERE rowid > :not_before",
             limit=batch_size,
         )
 
-        _collected_rows = 0
-        for _round in count():
-            with self._con as con:
-                _cur = con.execute(_sql_stmt, {"not_before": _round * batch_size})
+        with self._con as con:
+            # first, check how many rows we have in the table
+            _cur = con.execute(_check_rows_num)
+            _res = _cur.fetchone()
+            assert _res
+            total_rows_count: int = _res[0]
+
+            # second, iter through the table with rowid
+            _collected_rows = 0
+            for _round in count():
+                _cur = con.execute(_iter_all_stmt, {"not_before": _round * batch_size})
                 _cur.row_factory = self.orm_table_spec.table_row_factory2
 
                 for _row in _cur:
