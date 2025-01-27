@@ -9,7 +9,7 @@ from functools import cached_property, partial
 from typing import Generic, TypeVar
 from weakref import WeakSet
 
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import Concatenate, ParamSpec, Self
 
 from simple_sqlite3_orm._orm._base import ORMBase, RowFactorySpecifier
 from simple_sqlite3_orm._orm._utils import parameterized_class_getitem
@@ -130,6 +130,13 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
         )
 
     __class_getitem__ = classmethod(parameterized_class_getitem)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exec_type, exc_val, exc_tb):
+        self.orm_pool_shutdown(wait=True, close_connections=True)
+        return False
 
     def _thread_initializer(self, con_factory, row_factory) -> None:
         """Prepare thread_scope ORMBase instance for this worker thread."""

@@ -12,7 +12,7 @@ from typing import (
     Union,
 )
 
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec, Self
 
 from simple_sqlite3_orm._orm._utils import parameterized_class_getitem
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR
@@ -111,6 +111,13 @@ class ORMBase(Generic[TableSpecType]):
         row_factory_setter(self._con, self.orm_table_spec, row_factory)
 
     __class_getitem__ = classmethod(parameterized_class_getitem)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exec_type, exc_val, exc_tb):
+        self._con.close()
+        return False
 
     @property
     def orm_con(self) -> sqlite3.Connection:
