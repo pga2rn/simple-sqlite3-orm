@@ -25,7 +25,7 @@ _global_queue_weakset: WeakSet[queue.Queue] = WeakSet()
 MAX_QUEUE_SIZE = 64
 
 
-def _python_exit():
+def _python_exit():  # pragma: no cover
     global _global_shutdown
     _global_shutdown = True
 
