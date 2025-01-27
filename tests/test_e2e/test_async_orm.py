@@ -41,7 +41,7 @@ class TestWithSampleDBWithAsyncIO:
         ) as pool:
             yield pool
 
-    @pytest_asyncio.fixture(autouse=True, loop_scope="class")
+    @pytest_asyncio.fixture(autouse=True, scope="class")
     async def start_timer(self) -> tuple[asyncio.Task[None], asyncio.Event]:
         _test_finished = asyncio.Event()
 
