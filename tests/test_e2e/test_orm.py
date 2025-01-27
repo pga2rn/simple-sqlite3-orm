@@ -95,14 +95,16 @@ class TestWithSampleDB:
 
     def test_select_all_entries(self, setup_test_data: dict[str, SampleTable]):
         logger.info("test lookup entries")
-        for _cnt, _entry in enumerate(
-            self.orm_inst.orm_select_all_with_pagination(
-                batch_size=SELECT_ALL_BATCH_SIZE
-            ),
-            start=1,
+
+        _looked_up = set()
+        for _entry in self.orm_inst.orm_select_all_with_pagination(
+            batch_size=SELECT_ALL_BATCH_SIZE
         ):
             assert setup_test_data[_entry.prim_key] == _entry
-        assert _cnt == len(setup_test_data)
+            _looked_up.add(_entry)
+
+        assert len(_looked_up) == len(setup_test_data)
+        assert all(_entry in _looked_up for _entry in setup_test_data.values())
 
     def test_delete_entries(
         self,
