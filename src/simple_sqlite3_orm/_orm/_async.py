@@ -57,22 +57,24 @@ def _wrap_generator_with_async_ctx(
 ):
     async def _wrapped(self: AsyncORMBase, *args: P.args, **kwargs: P.kwargs):
         _orm_threadpool = self._orm_threadpool
-        _async_queue = asyncio.Queue()
+        _async_queue = asyncio.Queue(maxsize=16)
 
         def _in_thread():
             global _global_shutdown
             _thread_scope_orm = _orm_threadpool._thread_scope_orm
             _schedule_callback = self._loop.call_soon_threadsafe
 
+            # when the thread which loop is at exits, the _schedule_callback should
+            #   return immediately with RuntimeError as loop is closed.
             try:
                 for entry in func(_thread_scope_orm, *args, **kwargs):
                     if _global_shutdown:
                         return
-                    _schedule_callback(_async_queue.put_nowait, entry)
+                    _schedule_callback(_async_queue.put, entry)
             except Exception as e:
-                _schedule_callback(_async_queue.put_nowait, e)
+                _schedule_callback(_async_queue.put, e)
             finally:
-                _schedule_callback(_async_queue.put_nowait, _SENTINEL)
+                _schedule_callback(_async_queue.put, _SENTINEL)
 
         _orm_threadpool._pool.submit(_in_thread)
 

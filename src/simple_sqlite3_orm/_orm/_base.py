@@ -518,8 +518,6 @@ class ORMBase(Generic[TableSpecType]):
         """Select all entries from the table accordingly with pagination.
 
         This is implemented by seek with rowid, so it will not work on without_rowid table.
-        NOTE that it is NOT recommended to use this method on table contains many holes.
-        If the table contains a lot of holes, this method might take unexpected extra long time to finish.
 
         Args:
             batch_size (int): The entry number for each page.
