@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator, Callable, Generator
 from functools import cached_property
 from typing import Generic, TypeVar
 
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import Concatenate, ParamSpec, Self
 
 from simple_sqlite3_orm._orm._base import RowFactorySpecifier
 from simple_sqlite3_orm._orm._multi_thread import ORMBase, ORMThreadPoolBase
@@ -141,6 +141,13 @@ class AsyncORMBase(Generic[TableSpecType]):
         self._loop = asyncio.get_running_loop()
 
     __class_getitem__ = classmethod(parameterized_class_getitem)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exec_type, exc_val, exc_tb):
+        self.orm_pool_shutdown(wait=True, close_connections=True)
+        return False
 
     @cached_property
     def orm_table_name(self) -> str:
