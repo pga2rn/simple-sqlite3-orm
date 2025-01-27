@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sqlite3
 from functools import cached_property, partial
-from itertools import count
 from typing import (
     Any,
     Generator,
@@ -539,6 +538,7 @@ class ORMBase(Generic[TableSpecType]):
             limit=batch_size,
         )
 
+        row_factory = self.orm_table_spec.table_from_tuple
         with self._con as con:
             # first, check how many rows we have in the table
             _cur = con.execute(_check_rows_num)
@@ -547,14 +547,16 @@ class ORMBase(Generic[TableSpecType]):
             total_rows_count: int = _res[0]
 
             # second, iter through the table with rowid
-            _collected_rows = 0
-            for _round in count():
-                _cur = con.execute(_iter_all_stmt, {"not_before": _round * batch_size})
-                _cur.row_factory = self.orm_table_spec.table_row_factory2
+            _not_before, _collected_rows = 0, 0
+            while True:
+                _cur = con.execute(_iter_all_stmt, {"not_before": _not_before})
+                _cur.row_factory = None  # let cursor returns raw row
 
+                _row: tuple[Any, ...]
                 for _row in _cur:
                     _collected_rows += 1
-                    yield _row
+                    _not_before = max(_not_before, _row[0])
+                    yield row_factory(_row[1:])
 
                 if _collected_rows >= total_rows_count:
                     return

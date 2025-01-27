@@ -123,3 +123,9 @@ class SampleTable(TableSpec):
     ]
     prim_key_magicf: float
     prim_key_bln: bool
+
+    def __hash__(self) -> int:
+        return hash(self.prim_key)
+
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, self.__class__) and value.prim_key == self.prim_key

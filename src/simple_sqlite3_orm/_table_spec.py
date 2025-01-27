@@ -269,6 +269,8 @@ class TableSpec(BaseModel):
     ) -> Self:
         """A raw row_factory that converts the input _row to TableSpec instance.
 
+        NOTE that this method expects the input row match the table row spec EXACTLY.
+
         Args:
             _row (tuple[Any, ...]): the raw table row as tuple.
             with_validation (bool): if set to False, will use pydantic model_construct to directly
