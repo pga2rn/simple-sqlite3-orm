@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import contextlib
 import queue
 import threading
 from collections.abc import Callable, Generator
@@ -20,7 +21,7 @@ P = ParamSpec("P")
 RT = TypeVar("RT")
 
 _global_shutdown = False
-_global_queue_weakset: WeakSet[queue.SimpleQueue] = WeakSet()
+_global_queue_weakset: WeakSet[queue.Queue] = WeakSet()
 
 
 def _python_exit():
@@ -28,7 +29,18 @@ def _python_exit():
     _global_shutdown = True
 
     for _q in _global_queue_weakset:
-        _q.put_nowait(_SENTINEL)
+        while True:
+            # drain the queue to unblock the producer.
+            # Once the producer is unblocked, as the global_shutdown is set to True,
+            #  it will directly return.
+            with contextlib.suppress(queue.Empty):
+                while not _q.empty():
+                    _q.get_nowait()
+
+            # then wake up the consumer
+            with contextlib.suppress(queue.Full):
+                _q.put(_SENTINEL, block=True, timeout=0.1)
+                return
 
 
 atexit.register(_python_exit)
@@ -54,7 +66,7 @@ def _wrap_generator_with_thread_ctx(
     def _wrapped(
         self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs
     ) -> Generator[TableSpecType]:
-        _queue = queue.SimpleQueue()
+        _queue = queue.Queue(maxsize=16)
         _global_queue_weakset.add(_queue)
 
         def _in_thread():
@@ -64,11 +76,11 @@ def _wrap_generator_with_thread_ctx(
                 for entry in func(_orm_base, *args, **kwargs):
                     if _global_shutdown:
                         return
-                    _queue.put_nowait(entry)
+                    _queue.put(entry)
             except Exception as e:
-                _queue.put_nowait(e)
+                _queue.put(e)
             finally:
-                _queue.put_nowait(_SENTINEL)
+                _queue.put(_SENTINEL)
 
         self._pool.submit(_in_thread)
 
