@@ -40,7 +40,7 @@ def _python_exit():
             # then wake up the consumer
             with contextlib.suppress(queue.Full):
                 _q.put(_SENTINEL, block=True, timeout=0.1)
-                return
+                break
 
 
 atexit.register(_python_exit)
