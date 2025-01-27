@@ -35,14 +35,11 @@ class TestWithSampleDBWithAsyncIO:
         self,
         setup_con_factory: Callable[[], sqlite3.Connection],
     ):
-        try:
-            pool = SampleDBAsyncio(
-                con_factory=setup_con_factory,
-                number_of_cons=THREAD_NUM,
-            )
+        with SampleDBAsyncio(
+            con_factory=setup_con_factory,
+            number_of_cons=THREAD_NUM,
+        ) as pool:
             yield pool
-        finally:
-            pool.orm_pool_shutdown(wait=True, close_connections=True)
 
     @pytest_asyncio.fixture(autouse=True, loop_scope="class")
     async def start_timer(self) -> tuple[asyncio.Task[None], asyncio.Event]:

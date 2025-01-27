@@ -28,14 +28,11 @@ WORKER_NUM = 6
 class TestWithSampleDBAndThreadPool:
     @pytest.fixture(autouse=True, scope="class")
     def thread_pool(self, setup_con_factory: Callable[[], sqlite3.Connection]):
-        try:
-            pool = SampleDBConnectionPool(
-                con_factory=setup_con_factory,
-                number_of_cons=THREAD_NUM,
-            )
+        with SampleDBConnectionPool(
+            con_factory=setup_con_factory,
+            number_of_cons=THREAD_NUM,
+        ) as pool:
             yield pool
-        finally:
-            pool.orm_pool_shutdown(wait=True, close_connections=True)
 
     def test_create_table(self, thread_pool: SampleDBConnectionPool):
         logger.info("test create table")
