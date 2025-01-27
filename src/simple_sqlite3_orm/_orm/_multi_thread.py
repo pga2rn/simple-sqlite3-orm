@@ -22,6 +22,7 @@ RT = TypeVar("RT")
 
 _global_shutdown = False
 _global_queue_weakset: WeakSet[queue.Queue] = WeakSet()
+MAX_QUEUE_SIZE = 64
 
 
 def _python_exit():
@@ -66,7 +67,7 @@ def _wrap_generator_with_thread_ctx(
     def _wrapped(
         self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs
     ) -> Generator[TableSpecType]:
-        _queue = queue.Queue(maxsize=16)
+        _queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
         _global_queue_weakset.add(_queue)
 
         def _in_thread():
