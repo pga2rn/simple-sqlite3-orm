@@ -546,8 +546,10 @@ class ORMBase(Generic[TableSpecType]):
 
         row_factory = self.orm_table_spec.table_from_tuple
         with self._con as con:
+            con_exec = con.execute
+
             # first, check how many rows we have in the table
-            _cur = con.execute(_check_rows_num)
+            _cur = con_exec(_check_rows_num)
             _res = _cur.fetchone()
             assert _res
             total_rows_count: int = _res[0]
@@ -555,7 +557,7 @@ class ORMBase(Generic[TableSpecType]):
             # second, iter through the table with rowid
             _not_before, _collected_rows = 0, 0
             while _collected_rows < total_rows_count:
-                _cur = con.execute(_iter_all_stmt, {"not_before": _not_before})
+                _cur = con_exec(_iter_all_stmt, {"not_before": _not_before})
                 _cur.row_factory = None  # let cursor returns raw row
 
                 _row: tuple[Any, ...]
