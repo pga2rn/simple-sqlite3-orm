@@ -541,6 +541,7 @@ class ORMBase(Generic[TableSpecType]):
             select_from=self.orm_table_name,
             where_stmt="WHERE rowid > :not_before",
             limit=batch_size,
+            order_by=(("rowid", "ASC"),),
         )
 
         row_factory = self.orm_table_spec.table_from_tuple
@@ -553,18 +554,19 @@ class ORMBase(Generic[TableSpecType]):
 
             # second, iter through the table with rowid
             _not_before, _collected_rows = 0, 0
-            while True:
+            while _collected_rows < total_rows_count:
                 _cur = con.execute(_iter_all_stmt, {"not_before": _not_before})
                 _cur.row_factory = None  # let cursor returns raw row
 
                 _row: tuple[Any, ...]
+                _row_id_in_this_batch = -1
                 for _row in _cur:
                     _collected_rows += 1
-                    _not_before = max(_not_before, _row[0])
+                    _row_id_in_this_batch = _row[0]
                     yield row_factory(_row[1:])
 
-                if _collected_rows >= total_rows_count:
-                    return
+                if _row_id_in_this_batch > 0:
+                    _not_before = _row_id_in_this_batch
 
     def orm_check_entry_exist(self, **cols: Any) -> bool:
         """A quick method to check whether entry(entries) indicated by cols exists.
