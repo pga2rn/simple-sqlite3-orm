@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 import atexit
 import logging
+import time
 from collections.abc import AsyncGenerator, Callable, Generator
-from functools import cached_property
+from functools import cached_property, partial
 from typing import Generic, TypeVar
 
 from typing_extensions import Concatenate, ParamSpec, Self
@@ -21,9 +22,10 @@ P = ParamSpec("P")
 RT = TypeVar("RT")
 
 _global_shutdown = False
+MAX_QUEUE_SIZE = 64
 
 
-def _python_exit():
+def _python_exit():  # pragma: no cover
     global _global_shutdown
     _global_shutdown = True
 
@@ -59,20 +61,26 @@ def _wrap_generator_with_async_ctx(
         _orm_threadpool = self._orm_threadpool
         _async_queue = asyncio.Queue()
 
+        _put_queue_cb = partial(
+            self._loop.call_soon_threadsafe, _async_queue.put_nowait
+        )
+
         def _in_thread():
             global _global_shutdown
             _thread_scope_orm = _orm_threadpool._thread_scope_orm
-            _schedule_callback = self._loop.call_soon_threadsafe
 
             try:
                 for entry in func(_thread_scope_orm, *args, **kwargs):
-                    if _global_shutdown:
-                        return
-                    _schedule_callback(_async_queue.put_nowait, entry)
+                    while not _global_shutdown:
+                        if _async_queue.qsize() > MAX_QUEUE_SIZE:
+                            time.sleep(0.1)
+                            continue
+                        _put_queue_cb(entry)
+                        break
             except Exception as e:
-                _schedule_callback(_async_queue.put_nowait, e)
+                _put_queue_cb(e)
             finally:
-                _schedule_callback(_async_queue.put_nowait, _SENTINEL)
+                _put_queue_cb(_SENTINEL)
 
         _orm_threadpool._pool.submit(_in_thread)
 
