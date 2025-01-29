@@ -541,7 +541,7 @@ class ORMBase(Generic[TableSpecType]):
             select_from=self.orm_table_name,
             where_stmt="WHERE rowid > :not_before",
             limit=batch_size,
-            order_by=(("rowid", "ASC"),),
+            order_by_stmt="ORDER BY rowid",
         )
 
         row_factory = self.orm_table_spec.table_from_tuple
