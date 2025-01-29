@@ -30,18 +30,16 @@ def _python_exit():  # pragma: no cover
     _global_shutdown = True
 
     for _q in _global_queue_weakset:
-        while True:
-            # drain the queue to unblock the producer.
-            # Once the producer is unblocked, as the global_shutdown is set to True,
-            #  it will directly return.
-            with contextlib.suppress(queue.Empty):
-                while not _q.empty():
-                    _q.get_nowait()
+        # drain the queue to unblock the producer.
+        # Once the producer is unblocked, as the global_shutdown is set to True,
+        #  it will directly return.
+        with contextlib.suppress(queue.Empty):
+            while not _q.empty():
+                _q.get_nowait()
 
-            # then wake up the consumer
-            with contextlib.suppress(queue.Full):
-                _q.put(_SENTINEL, block=True, timeout=0.1)
-                break
+        # then wake up the consumer
+        with contextlib.suppress(queue.Full):
+            _q.put(_SENTINEL, block=True, timeout=0.1)
 
 
 atexit.register(_python_exit)
