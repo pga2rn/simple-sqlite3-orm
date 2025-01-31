@@ -532,39 +532,30 @@ class ORMBase(Generic[TableSpecType]):
         if batch_size < 0:
             raise ValueError("batch_size must be positive integer")
 
-        _check_rows_num = self.orm_table_spec.table_select_stmt(
-            function="count",
-            select_from=self.orm_table_name,
-        )
         _iter_all_stmt = self.orm_table_spec.table_select_stmt(
             select_cols="rowid,*",
             select_from=self.orm_table_name,
             where_stmt="WHERE rowid > :not_before",
             limit=batch_size,
+            order_by_stmt="ORDER BY rowid",
         )
 
         row_factory = self.orm_table_spec.table_from_tuple
         with self._con as con:
-            # first, check how many rows we have in the table
-            _cur = con.execute(_check_rows_num)
-            _res = _cur.fetchone()
-            assert _res
-            total_rows_count: int = _res[0]
+            con_exec = con.execute
 
-            # second, iter through the table with rowid
-            _not_before, _collected_rows = 0, 0
+            _not_before = 0
             while True:
-                _cur = con.execute(_iter_all_stmt, {"not_before": _not_before})
+                _cur = con_exec(_iter_all_stmt, {"not_before": _not_before})
                 _cur.row_factory = None  # let cursor returns raw row
 
-                _row: tuple[Any, ...]
+                _row = None
                 for _row in _cur:
-                    _collected_rows += 1
-                    _not_before = max(_not_before, _row[0])
                     yield row_factory(_row[1:])
 
-                if _collected_rows >= total_rows_count:
+                if _row is None:
                     return
+                _not_before = _row[0]
 
     def orm_check_entry_exist(self, **cols: Any) -> bool:
         """A quick method to check whether entry(entries) indicated by cols exists.
