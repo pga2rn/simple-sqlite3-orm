@@ -16,4 +16,4 @@ RowFactoryType = Callable[[Cursor, Row], Any]
 ConnectionFactoryType = Callable[[], sqlite3.Connection]
 
 ColsDefinitionWithDirection: TypeAlias = "tuple[str | tuple[str, ORDER_DIRECTION], ...]"
-ColsDefinition: TypeAlias = "tuple[str, ...] | dict[str, Any]"
+ColsDefinition: TypeAlias = "tuple[str, ...]"
