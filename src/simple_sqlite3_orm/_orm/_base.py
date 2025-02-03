@@ -254,7 +254,7 @@ class ORMBase(Generic[TableSpecType]):
             index_name=index_name,
             unique=unique,
             if_not_exists=allow_existed,
-            index_cols=tuple(index_keys),
+            index_cols=index_keys,
         )
         with self._con as con:
             con.execute(index_create_stmt)
@@ -291,14 +291,10 @@ class ORMBase(Generic[TableSpecType]):
         if _col_values_dict:
             col_values.update(_col_values_dict)
 
-        _parsed_order_by = None
-        if _order_by:
-            _parsed_order_by = tuple(_order_by)
-
         table_select_stmt = self.orm_table_spec.table_select_stmt(
             select_from=self.orm_table_name,
             distinct=_distinct,
-            order_by=_parsed_order_by,
+            order_by=_order_by,
             limit=_limit,
             where_cols=tuple(col_values),
         )
@@ -342,14 +338,10 @@ class ORMBase(Generic[TableSpecType]):
         if _col_values_dict:
             col_values.update(_col_values_dict)
 
-        _parsed_order_by = None
-        if _order_by:
-            _parsed_order_by = tuple(_order_by)
-
         table_select_stmt = self.orm_table_spec.table_select_stmt(
             select_from=self.orm_table_name,
             distinct=_distinct,
-            order_by=_parsed_order_by,
+            order_by=_order_by,
             limit=1,
             where_cols=tuple(col_values),
         )
@@ -435,14 +427,10 @@ class ORMBase(Generic[TableSpecType]):
         if _col_values_dict:
             col_values.update(_col_values_dict)
 
-        _parsed_order_by = None
-        if _order_by:
-            _parsed_order_by = tuple(_order_by)
-
         delete_stmt = self.orm_table_spec.table_delete_stmt(
             delete_from=self.orm_table_name,
             limit=_limit,
-            order_by=_parsed_order_by,
+            order_by=_order_by,
             returning_cols=None,
             where_cols=tuple(col_values),
         )
@@ -485,21 +473,11 @@ class ORMBase(Generic[TableSpecType]):
         if _col_values_dict:
             col_values.update(_col_values_dict)
 
-        _parsed_order_by = None
-        if _order_by:
-            _parsed_order_by = tuple(_order_by)
-
-        _parsed_returning_cols = None
-        if _returning_cols == "*":
-            _parsed_returning_cols = "*"
-        else:
-            _parsed_returning_cols = tuple(_returning_cols)
-
         delete_stmt = self.orm_table_spec.table_delete_stmt(
             delete_from=self.orm_table_name,
             limit=_limit,
-            order_by=_parsed_order_by,
-            returning_cols=_parsed_returning_cols,
+            order_by=_order_by,
+            returning_cols=_returning_cols,
             where_cols=tuple(col_values),
         )
 
