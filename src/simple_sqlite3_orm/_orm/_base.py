@@ -4,6 +4,7 @@ import sqlite3
 import warnings
 from functools import cached_property, partial
 from typing import (
+    TYPE_CHECKING,
     Any,
     Generator,
     Generic,
@@ -95,10 +96,11 @@ class ORMBase(Generic[TableSpecType]):
     #
     # ------------ orm_boostrap APIs ------------ #
     #
-    _orm_table_name: str
-    """    
-    Directly setting this variable is DEPRECATED, use orm_boostrap_table_name instead.
-    """
+    if not TYPE_CHECKING:
+        _orm_table_name: str
+        """    
+        Directly setting this variable is DEPRECATED, use orm_boostrap_table_name instead.
+        """
     orm_boostrap_table_name: str
     orm_boostrap_create_table_params: str | CreateTableParams
     orm_boostrap_indexes_params: Iterable[str | CreateIndexParams] | None = None
