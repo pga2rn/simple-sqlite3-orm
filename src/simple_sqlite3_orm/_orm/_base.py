@@ -16,7 +16,12 @@ from typing_extensions import ParamSpec, Self
 
 from simple_sqlite3_orm._orm._utils import parameterized_class_getitem
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR
-from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
+from simple_sqlite3_orm._table_spec import (
+    CreateIndexParams,
+    CreateTableParams,
+    TableSpec,
+    TableSpecType,
+)
 from simple_sqlite3_orm._typing import (
     ColsDefinition,
     ColsDefinitionWithDirection,
@@ -86,7 +91,64 @@ class ORMBase(Generic[TableSpecType]):
 
     orm_table_spec: type[TableSpecType]
     _orm_table_name: str
-    """table_name for the ORM. This can be used for pinning table_name when creating ORM object."""
+    """table_name for the ORM. This can be used for pinning table_name when creating ORM object.
+    
+    DEPRECATED, use orm_boostrap_table_name instead.
+    """
+
+    #
+    # ------------ orm_boostrap APIs ------------ #
+    #
+    orm_boostrap_table_name: str
+    orm_boostrap_create_table_params: str | CreateTableParams
+    orm_boostrap_indexes_params: Iterable[str | CreateIndexParams] | None = None
+
+    def orm_boostrap_db(self) -> None:
+        """Bootstrap the database this ORM connected to.
+
+        This method will refer to the following attrs to setup table and indexes:
+        1. orm_boostrap_table_name: the name of table to be created.
+        2. orm_boostrap_create_table_params: the sqlite query to create the table,
+            it can be provided as sqlite query, or CreateTableParams for table_create_stmt
+            to generate sqlite query from.
+        3. orm_boostrap_indexes_params: optional, a list of sqlite query or
+            CreateIndexParams(for table_create_index_stmt to generate sqlite query from) to
+            create indexes from.
+
+        NOTE that ORM will not know whether the connected database has already been
+            boostrapped or not, this is up to caller to check.
+        """
+        try:
+            _table_name = self.orm_boostrap_table_name
+        except AttributeError:
+            raise ValueError(
+                "orm_bootstrap_db requires orm_boostrap_table_name attr to be set"
+            ) from None
+
+        try:
+            _table_create_stmt = self.orm_boostrap_create_table_params
+        except AttributeError:
+            raise ValueError(
+                "orm_bootstrap_db requires orm_boostrap_create_table_params to be set"
+            ) from None
+
+        if not isinstance(_table_create_stmt, str):
+            _table_create_stmt = self.orm_table_spec.table_create_stmt(
+                _table_name,
+                **_table_create_stmt,
+            )
+        with self.orm_con as conn:
+            conn.execute(_table_create_stmt)
+
+        if _index_stmts := self.orm_boostrap_indexes_params:
+            for _index_stmt in _index_stmts:
+                if not isinstance(_index_stmt, str):
+                    _index_stmt = self.orm_table_spec.table_create_index_stmt(
+                        table_name=_table_name,
+                        **_index_stmt,
+                    )
+                with self.orm_con as conn:
+                    conn.execute(_index_stmt)
 
     def __init__(
         self,
