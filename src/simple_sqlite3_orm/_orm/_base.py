@@ -80,7 +80,7 @@ class ORMCommonBase(Generic[TableSpecType]):
     #
     if not TYPE_CHECKING:
         _orm_table_name: str
-        """    
+        """
         Directly setting this variable is DEPRECATED, use orm_bootstrap_table_name instead.
         """
 
