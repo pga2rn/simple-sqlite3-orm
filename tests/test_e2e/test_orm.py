@@ -25,9 +25,9 @@ class TestWithSampleDB:
     @pytest.fixture(autouse=True)
     def setup_test(
         self,
-        setup_test_db: SampleDB,
+        setup_test_db_conn: sqlite3.Connection,
     ):
-        self.orm_inst = setup_test_db
+        self.orm_inst = SampleDB(setup_test_db_conn)
 
     def test_create_table(self):
         logger.info("test create table")

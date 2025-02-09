@@ -9,9 +9,9 @@ from typing import Callable
 import pytest
 import pytest_asyncio
 
-from simple_sqlite3_orm._orm import AsyncORMBase
 from simple_sqlite3_orm.utils import batched
-from tests.conftest import INDEX_KEYS, INDEX_NAME, TABLE_NAME, TEST_INSERT_BATCH_SIZE
+from tests.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
+from tests.sample_db.orm import SampleDBAsyncio
 from tests.sample_db.table import SampleTable
 
 logger = logging.getLogger(__name__)
@@ -20,12 +20,6 @@ THREAD_NUM = 2
 # NOTE: the timer interval should not be smaller than 0.01 due to the precision
 #   of asyncio internal clock.
 TIMER_INTERVAL = 0.1
-
-
-class SampleDBAsyncio(AsyncORMBase[SampleTable]):
-    """Test connection pool with async API."""
-
-    _orm_table_name = TABLE_NAME
 
 
 @pytest.mark.asyncio(loop_scope="class")
