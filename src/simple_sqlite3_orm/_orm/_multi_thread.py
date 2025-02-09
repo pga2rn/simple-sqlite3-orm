@@ -208,6 +208,7 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
         ORMBase.orm_select_all_with_pagination
     )
     orm_check_entry_exist = _wrap_with_thread_ctx(ORMBase.orm_check_entry_exist)
+    orm_bootstrap_db = _wrap_with_thread_ctx(ORMBase.orm_bootstrap_db)
 
 
 ORMThreadPoolBaseType = TypeVar("ORMThreadPoolBaseType", bound=ORMThreadPoolBase)

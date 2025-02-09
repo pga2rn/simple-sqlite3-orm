@@ -168,16 +168,16 @@ class TestORMBase:
         ),
     ),
 )
-def test_boostrap(
+def test_bootstrap(
     table_name,
     create_table_params,
     create_indexes_params,
     setup_test_db_conn: sqlite3.Connection,
 ):
     class _ORM(SampleDB):
-        orm_boostrap_table_name = table_name
-        orm_boostrap_create_table_params = create_table_params
-        orm_boostrap_indexes_params = create_indexes_params
+        orm_bootstrap_table_name = table_name
+        orm_bootstrap_create_table_params = create_table_params
+        orm_bootstrap_indexes_params = create_indexes_params
 
     _orm = _ORM(setup_test_db_conn)
-    _orm.orm_boostrap_db()
+    _orm.orm_bootstrap_db()

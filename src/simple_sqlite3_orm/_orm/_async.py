@@ -198,6 +198,7 @@ class AsyncORMBase(ORMCommonBase[TableSpecType]):
         ORMBase.orm_select_all_with_pagination
     )
     orm_check_entry_exist = _wrap_with_async_ctx(ORMBase.orm_check_entry_exist)
+    orm_bootstrap_db = _wrap_with_async_ctx(ORMBase.orm_bootstrap_db)
 
 
 AsyncORMBaseType = TypeVar("AsyncORMBaseType", bound=AsyncORMBase)

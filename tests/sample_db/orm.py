@@ -10,16 +10,16 @@ from tests.sample_db.table import SampleTable
 class SampleDB(ORMBase[SampleTable]):
     """ORM for SampleTable."""
 
-    orm_boostrap_table_name = TABLE_NAME
+    orm_bootstrap_table_name = TABLE_NAME
 
 
 class SampleDBAsyncio(AsyncORMBase[SampleTable]):
     """Test connection pool with async API."""
 
-    orm_boostrap_table_name = TABLE_NAME
+    orm_bootstrap_table_name = TABLE_NAME
 
 
 class SampleDBConnectionPool(ORMThreadPoolBase[SampleTable]):
     """Test connection pool."""
 
-    orm_boostrap_table_name = TABLE_NAME
+    orm_bootstrap_table_name = TABLE_NAME
