@@ -145,8 +145,12 @@ class TestORMBase:
     (
         (
             "test_1",
+            # NOTE: strict param only supported at sqlite3 >= 3.37
             CreateTableParams(
-                if_not_exists=True, strict=True, temporary=True, without_rowid=True
+                if_not_exists=True,
+                temporary=True,
+                strict=True if sqlite3.sqlite_version_info >= (3, 37, 0) else False,
+                without_rowid=True,
             ),
             None,
         ),
