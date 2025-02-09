@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import warnings
 from functools import cached_property, partial
 from typing import (
     Any,
@@ -90,18 +91,32 @@ class ORMBase(Generic[TableSpecType]):
     """
 
     orm_table_spec: type[TableSpecType]
-    _orm_table_name: str
-    """table_name for the ORM. This can be used for pinning table_name when creating ORM object.
-    
-    DEPRECATED, use orm_boostrap_table_name instead.
-    """
 
     #
     # ------------ orm_boostrap APIs ------------ #
     #
+    _orm_table_name: str
+    """    
+    Directly setting this variable is DEPRECATED, use orm_boostrap_table_name instead.
+    """
     orm_boostrap_table_name: str
     orm_boostrap_create_table_params: str | CreateTableParams
     orm_boostrap_indexes_params: Iterable[str | CreateIndexParams] | None = None
+
+    def __init_subclass__(cls) -> None:
+        try:
+            _ = cls._orm_table_name
+            warnings.warn(
+                "Directly setting this variable is DEPRECATED, use orm_boostrap_table_name instead",
+                stacklevel=1,
+            )
+        except AttributeError:
+            pass
+
+        try:
+            cls._orm_table_name = cls.orm_boostrap_table_name
+        except AttributeError:
+            pass
 
     def orm_boostrap_db(self) -> None:
         """Bootstrap the database this ORM connected to.
@@ -118,12 +133,7 @@ class ORMBase(Generic[TableSpecType]):
         NOTE that ORM will not know whether the connected database has already been
             boostrapped or not, this is up to caller to check.
         """
-        try:
-            _table_name = self.orm_boostrap_table_name
-        except AttributeError:
-            raise ValueError(
-                "orm_bootstrap_db requires orm_boostrap_table_name attr to be set"
-            ) from None
+        _table_name = self.orm_table_name
 
         try:
             _table_create_stmt = self.orm_boostrap_create_table_params
@@ -159,11 +169,18 @@ class ORMBase(Generic[TableSpecType]):
         row_factory: RowFactorySpecifier = "table_spec",
     ) -> None:
         if table_name:
+            # the table_name passed in by keyword arg has higher priority than the one set
+            #   by class variable.
             self._orm_table_name = table_name
-        if getattr(self, "_orm_table_name", None) is None:
+
+        try:
+            _ = self._orm_table_name
+        except AttributeError:
             raise ValueError(
-                "table_name must be either set by <table_name> init param, or by defining <_orm_table_name> attr."
-            )
+                "table_name must be provided either by class variable orm_boostrap_table_name, "
+                "or by providing <table_name> keyword arg"
+            ) from None
+
         self._schema_name = schema_name
 
         if isinstance(con, sqlite3.Connection):
