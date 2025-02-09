@@ -150,22 +150,22 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 "orm_bootstrap_db requires orm_bootstrap_create_table_params to be set"
             ) from None
 
-        if not isinstance(_table_create_stmt, str):
+        if isinstance(_table_create_stmt, dict):
             _table_create_stmt = self.orm_table_spec.table_create_stmt(
                 _table_name,
                 **_table_create_stmt,
             )
-        with self.orm_con as conn:
+        with self._con as conn:
             conn.execute(_table_create_stmt)
 
         if _index_stmts := self.orm_bootstrap_indexes_params:
             for _index_stmt in _index_stmts:
-                if not isinstance(_index_stmt, str):
+                if isinstance(_index_stmt, dict):
                     _index_stmt = self.orm_table_spec.table_create_index_stmt(
                         table_name=_table_name,
                         **_index_stmt,
                     )
-                with self.orm_con as conn:
+                with self._con as conn:
                     conn.execute(_index_stmt)
 
     def __init__(
