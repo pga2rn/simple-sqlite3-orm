@@ -101,24 +101,28 @@ class ORMBase(Generic[TableSpecType]):
         """    
         Directly setting this variable is DEPRECATED, use orm_boostrap_table_name instead.
         """
+
     orm_boostrap_table_name: str
     orm_boostrap_create_table_params: str | CreateTableParams
     orm_boostrap_indexes_params: Iterable[str | CreateIndexParams] | None = None
 
     def __init_subclass__(cls) -> None:
-        try:
-            _ = cls._orm_table_name
+        # check this class' dict to only get the name set during this subclass' creation
+        _set_table_name = cls.__dict__.get("orm_boostrap_table_name")
+
+        if _deprecated_set_table_name := cls.__dict__.get("_orm_table_name"):
             warnings.warn(
                 "Directly setting this variable is DEPRECATED, use orm_boostrap_table_name instead",
                 stacklevel=1,
             )
-        except AttributeError:
-            pass
+            # For backward compatibility, still use the _orm_table_name if set in class creation namespace
+            if not _set_table_name:
+                _set_table_name = _deprecated_set_table_name
 
-        try:
-            cls._orm_table_name = cls.orm_boostrap_table_name
-        except AttributeError:
-            pass
+        # only override the _orm_table_name for the subclass when orm_boostrap_table_name is set
+        #   in the class creation namespace.
+        if _set_table_name:
+            cls._orm_table_name = _set_table_name
 
     def orm_boostrap_db(self) -> None:
         """Bootstrap the database this ORM connected to.
@@ -175,13 +179,11 @@ class ORMBase(Generic[TableSpecType]):
             #   by class variable.
             self._orm_table_name = table_name
 
-        try:
-            _ = self._orm_table_name
-        except AttributeError:
+        if not getattr(self, "_orm_table_name", None):
             raise ValueError(
                 "table_name must be provided either by class variable orm_boostrap_table_name, "
                 "or by providing <table_name> keyword arg"
-            ) from None
+            )
 
         self._schema_name = schema_name
 
