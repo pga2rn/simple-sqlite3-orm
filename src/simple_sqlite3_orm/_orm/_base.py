@@ -106,7 +106,7 @@ class ORMBase(Generic[TableSpecType]):
     orm_boostrap_create_table_params: str | CreateTableParams
     orm_boostrap_indexes_params: Iterable[str | CreateIndexParams] | None = None
 
-    def __init_subclass__(cls) -> None:
+    def __init_subclass__(cls, **kwargs) -> None:
         # check this class' dict to only get the name set during this subclass' creation
         _set_table_name = cls.__dict__.get("orm_boostrap_table_name")
 
