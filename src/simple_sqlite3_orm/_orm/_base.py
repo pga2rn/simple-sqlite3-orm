@@ -72,25 +72,7 @@ def row_factory_setter(
     # do nothing means not changing connection scope row_factory
 
 
-class ORMBase(Generic[TableSpecType]):
-    """ORM layer for <TableSpecType>.
-
-    NOTE that instance of ORMBase cannot be used in multi-threaded environment.
-        Use ORMThreadPoolBase for multi-threaded environment.
-        For asyncio, use AsyncORMThreadPoolBase.
-
-    The underlying connection can be used in multiple connection for accessing different table in
-        the connected database.
-
-    Attributes:
-        con (sqlite3.Connection | ConnectionFactoryType): The sqlite3 connection used by this ORM, or a factory
-            function that returns a sqlite3.Connection object on calling.
-        table_name (str): The name of the table in the database <con> connected to. This field will take prior over the
-            table_name specified by _orm_table_name attr.
-        schema_name (str): The schema of the table if multiple databases are attached to <con>.
-        row_factory (RowFactorySpecifier): The connection scope row_factory to use. Default to "table_sepc".
-    """
-
+class ORMCommonBase(Generic[TableSpecType]):
     orm_table_spec: type[TableSpecType]
 
     #
@@ -123,6 +105,26 @@ class ORMBase(Generic[TableSpecType]):
         #   in the class creation namespace.
         if _set_table_name:
             cls._orm_table_name = _set_table_name
+
+
+class ORMBase(ORMCommonBase[TableSpecType]):
+    """ORM layer for <TableSpecType>.
+
+    NOTE that instance of ORMBase cannot be used in multi-threaded environment.
+        Use ORMThreadPoolBase for multi-threaded environment.
+        For asyncio, use AsyncORMThreadPoolBase.
+
+    The underlying connection can be used in multiple connection for accessing different table in
+        the connected database.
+
+    Attributes:
+        con (sqlite3.Connection | ConnectionFactoryType): The sqlite3 connection used by this ORM, or a factory
+            function that returns a sqlite3.Connection object on calling.
+        table_name (str): The name of the table in the database <con> connected to. This field will take prior over the
+            table_name specified by _orm_table_name attr.
+        schema_name (str): The schema of the table if multiple databases are attached to <con>.
+        row_factory (RowFactorySpecifier): The connection scope row_factory to use. Default to "table_sepc".
+    """
 
     def orm_boostrap_db(self) -> None:
         """Bootstrap the database this ORM connected to.
