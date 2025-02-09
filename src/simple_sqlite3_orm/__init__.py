@@ -13,7 +13,13 @@ from simple_sqlite3_orm._sqlite_spec import (
     SQLiteTypeAffinity,
     SQLiteTypeAffinityLiteral,
 )
-from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType, gen_sql_stmt
+from simple_sqlite3_orm._table_spec import (
+    CreateIndexParams,
+    CreateTableParams,
+    TableSpec,
+    TableSpecType,
+    gen_sql_stmt,
+)
 from simple_sqlite3_orm._types import (
     DatetimeISO8601,
     DatetimeUnixTimestamp,
@@ -58,4 +64,7 @@ __all__ = [
     "version",
     "ColsDefinition",
     "ColsDefinitionWithDirection",
+    # typing helper
+    "CreateIndexParams",
+    "CreateTableParams",
 ]

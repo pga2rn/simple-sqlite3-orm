@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import sqlite3
+import warnings
 from functools import cached_property, partial
 from typing import (
+    TYPE_CHECKING,
     Any,
     Generator,
     Generic,
@@ -16,7 +18,12 @@ from typing_extensions import ParamSpec, Self
 
 from simple_sqlite3_orm._orm._utils import parameterized_class_getitem
 from simple_sqlite3_orm._sqlite_spec import INSERT_OR
-from simple_sqlite3_orm._table_spec import TableSpec, TableSpecType
+from simple_sqlite3_orm._table_spec import (
+    CreateIndexParams,
+    CreateTableParams,
+    TableSpec,
+    TableSpecType,
+)
 from simple_sqlite3_orm._typing import (
     ColsDefinition,
     ColsDefinitionWithDirection,
@@ -65,7 +72,42 @@ def row_factory_setter(
     # do nothing means not changing connection scope row_factory
 
 
-class ORMBase(Generic[TableSpecType]):
+class ORMCommonBase(Generic[TableSpecType]):
+    orm_table_spec: type[TableSpecType]
+
+    #
+    # ------------ orm_bootstrap APIs ------------ #
+    #
+    if not TYPE_CHECKING:
+        _orm_table_name: str
+        """
+        Directly setting this variable is DEPRECATED, use orm_bootstrap_table_name instead.
+        """
+
+    orm_bootstrap_table_name: str
+    orm_bootstrap_create_table_params: str | CreateTableParams
+    orm_bootstrap_indexes_params: Iterable[str | CreateIndexParams] | None = None
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        # check this class' dict to only get the name set during this subclass' creation
+        _set_table_name = cls.__dict__.get("orm_bootstrap_table_name")
+
+        if _deprecated_set_table_name := cls.__dict__.get("_orm_table_name"):
+            warnings.warn(
+                "Directly setting this variable is DEPRECATED, use orm_bootstrap_table_name instead",
+                stacklevel=1,
+            )
+            # For backward compatibility, still use the _orm_table_name if set in class creation namespace
+            if not _set_table_name:
+                _set_table_name = _deprecated_set_table_name
+
+        # only override the _orm_table_name for the subclass when orm_bootstrap_table_name is set
+        #   in the class creation namespace.
+        if _set_table_name:
+            cls._orm_table_name = _set_table_name
+
+
+class ORMBase(ORMCommonBase[TableSpecType]):
     """ORM layer for <TableSpecType>.
 
     NOTE that instance of ORMBase cannot be used in multi-threaded environment.
@@ -84,9 +126,47 @@ class ORMBase(Generic[TableSpecType]):
         row_factory (RowFactorySpecifier): The connection scope row_factory to use. Default to "table_sepc".
     """
 
-    orm_table_spec: type[TableSpecType]
-    _orm_table_name: str
-    """table_name for the ORM. This can be used for pinning table_name when creating ORM object."""
+    def orm_bootstrap_db(self) -> None:
+        """Bootstrap the database this ORM connected to.
+
+        This method will refer to the following attrs to setup table and indexes:
+        1. orm_bootstrap_table_name: the name of table to be created.
+        2. orm_bootstrap_create_table_params: the sqlite query to create the table,
+            it can be provided as sqlite query, or CreateTableParams for table_create_stmt
+            to generate sqlite query from.
+        3. orm_bootstrap_indexes_params: optional, a list of sqlite query or
+            CreateIndexParams(for table_create_index_stmt to generate sqlite query from) to
+            create indexes from.
+
+        NOTE that ORM will not know whether the connected database has already been
+            bootstrapped or not, this is up to caller to check.
+        """
+        _table_name = self.orm_table_name
+
+        try:
+            _table_create_stmt = self.orm_bootstrap_create_table_params
+        except AttributeError:
+            raise ValueError(
+                "orm_bootstrap_db requires orm_bootstrap_create_table_params to be set"
+            ) from None
+
+        if isinstance(_table_create_stmt, dict):
+            _table_create_stmt = self.orm_table_spec.table_create_stmt(
+                _table_name,
+                **_table_create_stmt,
+            )
+        with self._con as conn:
+            conn.execute(_table_create_stmt)
+
+        if _index_stmts := self.orm_bootstrap_indexes_params:
+            for _index_stmt in _index_stmts:
+                if isinstance(_index_stmt, dict):
+                    _index_stmt = self.orm_table_spec.table_create_index_stmt(
+                        table_name=_table_name,
+                        **_index_stmt,
+                    )
+                with self._con as conn:
+                    conn.execute(_index_stmt)
 
     def __init__(
         self,
@@ -97,11 +177,16 @@ class ORMBase(Generic[TableSpecType]):
         row_factory: RowFactorySpecifier = "table_spec",
     ) -> None:
         if table_name:
+            # the table_name passed in by keyword arg has higher priority than the one set
+            #   by class variable.
             self._orm_table_name = table_name
-        if getattr(self, "_orm_table_name", None) is None:
+
+        if not getattr(self, "_orm_table_name", None):
             raise ValueError(
-                "table_name must be either set by <table_name> init param, or by defining <_orm_table_name> attr."
+                "table_name must be provided either by class variable orm_bootstrap_table_name, "
+                "or by providing <table_name> keyword arg"
             )
+
         self._schema_name = schema_name
 
         if isinstance(con, sqlite3.Connection):

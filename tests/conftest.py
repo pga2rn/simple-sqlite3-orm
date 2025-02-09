@@ -10,7 +10,6 @@ from typing import Callable, Generator, get_args
 import pytest
 
 from simple_sqlite3_orm import utils
-from tests.sample_db.orm import SampleDB
 from tests.sample_db.table import (
     Choice123,
     ChoiceABC,
@@ -96,27 +95,26 @@ def entry_to_lookup(setup_test_data: dict[str, SampleTable]) -> SampleTable:
 
 
 @pytest.fixture(scope="class")
-def setup_test_db(
+def setup_test_db_conn(
     tmp_path_factory: pytest.TempPathFactory,
-) -> Generator[SampleDB, None, None]:
+) -> Generator[sqlite3.Connection, None, None]:
     """Setup a single db connection for a test class."""
 
-    def _con_factory():
-        tmp_path = tmp_path_factory.mktemp("tmp_db_path")
-        db_file = tmp_path / "test_db_file.sqlite3"
+    tmp_path = tmp_path_factory.mktemp("tmp_db_path")
+    db_file = tmp_path / "test_db_file.sqlite3"
 
-        con = sqlite3.connect(db_file)
-
+    conn = sqlite3.connect(db_file)
+    try:
         # enable optimization
-        utils.enable_wal_mode(con, relax_sync_mode=True)
-        utils.enable_mmap(con)
-        utils.enable_tmp_store_at_memory(con)
-        return con
+        utils.enable_wal_mode(conn, relax_sync_mode=True)
+        utils.enable_mmap(conn)
+        utils.enable_tmp_store_at_memory(conn)
 
-    yield (orm := SampleDB(_con_factory, table_name=TABLE_NAME))
-
-    # finally, do a database integrity check after test operations
-    assert utils.check_db_integrity(orm.orm_con)
+        yield conn
+        # finally, do a database integrity check after test operations
+        assert utils.check_db_integrity(conn)
+    finally:
+        conn.close()
 
 
 DB_LOCK_WAIT_TIMEOUT = 30

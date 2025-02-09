@@ -7,12 +7,12 @@ import threading
 from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property, partial
-from typing import Generic, TypeVar
+from typing import TypeVar
 from weakref import WeakSet
 
 from typing_extensions import Concatenate, ParamSpec, Self
 
-from simple_sqlite3_orm._orm._base import ORMBase, RowFactorySpecifier
+from simple_sqlite3_orm._orm._base import ORMBase, ORMCommonBase, RowFactorySpecifier
 from simple_sqlite3_orm._orm._utils import parameterized_class_getitem
 from simple_sqlite3_orm._table_spec import TableSpecType
 from simple_sqlite3_orm._typing import ConnectionFactoryType
@@ -102,16 +102,12 @@ def _wrap_generator_with_thread_ctx(
     return _wrapped
 
 
-class ORMThreadPoolBase(Generic[TableSpecType]):
+class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
     """
     See https://www.sqlite.org/wal.html#concurrency for more details.
 
     For the row_factory arg, please see ORMBase.__init__ for more details.
     """
-
-    orm_table_spec: type[TableSpecType]
-    _orm_table_name: str
-    """table_name for the ORM. This can be used for pinning table_name when creating ORM object."""
 
     def __init__(
         self,
@@ -212,6 +208,7 @@ class ORMThreadPoolBase(Generic[TableSpecType]):
         ORMBase.orm_select_all_with_pagination
     )
     orm_check_entry_exist = _wrap_with_thread_ctx(ORMBase.orm_check_entry_exist)
+    orm_bootstrap_db = _wrap_with_thread_ctx(ORMBase.orm_bootstrap_db)
 
 
 ORMThreadPoolBaseType = TypeVar("ORMThreadPoolBaseType", bound=ORMThreadPoolBase)

@@ -124,7 +124,7 @@ def check_db_integrity(con: sqlite3.Connection, table_name: str | None = None) -
     """
     with con as con:
         if table_name:
-            cur = con.execute("PRAGMA integrity_check(?);", (table_name,))
+            cur = con.execute(f"PRAGMA integrity_check('{table_name}');")
         else:
             cur = con.execute("PRAGMA integrity_check;")
 
