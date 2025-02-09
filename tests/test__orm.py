@@ -7,9 +7,10 @@ from datetime import datetime
 
 import pytest
 
-from simple_sqlite3_orm import ORMBase
+from simple_sqlite3_orm import CreateIndexParams, CreateTableParams, ORMBase
 from tests.conftest import SELECT_ALL_BATCH_SIZE, _generate_random_str
 from tests.sample_db._types import Mystr
+from tests.sample_db.orm import SampleDB
 from tests.sample_db.table import SampleTable
 
 logger = logging.getLogger(__name__)
@@ -141,3 +142,46 @@ class TestORMBase:
 
     def test_delete_entries(self, setup_connection: ORMTest):
         assert setup_connection.orm_delete_entries(key_id=entry_for_test.key_id) == 1
+
+
+@pytest.mark.parametrize(
+    "table_name, create_table_params, create_indexes_params",
+    (
+        (
+            "test_1",
+            CreateTableParams(
+                if_not_exists=True, strict=True, temporary=True, without_rowid=True
+            ),
+            None,
+        ),
+        (
+            "test_2",
+            CreateTableParams(without_rowid=True),
+            [
+                CreateIndexParams(
+                    index_name="test_index",
+                    index_cols=("key_id", "prim_key"),
+                    if_not_exists=True,
+                    unique=True,
+                ),
+                CreateIndexParams(
+                    index_name="test_index2",
+                    index_cols=("prim_key_sha256hash",),
+                ),
+            ],
+        ),
+    ),
+)
+def test_boostrap(
+    table_name,
+    create_table_params,
+    create_indexes_params,
+    setup_test_db_conn: sqlite3.Connection,
+):
+    class _ORM(SampleDB):
+        orm_boostrap_table_name = table_name
+        orm_boostrap_create_table_params = create_table_params
+        orm_boostrap_indexes_params = create_indexes_params
+
+    _orm = _ORM(setup_test_db_conn)
+    _orm.orm_boostrap_db()
