@@ -6,11 +6,11 @@ import logging
 import time
 from collections.abc import AsyncGenerator, Callable, Generator
 from functools import cached_property, partial
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from typing_extensions import Concatenate, ParamSpec, Self
 
-from simple_sqlite3_orm._orm._base import RowFactorySpecifier
+from simple_sqlite3_orm._orm._base import ORMCommonBase, RowFactorySpecifier
 from simple_sqlite3_orm._orm._multi_thread import ORMBase, ORMThreadPoolBase
 from simple_sqlite3_orm._orm._utils import parameterized_class_getitem
 from simple_sqlite3_orm._table_spec import TableSpecType
@@ -103,7 +103,7 @@ def _wrap_generator_with_async_ctx(
     return _wrapped
 
 
-class AsyncORMBase(Generic[TableSpecType]):
+class AsyncORMBase(ORMCommonBase[TableSpecType]):
     """
     NOTE: the supoprt for async ORM is experimental! The APIs might be changed a lot
         in the following releases.
@@ -113,10 +113,6 @@ class AsyncORMBase(Generic[TableSpecType]):
 
     For the row_factory arg, please see ORMBase.__init__ for more details.
     """
-
-    orm_table_spec: type[TableSpecType]
-    _orm_table_name: str
-    """table_name for the ORM. This can be used for pinning table_name when creating ORM object."""
 
     def __init__(
         self,
@@ -202,6 +198,7 @@ class AsyncORMBase(Generic[TableSpecType]):
         ORMBase.orm_select_all_with_pagination
     )
     orm_check_entry_exist = _wrap_with_async_ctx(ORMBase.orm_check_entry_exist)
+    orm_bootstrap_db = _wrap_with_async_ctx(ORMBase.orm_bootstrap_db)
 
 
 AsyncORMBaseType = TypeVar("AsyncORMBaseType", bound=AsyncORMBase)

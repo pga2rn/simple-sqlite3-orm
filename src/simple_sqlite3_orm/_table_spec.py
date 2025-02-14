@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Mapping
-from typing import Any, Iterable, Literal, TypeVar
+from typing import Any, Iterable, Literal, TypedDict, TypeVar
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
-from typing_extensions import Self
+from typing_extensions import NotRequired, Self
 
 from simple_sqlite3_orm._sqlite_spec import (
     INSERT_OR,
@@ -19,6 +19,20 @@ from simple_sqlite3_orm._utils import (
     gen_sql_stmt,
     lru_cache,
 )
+
+
+class CreateTableParams(TypedDict, total=False):
+    if_not_exists: bool
+    strict: bool
+    temporary: bool
+    without_rowid: bool
+
+
+class CreateIndexParams(TypedDict):
+    index_name: str
+    index_cols: tuple[str | tuple[str, ORDER_DIRECTION], ...]
+    if_not_exists: NotRequired[bool]
+    unique: NotRequired[bool]
 
 
 class TableSpec(BaseModel):
