@@ -134,6 +134,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         2. orm_bootstrap_create_table_params: the sqlite query to create the table,
             it can be provided as sqlite query, or CreateTableParams for table_create_stmt
             to generate sqlite query from.
+            It not specified, the table create statement will be generated with default configs,
+            See table_spec.table_create_stmt method for more details.
         3. orm_bootstrap_indexes_params: optional, a list of sqlite query or
             CreateIndexParams(for table_create_index_stmt to generate sqlite query from) to
             create indexes from.
