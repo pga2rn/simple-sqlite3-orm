@@ -81,6 +81,8 @@ class ORMCommonBase(Generic[TableSpecType]):
     if not TYPE_CHECKING:
         _orm_table_name: str
         """
+        Used by ORM internally, should not be set directly.
+
         Directly setting this variable is DEPRECATED, use orm_bootstrap_table_name instead.
         """
 
