@@ -86,7 +86,7 @@ class ORMCommonBase(Generic[TableSpecType]):
 
     orm_bootstrap_table_name: str
     orm_bootstrap_create_table_params: str | CreateTableParams
-    orm_bootstrap_indexes_params: Iterable[str | CreateIndexParams] | None = None
+    orm_bootstrap_indexes_params: list[str | CreateIndexParams]
 
     def __init_subclass__(cls, **kwargs) -> None:
         # check this class' dict to only get the name set during this subclass' creation
