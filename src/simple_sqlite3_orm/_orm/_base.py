@@ -147,11 +147,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         """
         _table_name = self.orm_table_name
 
-        try:
-            _table_create_stmt = self.orm_bootstrap_create_table_params
-        except AttributeError:
-            _table_create_stmt = None
-
+        _table_create_stmt = getattr(self, "orm_bootstrap_create_table_params", None)
         if not _table_create_stmt:
             _table_create_stmt = self.orm_table_spec.table_create_stmt(_table_name)
         elif isinstance(_table_create_stmt, dict):
@@ -162,18 +158,15 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         with self._con as conn:
             conn.execute(_table_create_stmt)
 
-        try:
-            if _index_stmts := self.orm_bootstrap_indexes_params:
-                for _index_stmt in _index_stmts:
-                    if isinstance(_index_stmt, dict):
-                        _index_stmt = self.orm_table_spec.table_create_index_stmt(
-                            table_name=_table_name,
-                            **_index_stmt,
-                        )
-                    with self._con as conn:
-                        conn.execute(_index_stmt)
-        except AttributeError:
-            pass
+        if _index_stmts := getattr(self, "orm_bootstrap_indexes_params", None):
+            for _index_stmt in _index_stmts:
+                if isinstance(_index_stmt, dict):
+                    _index_stmt = self.orm_table_spec.table_create_index_stmt(
+                        table_name=_table_name,
+                        **_index_stmt,
+                    )
+                with self._con as conn:
+                    conn.execute(_index_stmt)
 
     def __init__(
         self,
