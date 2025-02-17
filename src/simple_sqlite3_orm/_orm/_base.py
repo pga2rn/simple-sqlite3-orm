@@ -123,7 +123,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         con (sqlite3.Connection | ConnectionFactoryType): The sqlite3 connection used by this ORM, or a factory
             function that returns a sqlite3.Connection object on calling.
         table_name (str): The name of the table in the database <con> connected to. This field will take prior over the
-            table_name specified by _orm_table_name attr.
+            table_name specified by orm_bootstrap_table_name attr to allow using different table_name for just one connection.
         schema_name (str): The schema of the table if multiple databases are attached to <con>.
         row_factory (RowFactorySpecifier): The connection scope row_factory to use. Default to "table_sepc".
     """
