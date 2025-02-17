@@ -170,6 +170,7 @@ class TestORMBase:
                 ),
             ],
         ),
+        ("test_3", None, None),
     ),
 )
 def test_bootstrap(
@@ -180,8 +181,11 @@ def test_bootstrap(
 ):
     class _ORM(SampleDB):
         orm_bootstrap_table_name = table_name
-        orm_bootstrap_create_table_params = create_table_params
-        orm_bootstrap_indexes_params = create_indexes_params
+        if create_table_params:
+            orm_bootstrap_create_table_params = create_table_params
+
+        if create_indexes_params:
+            orm_bootstrap_indexes_params = create_indexes_params
 
     _orm = _ORM(setup_test_db_conn)
     _orm.orm_bootstrap_db()

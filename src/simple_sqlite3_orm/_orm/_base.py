@@ -81,12 +81,14 @@ class ORMCommonBase(Generic[TableSpecType]):
     if not TYPE_CHECKING:
         _orm_table_name: str
         """
+        Used by ORM internally, should not be set directly.
+
         Directly setting this variable is DEPRECATED, use orm_bootstrap_table_name instead.
         """
 
     orm_bootstrap_table_name: str
     orm_bootstrap_create_table_params: str | CreateTableParams
-    orm_bootstrap_indexes_params: Iterable[str | CreateIndexParams] | None = None
+    orm_bootstrap_indexes_params: list[str | CreateIndexParams]
 
     def __init_subclass__(cls, **kwargs) -> None:
         # check this class' dict to only get the name set during this subclass' creation
@@ -121,7 +123,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         con (sqlite3.Connection | ConnectionFactoryType): The sqlite3 connection used by this ORM, or a factory
             function that returns a sqlite3.Connection object on calling.
         table_name (str): The name of the table in the database <con> connected to. This field will take prior over the
-            table_name specified by _orm_table_name attr.
+            table_name specified by orm_bootstrap_table_name attr to allow using different table_name for just one connection.
         schema_name (str): The schema of the table if multiple databases are attached to <con>.
         row_factory (RowFactorySpecifier): The connection scope row_factory to use. Default to "table_sepc".
     """
@@ -134,6 +136,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         2. orm_bootstrap_create_table_params: the sqlite query to create the table,
             it can be provided as sqlite query, or CreateTableParams for table_create_stmt
             to generate sqlite query from.
+            It not specified, the table create statement will be generated with default configs,
+            See table_spec.table_create_stmt method for more details.
         3. orm_bootstrap_indexes_params: optional, a list of sqlite query or
             CreateIndexParams(for table_create_index_stmt to generate sqlite query from) to
             create indexes from.
@@ -143,14 +147,10 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         """
         _table_name = self.orm_table_name
 
-        try:
-            _table_create_stmt = self.orm_bootstrap_create_table_params
-        except AttributeError:
-            raise ValueError(
-                "orm_bootstrap_db requires orm_bootstrap_create_table_params to be set"
-            ) from None
-
-        if isinstance(_table_create_stmt, dict):
+        _table_create_stmt = getattr(self, "orm_bootstrap_create_table_params", None)
+        if not _table_create_stmt:
+            _table_create_stmt = self.orm_table_spec.table_create_stmt(_table_name)
+        elif isinstance(_table_create_stmt, dict):
             _table_create_stmt = self.orm_table_spec.table_create_stmt(
                 _table_name,
                 **_table_create_stmt,
@@ -158,7 +158,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         with self._con as conn:
             conn.execute(_table_create_stmt)
 
-        if _index_stmts := self.orm_bootstrap_indexes_params:
+        if _index_stmts := getattr(self, "orm_bootstrap_indexes_params", None):
             for _index_stmt in _index_stmts:
                 if isinstance(_index_stmt, dict):
                     _index_stmt = self.orm_table_spec.table_create_index_stmt(
