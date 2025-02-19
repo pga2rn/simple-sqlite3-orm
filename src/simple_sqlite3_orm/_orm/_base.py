@@ -289,6 +289,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         allow_existed: bool = False,
         strict: bool = False,
         without_rowid: bool = False,
+        _stmt: str | None = None,
     ) -> None:
         """Create the table defined by this ORM with <orm_table_spec>.
 
@@ -301,19 +302,21 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 See https://www.sqlite.org/stricttables.html for more details.
             without_rowid (bool, optional): Create the table without ROWID. Defaults to False.
                 See https://www.sqlite.org/withoutrowid.html for more details.
+            _stmt (str, optional): If provided, all params will be ignored and query statement will not
+                be generated with the params, instead the provided <_stmt> will be used as query statement.
 
         Raises:
             sqlite3.DatabaseError on failed sql execution.
         """
-        with self._con as con:
-            con.execute(
-                self.orm_table_spec.table_create_stmt(
-                    self.orm_table_name,
-                    if_not_exists=allow_existed,
-                    strict=strict,
-                    without_rowid=without_rowid,
-                )
+        if not _stmt:
+            _stmt = self.orm_table_spec.table_create_stmt(
+                self.orm_table_name,
+                if_not_exists=allow_existed,
+                strict=strict,
+                without_rowid=without_rowid,
             )
+        with self._con as con:
+            con.execute(_stmt)
 
     def orm_create_index(
         self,
@@ -322,6 +325,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         index_keys: ColsDefinition | ColsDefinitionWithDirection,
         allow_existed: bool = False,
         unique: bool = False,
+        _stmt: str | None = None,
     ) -> None:
         """Create index according to the input arguments.
 
@@ -330,19 +334,22 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             index_keys (ColsDefinition | ColsDefinitionWithDirection): The columns for the index.
             allow_existed (bool, optional): Not abort on index already created. Defaults to False.
             unique (bool, optional): Not allow duplicated entries in the index. Defaults to False.
+            _stmt (str, optional): If provided, all params will be ignored and query statement will not
+                be generated with the params, instead the provided <_stmt> will be used as query statement.
 
         Raises:
             sqlite3.DatabaseError on failed sql execution.
         """
-        index_create_stmt = self.orm_table_spec.table_create_index_stmt(
-            table_name=self.orm_table_name,
-            index_name=index_name,
-            unique=unique,
-            if_not_exists=allow_existed,
-            index_cols=index_keys,
-        )
+        if not _stmt:
+            _stmt = self.orm_table_spec.table_create_index_stmt(
+                table_name=self.orm_table_name,
+                index_name=index_name,
+                unique=unique,
+                if_not_exists=allow_existed,
+                index_cols=index_keys,
+            )
         with self._con as con:
-            con.execute(index_create_stmt)
+            con.execute(_stmt)
 
     def orm_select_entries(
         self,
@@ -352,6 +359,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _limit: int | None = None,
         _row_factory: RowFactoryType | None = None,
         _col_values_dict: dict[str, Any] | None = None,
+        _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType | Any]:
         """Select entries from the table accordingly.
@@ -366,6 +374,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
+            _stmt (str, optional): If provided, all params will be ignored and query statement will not
+                be generated with the params, instead the provided <_stmt> will be used as query statement.
 
         Raises:
             sqlite3.DatabaseError on failed sql execution.
@@ -373,19 +383,19 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Yields:
             Generator[TableSpecType, None, None]: A generator that can be used to yield entry from result.
         """
-        if _col_values_dict:
-            col_values.update(_col_values_dict)
+        if not _stmt:
+            if _col_values_dict:
+                col_values.update(_col_values_dict)
 
-        table_select_stmt = self.orm_table_spec.table_select_stmt(
-            select_from=self.orm_table_name,
-            distinct=_distinct,
-            order_by=_order_by,
-            limit=_limit,
-            where_cols=tuple(col_values),
-        )
-
+            _stmt = self.orm_table_spec.table_select_stmt(
+                select_from=self.orm_table_name,
+                distinct=_distinct,
+                order_by=_order_by,
+                limit=_limit,
+                where_cols=tuple(col_values),
+            )
         with self._con as con:
-            _cur = con.execute(table_select_stmt, col_values)
+            _cur = con.execute(_stmt, col_values)
             if _row_factory is not None:
                 _cur.row_factory = _row_factory
             yield from _cur
@@ -397,6 +407,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _row_factory: RowFactoryType | None = None,
         _col_values_dict: dict[str, Any] | None = None,
+        _stmt: str | None = None,
         **col_values: Any,
     ) -> TableSpecType | Any | None:
         """Select exactly one entry from the table accordingly.
@@ -413,6 +424,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
+            _stmt (str, optional): If provided, all params will be ignored and query statement will not
+                be generated with the params, instead the provided <_stmt> will be used as query statement.
 
         Raises:
             sqlite3.DatabaseError on failed sql execution.
@@ -420,30 +433,36 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             Exactly one <TableSpecType> entry, or None if not hit.
         """
-        if _col_values_dict:
-            col_values.update(_col_values_dict)
+        if not _stmt:
+            if _col_values_dict:
+                col_values.update(_col_values_dict)
 
-        table_select_stmt = self.orm_table_spec.table_select_stmt(
-            select_from=self.orm_table_name,
-            distinct=_distinct,
-            order_by=_order_by,
-            limit=1,
-            where_cols=tuple(col_values),
-        )
-
+            _stmt = self.orm_table_spec.table_select_stmt(
+                select_from=self.orm_table_name,
+                distinct=_distinct,
+                order_by=_order_by,
+                limit=1,
+                where_cols=tuple(col_values),
+            )
         with self._con as con:
-            _cur = con.execute(table_select_stmt, col_values)
+            _cur = con.execute(_stmt, col_values)
             if _row_factory is not None:
                 _cur.row_factory = _row_factory
             return _cur.fetchone()
 
     def orm_insert_entries(
-        self, _in: Iterable[TableSpecType], *, or_option: INSERT_OR | None = None
+        self,
+        _in: Iterable[TableSpecType],
+        *,
+        or_option: INSERT_OR | None = None,
+        _stmt: str | None = None,
     ) -> int:
         """Insert entry/entries into this table.
 
         Args:
             _in (Iterable[TableSpecType]): A list of entries to insert.
+            _stmt (str, optional): If provided, all params will be ignored and query statement will not
+                be generated with the params, instead the provided <_stmt> will be used as query statement.
 
         Raises:
             ValueError: On invalid types of _in.
@@ -452,23 +471,28 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             int: Number of inserted entries.
         """
-        insert_stmt = self.orm_table_spec.table_insert_stmt(
-            insert_into=self.orm_table_name,
-            or_option=or_option,
-        )
-        with self._con as con:
-            _cur = con.executemany(
-                insert_stmt, (_row.table_dump_asdict() for _row in _in)
+        if not _stmt:
+            _stmt = self.orm_table_spec.table_insert_stmt(
+                insert_into=self.orm_table_name,
+                or_option=or_option,
             )
+        with self._con as con:
+            _cur = con.executemany(_stmt, (_row.table_dump_asdict() for _row in _in))
             return _cur.rowcount
 
     def orm_insert_entry(
-        self, _in: TableSpecType, *, or_option: INSERT_OR | None = None
+        self,
+        _in: TableSpecType,
+        *,
+        or_option: INSERT_OR | None = None,
+        _stmt: str | None = None,
     ) -> int:
         """Insert exactly one entry into this table.
 
         Args:
             _in (TableSpecType): The instance of entry to insert.
+            _stmt (str, optional): If provided, all params will be ignored and query statement will not
+                be generated with the params, instead the provided <_stmt> will be used as query statement.
 
         Raises:
             ValueError: On invalid types of _in.
@@ -477,12 +501,13 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             int: Number of inserted entries. In normal case it should be 1.
         """
-        insert_stmt = self.orm_table_spec.table_insert_stmt(
-            insert_into=self.orm_table_name,
-            or_option=or_option,
-        )
+        if not _stmt:
+            _stmt = self.orm_table_spec.table_insert_stmt(
+                insert_into=self.orm_table_name,
+                or_option=or_option,
+            )
         with self._con as con:
-            _cur = con.execute(insert_stmt, _in.table_dump_asdict())
+            _cur = con.execute(_stmt, _in.table_dump_asdict())
             return _cur.rowcount
 
     def orm_delete_entries(
@@ -492,6 +517,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _limit: int | None = None,
         _row_factory: RowFactoryType | None = None,
         _col_values_dict: dict[str, Any] | None = None,
+        _stmt: str | None = None,
         **col_values: Any,
     ) -> int:
         """Delete entries from the table accordingly.
@@ -505,23 +531,25 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
+            _stmt (str, optional): If provided, all params will be ignored and query statement will not
+                be generated with the params, instead the provided <_stmt> will be used as query statement.
 
         Returns:
             int: The num of entries deleted.
         """
-        if _col_values_dict:
-            col_values.update(_col_values_dict)
+        if not _stmt:
+            if _col_values_dict:
+                col_values.update(_col_values_dict)
 
-        delete_stmt = self.orm_table_spec.table_delete_stmt(
-            delete_from=self.orm_table_name,
-            limit=_limit,
-            order_by=_order_by,
-            returning_cols=None,
-            where_cols=tuple(col_values),
-        )
-
+            _stmt = self.orm_table_spec.table_delete_stmt(
+                delete_from=self.orm_table_name,
+                limit=_limit,
+                order_by=_order_by,
+                returning_cols=None,
+                where_cols=tuple(col_values),
+            )
         with self._con as con:
-            _cur = con.execute(delete_stmt, col_values)
+            _cur = con.execute(_stmt, col_values)
             if _row_factory:
                 _cur.row_factory = _row_factory
             return _cur.rowcount
@@ -534,6 +562,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _returning_cols: ColsDefinition | Literal["*"],
         _row_factory: RowFactoryType | None = None,
         _col_values_dict: dict[str, Any] | None = None,
+        _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType]:
         """Delete entries from the table accordingly.
@@ -550,25 +579,28 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
+            _stmt (str, optional): If provided, all params will be ignored and query statement will not
+                be generated with the params, instead the provided <_stmt> will be used as query statement.
 
         Returns:
             Generator[TableSpecType, None, None]: If <_returning_cols> is defined, returns a generator which can
                 be used to yield the deleted entries from.
         """
-        if _col_values_dict:
-            col_values.update(_col_values_dict)
+        if not _stmt:
+            if _col_values_dict:
+                col_values.update(_col_values_dict)
 
-        delete_stmt = self.orm_table_spec.table_delete_stmt(
-            delete_from=self.orm_table_name,
-            limit=_limit,
-            order_by=_order_by,
-            returning_cols=_returning_cols,
-            where_cols=tuple(col_values),
-        )
+            _stmt = self.orm_table_spec.table_delete_stmt(
+                delete_from=self.orm_table_name,
+                limit=_limit,
+                order_by=_order_by,
+                returning_cols=_returning_cols,
+                where_cols=tuple(col_values),
+            )
 
         def _gen():
             with self._con as con:
-                _cur = con.execute(delete_stmt, col_values)
+                _cur = con.execute(_stmt, col_values)
                 if _row_factory is not None:
                     _cur.row_factory = _row_factory
                 yield from _cur
@@ -576,7 +608,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         return _gen()
 
     def orm_select_all_with_pagination(
-        self, *, batch_size: int
+        self, *, batch_size: int, _stmt: str | None
     ) -> Generator[TableSpecType | Any]:
         """Select all entries from the table accordingly with pagination.
 
@@ -584,6 +616,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
         Args:
             batch_size (int): The entry number for each page.
+            _stmt (str, optional): If provided, query statement will not be generated,
+                instead the provided <_stmt> will be used as query statement.
 
         Raises:
             ValueError on invalid batch_size.
@@ -595,13 +629,14 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         if batch_size < 0:
             raise ValueError("batch_size must be positive integer")
 
-        _iter_all_stmt = self.orm_table_spec.table_select_stmt(
-            select_cols="rowid,*",
-            select_from=self.orm_table_name,
-            where_stmt="WHERE rowid > :not_before",
-            limit=batch_size,
-            order_by_stmt="ORDER BY rowid",
-        )
+        if not _stmt:
+            _stmt = self.orm_table_spec.table_select_stmt(
+                select_cols="rowid,*",
+                select_from=self.orm_table_name,
+                where_stmt="WHERE rowid > :not_before",
+                limit=batch_size,
+                order_by_stmt="ORDER BY rowid",
+            )
 
         row_factory = self.orm_table_spec.table_from_tuple
         with self._con as con:
@@ -609,7 +644,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
             _not_before = 0
             while True:
-                _cur = con_exec(_iter_all_stmt, {"not_before": _not_before})
+                _cur = con_exec(_stmt, {"not_before": _not_before})
                 _cur.row_factory = None  # let cursor returns raw row
 
                 _row = None
@@ -620,24 +655,30 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                     return
                 _not_before = _row[0]
 
-    def orm_check_entry_exist(self, **cols: Any) -> bool:
+    def orm_check_entry_exist(
+        self,
+        _stmt: str | None = None,
+        **cols: Any,
+    ) -> bool:
         """A quick method to check whether entry(entries) indicated by cols exists.
 
         This method uses COUNT function to count the selected entry.
 
         Args:
             **cols: cols pair to locate the entry(entries).
+            _stmt (str, optional): If provided, query statement will not be generated,
+                instead the provided <_stmt> will be used as query statement.
 
         Returns:
             Returns True if at least one entry matches the input cols exists, otherwise False.
         """
-        _stmt = self.orm_table_spec.table_select_stmt(
-            select_from=self.orm_table_name,
-            select_cols="*",
-            function="count",
-            where_cols=tuple(cols),
-        )
-
+        if not _stmt:
+            _stmt = self.orm_table_spec.table_select_stmt(
+                select_from=self.orm_table_name,
+                select_cols="*",
+                function="count",
+                where_cols=tuple(cols),
+            )
         with self._con as con:
             _cur = con.execute(_stmt, cols)
             _cur.row_factory = None  # bypass con scope row_factory
