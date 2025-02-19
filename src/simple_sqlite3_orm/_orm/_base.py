@@ -608,7 +608,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         return _gen()
 
     def orm_select_all_with_pagination(
-        self, *, batch_size: int, _stmt: str | None = None
+        self, *, batch_size: int
     ) -> Generator[TableSpecType | Any]:
         """Select all entries from the table accordingly with pagination.
 
@@ -616,8 +616,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
         Args:
             batch_size (int): The entry number for each page.
-            _stmt (str, optional): If provided, query statement will not be generated,
-                instead the provided <_stmt> will be used as query statement.
 
         Raises:
             ValueError on invalid batch_size.
@@ -629,14 +627,13 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         if batch_size < 0:
             raise ValueError("batch_size must be positive integer")
 
-        if not _stmt:
-            _stmt = self.orm_table_spec.table_select_stmt(
-                select_cols="rowid,*",
-                select_from=self.orm_table_name,
-                where_stmt="WHERE rowid > :not_before",
-                limit=batch_size,
-                order_by_stmt="ORDER BY rowid",
-            )
+        _stmt = self.orm_table_spec.table_select_stmt(
+            select_cols="rowid,*",
+            select_from=self.orm_table_name,
+            where_stmt="WHERE rowid > :not_before",
+            limit=batch_size,
+            order_by_stmt="ORDER BY rowid",
+        )
 
         row_factory = self.orm_table_spec.table_from_tuple
         with self._con as con:
@@ -655,30 +652,23 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                     return
                 _not_before = _row[0]
 
-    def orm_check_entry_exist(
-        self,
-        _stmt: str | None = None,
-        **cols: Any,
-    ) -> bool:
+    def orm_check_entry_exist(self, **cols: Any) -> bool:
         """A quick method to check whether entry(entries) indicated by cols exists.
 
         This method uses COUNT function to count the selected entry.
 
         Args:
             **cols: cols pair to locate the entry(entries).
-            _stmt (str, optional): If provided, query statement will not be generated,
-                instead the provided <_stmt> will be used as query statement.
 
         Returns:
             Returns True if at least one entry matches the input cols exists, otherwise False.
         """
-        if not _stmt:
-            _stmt = self.orm_table_spec.table_select_stmt(
-                select_from=self.orm_table_name,
-                select_cols="*",
-                function="count",
-                where_cols=tuple(cols),
-            )
+        _stmt = self.orm_table_spec.table_select_stmt(
+            select_from=self.orm_table_name,
+            select_cols="*",
+            function="count",
+            where_cols=tuple(cols),
+        )
         with self._con as con:
             _cur = con.execute(_stmt, cols)
             _cur.row_factory = None  # bypass con scope row_factory
