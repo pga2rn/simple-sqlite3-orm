@@ -608,7 +608,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         return _gen()
 
     def orm_select_all_with_pagination(
-        self, *, batch_size: int, _stmt: str | None
+        self, *, batch_size: int, _stmt: str | None = None
     ) -> Generator[TableSpecType | Any]:
         """Select all entries from the table accordingly with pagination.
 
