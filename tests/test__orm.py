@@ -107,7 +107,8 @@ class TestORMBase:
         assert not setup_connection.orm_check_entry_exist(prim_key=Mystr("not_exist"))
 
     def test_select_entry(self, setup_connection: SampleDB):
-        assert entry_for_test == setup_connection.orm_select_entry(prim_key=mstr)
+        _selected_row = setup_connection.orm_select_entry(prim_key=mstr)
+        assert entry_for_test == _selected_row
 
     def test_select_entries(self, setup_connection: SampleDB):
         select_result = setup_connection.orm_select_entries(

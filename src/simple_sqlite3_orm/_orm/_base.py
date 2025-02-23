@@ -6,12 +6,14 @@ from functools import cached_property, partial
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Generator,
     Generic,
     Iterable,
     Literal,
     TypeVar,
     Union,
+    overload,
 )
 
 from typing_extensions import ParamSpec, Self
@@ -33,7 +35,6 @@ from simple_sqlite3_orm._typing import (
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
-
 
 RowFactorySpecifier = Union[
     RowFactoryType,
@@ -351,6 +352,32 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         with self._con as con:
             con.execute(_stmt)
 
+    @overload
+    def orm_select_entries(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
+        _limit: int | None = None,
+        _row_factory: Callable[[sqlite3.Cursor, Any], RT],
+        _col_values_dict: dict[str, Any] | None = None,
+        _stmt: str | None = None,
+        **col_values: Any,
+    ) -> Generator[RT]: ...
+
+    @overload
+    def orm_select_entries(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
+        _limit: int | None = None,
+        _row_factory: None = None,
+        _col_values_dict: dict[str, Any] | None = None,
+        _stmt: str | None = None,
+        **col_values: Any,
+    ) -> Generator[TableSpecType | Any]: ...
+
     def orm_select_entries(
         self,
         *,
@@ -381,7 +408,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             sqlite3.DatabaseError on failed sql execution.
 
         Yields:
-            Generator[TableSpecType, None, None]: A generator that can be used to yield entry from result.
+            Generator[TableSpecType | Any]: A generator that can be used to yield entry from result.
         """
         if not _stmt:
             if _col_values_dict:
@@ -399,6 +426,30 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             if _row_factory is not None:
                 _cur.row_factory = _row_factory
             yield from _cur
+
+    @overload
+    def orm_select_entry(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
+        _row_factory: Callable[[sqlite3.Cursor, Any], RT],
+        _col_values_dict: dict[str, Any] | None = None,
+        _stmt: str | None = None,
+        **col_values: Any,
+    ) -> RT: ...
+
+    @overload
+    def orm_select_entry(
+        self,
+        *,
+        _distinct: bool = False,
+        _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
+        _row_factory: None = None,
+        _col_values_dict: dict[str, Any] | None = None,
+        _stmt: str | None = None,
+        **col_values: Any,
+    ) -> TableSpecType | Any: ...
 
     def orm_select_entry(
         self,
@@ -431,7 +482,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             sqlite3.DatabaseError on failed sql execution.
 
         Returns:
-            Exactly one <TableSpecType> entry, or None if not hit.
+            TableSpecType | Any: Exactly one entry, or None if not hit.
         """
         if not _stmt:
             if _col_values_dict:
@@ -515,7 +566,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         *,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
-        _row_factory: RowFactoryType | None = None,
         _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
@@ -526,8 +576,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional): Order the matching entries
                 before executing the deletion, used together with <_limit>. Defaults to None.
             _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
-            _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
-                as row factory, set this argument to use different row factory. Defaults to None.
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
@@ -550,9 +598,33 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             )
         with self._con as con:
             _cur = con.execute(_stmt, col_values)
-            if _row_factory:
-                _cur.row_factory = _row_factory
             return _cur.rowcount
+
+    @overload
+    def orm_delete_entries_with_returning(
+        self,
+        *,
+        _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
+        _limit: int | None = None,
+        _returning_cols: ColsDefinition | Literal["*"],
+        _row_factory: Callable[[sqlite3.Cursor, Any], RT],
+        _col_values_dict: dict[str, Any] | None = None,
+        _stmt: str | None = None,
+        **col_values: Any,
+    ) -> Generator[RT]: ...
+
+    @overload
+    def orm_delete_entries_with_returning(
+        self,
+        *,
+        _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
+        _limit: int | None = None,
+        _returning_cols: ColsDefinition | Literal["*"],
+        _row_factory: None = None,
+        _col_values_dict: dict[str, Any] | None = None,
+        _stmt: str | None = None,
+        **col_values: Any,
+    ) -> Generator[TableSpecType | Any]: ...
 
     def orm_delete_entries_with_returning(
         self,
@@ -564,7 +636,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
-    ) -> Generator[TableSpecType]:
+    ) -> Generator[TableSpecType | Any]:
         """Delete entries from the table accordingly.
 
         NOTE that only sqlite3 version >= 3.35 supports returning statement.
@@ -583,7 +655,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 be generated with the params, instead the provided <_stmt> will be used as query statement.
 
         Returns:
-            Generator[TableSpecType, None, None]: If <_returning_cols> is defined, returns a generator which can
+            Generator[TableSpecType | Any]: If <_returning_cols> is defined, returns a generator which can
                 be used to yield the deleted entries from.
         """
         if not _stmt:
