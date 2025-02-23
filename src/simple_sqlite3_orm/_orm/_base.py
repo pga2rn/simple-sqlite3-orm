@@ -13,6 +13,7 @@ from typing import (
     Literal,
     TypeVar,
     Union,
+    get_args,
     overload,
 )
 
@@ -36,6 +37,9 @@ from simple_sqlite3_orm._typing import (
 P = ParamSpec("P")
 RT = TypeVar("RT")
 
+DoNotChangeRowFactory = Literal["do_not_change"]
+
+
 RowFactorySpecifier = Union[
     RowFactoryType,
     Literal[
@@ -43,34 +47,42 @@ RowFactorySpecifier = Union[
         "table_spec",
         "table_spec_no_validation",
     ],
+    DoNotChangeRowFactory,
     None,
 ]
 """Specifiy which row_factory to use.
 
 For each option:
     1. RowFactoryType: specify arbitrary row_factory.
-    2. None: do not set connection scope row_factory.
+    2. None: clear the connection scope row_factory(set to None).
     3. "sqlite3_row_factory": set to use sqlite3.Row as row_factory.
     4. "table_spec": use TableSpec.table_row_factory as row_factory.
     5. "table_spec_no_validation": use TableSpec.table_row_factory as row_factory, but with validation=False.
+    6. "do_not_change": do not change the connection scope row_factory.
 """
 
 
-def row_factory_setter(
-    con: sqlite3.Connection,
+def _select_row_factory(
     table_spec: type[TableSpec],
     row_factory_specifier: RowFactorySpecifier,
-) -> None:  # pragma: no cover
-    """Helper function to set connection scope row_factory by row_factory_specifier."""
+) -> RowFactoryType | None | DoNotChangeRowFactory:  # pragma: no cover
+    """Helper function to get row_factory by row_factory_specifier."""
+    if row_factory_specifier is None:
+        return None
+
     if callable(row_factory_specifier):
-        con.row_factory = row_factory_specifier
-    elif row_factory_specifier == "table_spec":
-        con.row_factory = table_spec.table_row_factory
-    elif row_factory_specifier == "table_spec_no_validation":
-        con.row_factory = partial(table_spec.table_row_factory, validation=False)
-    elif row_factory_specifier == "sqlite3_row_factory":
-        con.row_factory = sqlite3.Row
-    # do nothing means not changing connection scope row_factory
+        return row_factory_specifier
+    if row_factory_specifier == "table_spec":
+        return table_spec.table_row_factory
+    if row_factory_specifier == "table_spec_no_validation":
+        return partial(table_spec.table_row_factory, validation=False)
+    if row_factory_specifier == "sqlite3_row_factory":
+        return sqlite3.Row
+
+    _do_not_change_literal = get_args(DoNotChangeRowFactory)[0]
+    if row_factory_specifier == _do_not_change_literal:
+        return _do_not_change_literal
+    raise ValueError(f"invalid specifier: {row_factory_specifier}")
 
 
 class ORMCommonBase(Generic[TableSpecType]):
@@ -194,7 +206,11 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             self._con = con
         elif callable(con):
             self._con = con()
-        row_factory_setter(self._con, self.orm_table_spec, row_factory)
+
+        # NOTE: now not changing the connection row_factory is allowed
+        _row_factory = _select_row_factory(self.orm_table_spec, row_factory)
+        if _row_factory != get_args(DoNotChangeRowFactory)[0]:
+            self._con.row_factory = _row_factory
 
     __class_getitem__ = classmethod(parameterized_class_getitem)
 
@@ -225,6 +241,15 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             if self._schema_name
             else self._orm_table_name
         )
+
+    @property
+    def orm_conn_row_factory(self) -> RowFactoryType | None:
+        """Get and set the connection scope row_factory for this ORM instance."""
+        return self._con.row_factory
+
+    @orm_conn_row_factory.setter
+    def orm_conn_row_factory(self, _row_factory: RowFactoryType | None) -> None:
+        self._con.row_factory = _row_factory
 
     def orm_execute(
         self, sql_stmt: str, params: tuple[Any, ...] | dict[str, Any] | None = None
@@ -396,8 +421,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional):
                 Order the result accordingly. Defaults to None, not sorting the result.
             _limit (int | None, optional): Limit the number of result entries. Defaults to None.
-            _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
-                as row factory, set this argument to use different row factory. Defaults to None.
+            _row_factory (RowFactoryType | None, optional): Set to use different row factory for this query.
+                Defaults to None(do not change row_factory).
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
@@ -470,8 +495,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional):
                 Order the result accordingly. Defaults to None, not sorting the result.
-            _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
-                as row factory, set this argument to use different row factory. Defaults to None.
+            _row_factory (RowFactoryType | None, optional): Set to use different row factory for this query.
+                Defaults to None(do not change row_factory).
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
@@ -646,8 +671,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 before executing the deletion, used together with <_limit>. Defaults to None.
             _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
             _returning_cols (ColsDefinition | Literal["*"] ): Return the deleted entries on execution.
-            _row_factory (RowFactoryType | None, optional): By default ORMBase will use <table_spec>.table_row_factory
-                as row factory, set this argument to use different row factory. Defaults to None.
+            _row_factory (RowFactoryType | None, optional): Set to use different row factory for this query.
+                Defaults to None(do not change row_factory).
             _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
                 the one specified by <_col_vlues_dict>.
