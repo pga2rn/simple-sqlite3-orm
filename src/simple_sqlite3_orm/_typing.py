@@ -10,10 +10,12 @@ from typing_extensions import TypeAlias
 
 from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 
-RowFactoryType = Callable[[Cursor, Row | tuple[Any, ...] | Any], Any]
+RowFactoryType: TypeAlias = (
+    "Callable[[Cursor, Row | tuple[Any, ...] | Any], Any] | type[sqlite3.Row]"
+)
 """Type hint for callable that can be used as sqlite3 row_factory."""
 
-ConnectionFactoryType = Callable[[], sqlite3.Connection]
+ConnectionFactoryType: TypeAlias = "Callable[[], sqlite3.Connection]"
 
 ColsDefinitionWithDirection: TypeAlias = "tuple[str | tuple[str, ORDER_DIRECTION], ...]"
 ColsDefinition: TypeAlias = "tuple[str, ...]"
