@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import datetime
 import random
 import sqlite3
@@ -104,8 +105,7 @@ def setup_test_db_conn(
     tmp_path = tmp_path_factory.mktemp("tmp_db_path")
     db_file = tmp_path / "test_db_file.sqlite3"
 
-    conn = sqlite3.connect(db_file)
-    try:
+    with contextlib.closing(sqlite3.connect(db_file)) as conn:
         # enable optimization
         utils.enable_wal_mode(conn, relax_sync_mode=True)
         utils.enable_mmap(conn)
@@ -114,8 +114,6 @@ def setup_test_db_conn(
         yield conn
         # finally, do a database integrity check after test operations
         assert utils.check_db_integrity(conn)
-    finally:
-        conn.close()
 
 
 @pytest.fixture
@@ -125,16 +123,13 @@ def db_conn_func_scope(
     """Setup a single db connection for a test class."""
     db_file = tmp_path / "test_db_file.sqlite3"
 
-    conn = sqlite3.connect(db_file)
-    try:
+    with contextlib.closing(sqlite3.connect(db_file)) as conn:
         # enable optimization
         utils.enable_wal_mode(conn, relax_sync_mode=True)
         utils.enable_mmap(conn)
         utils.enable_tmp_store_at_memory(conn)
 
         yield conn
-    finally:
-        conn.close()
 
 
 DB_LOCK_WAIT_TIMEOUT = 30
