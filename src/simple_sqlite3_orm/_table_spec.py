@@ -47,6 +47,9 @@ class TableSpec(BaseModel):
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs) -> None:
+        # NOTE: we only care about the field names, so it doesn't matter whether the model itself is
+        #       fully initialized(like whether the forwardrefs are resolved, etc.) or not.
+
         # NOTE: multidict.istr will do some internal processing against the input str,
         #       from outside the processed str is exactly the same as the original input.
         _table_columns = CIMultiDict(
