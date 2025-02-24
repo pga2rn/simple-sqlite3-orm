@@ -37,7 +37,21 @@ class CreateIndexParams(TypedDict):
 
 
 class TableSpec(BaseModel):
-    """Define table as pydantic model, with specific APIs."""
+    """Define table as pydantic model, with a set of useful APIs.
+
+    For class method APIs, these APIs provide convenient ways to generate sqlite3 query statements
+        or import rows into <TableSpec> instances. For instance method APIs, these APIs provide
+        convenient ways to export <TableSpec> inst, ready to be inserted into database.
+
+    The instance of <TableSpec> represents a row in the database table, the column's value
+        can be retrieved by one of the following methods:
+        1. by attribute access: `table_spec_inst.attr_a`.
+        2. by column index: `table_spec_inst[0]`.
+        3. by case-insensitive column name: `table_spec_inst[ATTR_A]` or `table_spec_inst[attr_A]` will work.
+
+    Aligns with the sqlite3 language specification, most of the APIs for <TableSpec> will take column name param
+        in case-insensitive way.
+    """
 
     table_columns: ClassVar[CIMultiDictProxy[str]]
     """Mapping of case-insensitive column names and corresponding original column names."""
