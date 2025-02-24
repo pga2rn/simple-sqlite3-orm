@@ -57,7 +57,7 @@ jobs:
           coverage xml -o test_result/coverage.xml
 
       - name: SonarCloud code scanning
-        uses: SonarSource/sonarqube-scan-action@v4
+        uses: SonarSource/sonarqube-scan-action@v5
         continue-on-error: true
         if: ${{ matrix.python_version == '3.12' }}
         env:
