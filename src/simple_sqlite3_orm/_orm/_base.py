@@ -202,8 +202,10 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
         if isinstance(con, sqlite3.Connection):
             self._con = con
-        elif callable(con):
-            self._con = con()
+        elif callable(con) and isinstance(_conn := con(), sqlite3.Connection):
+            self._con = _conn
+        else:
+            raise ValueError(f"invalid {con=}")
 
         _row_factory = _select_row_factory(self.orm_table_spec, row_factory)
         if _row_factory != DO_NOT_CHANGE_ROW_FACTORY:
