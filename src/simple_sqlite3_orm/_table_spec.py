@@ -50,13 +50,10 @@ class TableSpec(BaseModel):
         #       we do our init_subclass logic AFTER pydantic's one.
         super().__init_subclass__(**kwargs)
 
-        # NOTE: CIMultiDict internally use case-folded(lower-case) for comparision,
-        #       for better efficiency, we pre-process the column_name to lowercase.
+        # NOTE: multidict.istr will do some internal processing against the input str,
+        #       from outside the processed str is exactly the same as the original input.
         _table_columns = CIMultiDict(
-            {
-                istr(_column_name.lower()): _column_name
-                for _column_name in cls.model_fields
-            }
+            {istr(_column_name): _column_name for _column_name in cls.model_fields}
         )
         cls.table_columns = CIMultiDictProxy(_table_columns)
         cls.table_columns_by_index = tuple(_table_columns.values())
@@ -127,7 +124,8 @@ class TableSpec(BaseModel):
         Raises:
             ValueError on non-existed col.
         """
-        if metadata := cls.model_fields.get(col):
+        _origin_fname = cls.table_columns.get(col)
+        if _origin_fname and (metadata := cls.model_fields.get(_origin_fname)):
             return metadata
         raise ValueError(f"{col} is not defined in {cls=}")
 
@@ -140,7 +138,7 @@ class TableSpec(BaseModel):
             ValueError if any of col doesn't exist in the table.
         """
         for col in cols:
-            if col not in cls.model_fields:
+            if col not in cls.table_columns:
                 raise ValueError(f"{col} is not defined in {cls=}")
 
     @classmethod
@@ -182,7 +180,7 @@ class TableSpec(BaseModel):
         """
 
         cols_spec = ",".join(
-            cls.table_dump_column(col_name) for col_name in cls.model_fields
+            cls.table_dump_column(col_name) for col_name in cls.table_columns
         )
         table_options: list[str] = []
         if without_rowid:
@@ -253,7 +251,8 @@ class TableSpec(BaseModel):
     ) -> Self | tuple[Any, ...]:
         """A general row_factory implement for used in sqlite3 connection.
 
-        When the input <_row> is not a row but something like function output,
+        Expect the input row has the same schema and shape as a complete row.
+        When the input <_row> doesn't have the exact same shape of a row,
             this method will return the raw input tuple as it.
 
         Args:
@@ -270,13 +269,19 @@ class TableSpec(BaseModel):
         """
         _fields = [col[0] for col in _cursor.description]
 
-        # when we realize that the input is not a row, but something like function call's output.
-        if not all(col in cls.model_fields for col in _fields):
+        # when we realize that the input is not a complete row,
+        #   or something like function call's output,
+        #   just return the original row as it.
+        # NOTE(20250225): just for convenience here, we only compare the shape,
+        #   but not check whether the cols match. Maybe handle cols matching in the future.
+        # NOTE: user should use other row_factory if cursor doesn't return the result row
+        #   with exact shape and schema in the first place.
+        if len(_fields) != len(cls.table_columns):
             return _row
 
         if validation:
-            return cls.model_validate(dict(zip(_fields, _row)))
-        return cls.model_construct(**dict(zip(_fields, _row)))
+            return cls.model_validate(dict(zip(cls.table_columns_by_index, _row)))
+        return cls.model_construct(**dict(zip(cls.table_columns_by_index, _row)))
 
     @classmethod
     def table_row_factory2(
@@ -291,6 +296,7 @@ class TableSpec(BaseModel):
         Unlike table_row_factory that checks the cols definition and ensure all cols
             are valid and presented in table def, table_row_factory2 just picks the valid
             cols from the input raw table row, and ignore unknown col/value pairs.
+        But to be aware that, if the missing cols are required, this method will still raise exception.
 
         Args:
             validation (bool): whether enable pydantic validation when importing row. Default to True.
@@ -303,8 +309,11 @@ class TableSpec(BaseModel):
         """
         _fields = [col[0] for col in _cursor.description]
         _to_be_processed = {
-            k: v for k, v in zip(_fields, _row) if k in cls.model_fields
+            _origin_fname: v
+            for k, v in zip(_fields, _row)
+            if (_origin_fname := cls.table_columns.get(k))
         }
+
         if validation:
             return cls.model_validate(_to_be_processed)
         return cls.model_construct(**_to_be_processed)
@@ -328,8 +337,10 @@ class TableSpec(BaseModel):
             An instance of self.
         """
         if with_validation:
-            return cls.model_validate(dict(zip(cls.model_fields, _row)), **kwargs)
-        return cls.model_construct(**dict(zip(cls.model_fields, _row)))
+            return cls.model_validate(
+                dict(zip(cls.table_columns_by_index, _row)), **kwargs
+            )
+        return cls.model_construct(**dict(zip(cls.table_columns_by_index, _row)))
 
     @classmethod
     def table_from_dict(
@@ -347,9 +358,16 @@ class TableSpec(BaseModel):
         Returns:
             An instance of self.
         """
+        try:
+            _to_be_processed = {cls.table_columns[k]: v for k, v in _map.items()}
+        except KeyError as e:
+            raise ValueError(
+                f"found col non-existed in {cls.__qualname__}: {e!r}"
+            ) from None
+
         if with_validation:
-            return cls.model_validate(_map, **kwargs)
-        return cls.model_construct(**_map)
+            return cls.model_validate(_to_be_processed, **kwargs)
+        return cls.model_construct(**_to_be_processed)
 
     @classmethod
     @lru_cache
@@ -397,7 +415,7 @@ class TableSpec(BaseModel):
             _cols_named_placeholder = (f":{_col}" for _col in insert_cols)
             gen_insert_value_stmt = f"VALUES ({','.join(_cols_named_placeholder)})"
         else:
-            _cols_named_placeholder = (f":{_col}" for _col in cls.model_fields)
+            _cols_named_placeholder = (f":{_col}" for _col in cls.table_columns)
             gen_insert_value_stmt = f"VALUES ({','.join(_cols_named_placeholder)}) "
 
         gen_returning_stmt = cls._generate_returning_stmt(
