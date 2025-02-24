@@ -13,7 +13,6 @@ from typing import (
     Literal,
     TypeVar,
     Union,
-    get_args,
     overload,
 )
 
@@ -38,7 +37,7 @@ P = ParamSpec("P")
 RT = TypeVar("RT")
 
 DoNotChangeRowFactory = Literal["do_not_change"]
-
+DO_NOT_CHANGE_ROW_FACTORY: DoNotChangeRowFactory = "do_not_change"
 
 RowFactorySpecifier = Union[
     RowFactoryType,
@@ -79,9 +78,8 @@ def _select_row_factory(
     if row_factory_specifier == "sqlite3_row_factory":
         return sqlite3.Row
 
-    _do_not_change_literal = get_args(DoNotChangeRowFactory)[0]
-    if row_factory_specifier == _do_not_change_literal:
-        return _do_not_change_literal
+    if row_factory_specifier == DO_NOT_CHANGE_ROW_FACTORY:
+        return DO_NOT_CHANGE_ROW_FACTORY
     raise ValueError(f"invalid specifier: {row_factory_specifier}")
 
 
@@ -207,9 +205,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         elif callable(con):
             self._con = con()
 
-        # NOTE: now not changing the connection row_factory is allowed
         _row_factory = _select_row_factory(self.orm_table_spec, row_factory)
-        if _row_factory != get_args(DoNotChangeRowFactory)[0]:
+        if _row_factory != DO_NOT_CHANGE_ROW_FACTORY:
             self._con.row_factory = _row_factory
 
     __class_getitem__ = classmethod(parameterized_class_getitem)
