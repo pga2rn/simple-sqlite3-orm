@@ -4,6 +4,7 @@ import sqlite3
 from collections.abc import Mapping
 from typing import Any, Iterable, Literal, TypedDict, TypeVar
 
+from multidict import CIMultiDict, CIMultiDictProxy, istr
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from typing_extensions import NotRequired, Self
@@ -37,6 +38,37 @@ class CreateIndexParams(TypedDict):
 
 class TableSpec(BaseModel):
     """Define table as pydantic model, with specific APIs."""
+
+    table_columns: CIMultiDictProxy[str]
+    """Mapping of case-insensitive column names and corresponding original column names."""
+
+    table_columns_by_index: tuple[str, ...]
+    """Ordered tuple of original column names."""
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        # NOTE: pydantic might also use __init__subclass__ to do something,
+        #       we do our init_subclass logic AFTER pydantic's one.
+        super().__init_subclass__(**kwargs)
+
+        # NOTE: CIMultiDict internally use case-folded(lower-case) for comparision,
+        #       for better efficiency, we pre-process the column_name to lowercase.
+        _table_columns = CIMultiDict(
+            {
+                istr(_column_name.lower()): _column_name
+                for _column_name in cls.model_fields
+            }
+        )
+        cls.table_columns = CIMultiDictProxy(_table_columns)
+        cls.table_columns_by_index = tuple(_table_columns.values())
+
+    def __getitem__(self, index: str | int) -> Any:
+        if isinstance(index, str):
+            return getattr(self, self.table_columns[index])
+        if isinstance(index, int):
+            return getattr(self, self.table_columns_by_index[index])
+        raise TypeError(
+            f"{self.__qualname__} doesn't support subscription with {type(index)}"
+        )
 
     @classmethod
     def _generate_where_stmt(
