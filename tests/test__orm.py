@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import functools
 import logging
 import sqlite3
 import time
 from datetime import datetime
+from typing import Any
 
 import pytest
 
 from simple_sqlite3_orm import CreateIndexParams, CreateTableParams
+from simple_sqlite3_orm._orm._base import DO_NOT_CHANGE_ROW_FACTORY
 from tests.conftest import SELECT_ALL_BATCH_SIZE, _generate_random_str
 from tests.sample_db._types import Mystr
 from tests.sample_db.orm import SampleDB
@@ -190,3 +193,49 @@ def test_bootstrap(
 
     _orm = _ORM(setup_test_db_conn)
     _orm.orm_bootstrap_db()
+
+
+def _dummy_row_factory(_cur, _row) -> Any:
+    return
+
+
+def _compare_callable(left_func, right_func) -> bool:
+    """Especially handling the"""
+    _l_to_compare, _r_to_compare = left_func, right_func
+    if isinstance(left_func, functools.partial) and isinstance(
+        right_func, functools.partial
+    ):
+        return (
+            left_func.func == right_func.func
+            and left_func.args == right_func.args
+            and left_func.keywords == right_func.keywords
+        )
+    return left_func == right_func
+
+
+@pytest.mark.parametrize(
+    "_row_factory_specifier, _expected_row_factory",
+    (
+        ("sqlite3_row_factory", sqlite3.Row),
+        ("table_spec", SampleTable.table_row_factory),
+        (
+            "table_spec_no_validation",
+            functools.partial(SampleTable.table_row_factory, validation=False),
+        ),
+        (DO_NOT_CHANGE_ROW_FACTORY, _dummy_row_factory),
+        (None, None),
+    ),
+)
+def test_row_factory_specifying(
+    _row_factory_specifier,
+    _expected_row_factory,
+    db_conn_func_scope: sqlite3.Connection,
+):
+    db_conn_func_scope.row_factory = _dummy_row_factory
+    _orm = SampleDB(db_conn_func_scope, row_factory=_row_factory_specifier)
+    _orm.orm_create_table()
+    assert _compare_callable(_orm.orm_conn_row_factory, _expected_row_factory)
+
+    # by the way, test the orm_conn_row_factory setter
+    _orm.orm_conn_row_factory = _dummy_row_factory
+    assert _orm.orm_conn_row_factory == _dummy_row_factory
