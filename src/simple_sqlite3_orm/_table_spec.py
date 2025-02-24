@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Mapping
-from typing import Any, Iterable, Literal, TypedDict, TypeVar
+from typing import Any, ClassVar, Iterable, Literal, TypedDict, TypeVar
 
 from multidict import CIMultiDict, CIMultiDictProxy, istr
 from pydantic import BaseModel
@@ -39,22 +39,20 @@ class CreateIndexParams(TypedDict):
 class TableSpec(BaseModel):
     """Define table as pydantic model, with specific APIs."""
 
-    table_columns: CIMultiDictProxy[str]
+    table_columns: ClassVar[CIMultiDictProxy[str]]
     """Mapping of case-insensitive column names and corresponding original column names."""
 
-    table_columns_by_index: tuple[str, ...]
+    table_columns_by_index: ClassVar[tuple[str, ...]]
     """Ordered tuple of original column names."""
 
-    def __init_subclass__(cls, **kwargs) -> None:
-        # NOTE: pydantic might also use __init__subclass__ to do something,
-        #       we do our init_subclass logic AFTER pydantic's one.
-        super().__init_subclass__(**kwargs)
-
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs) -> None:
         # NOTE: multidict.istr will do some internal processing against the input str,
         #       from outside the processed str is exactly the same as the original input.
         _table_columns = CIMultiDict(
             {istr(_column_name): _column_name for _column_name in cls.model_fields}
         )
+
         cls.table_columns = CIMultiDictProxy(_table_columns)
         cls.table_columns_by_index = tuple(_table_columns.values())
 
