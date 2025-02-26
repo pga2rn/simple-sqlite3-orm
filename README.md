@@ -56,6 +56,7 @@ Also, `simple-sqlite3-orm` provides datetime support with the following types:
 With pydantic's powerful validation/serialization feature, you can simply define custom type that mapping to sqlite3's data type following pydantic way.
 
 Example custom type:
+
 ```python
 from typing import NamedTuple
 
@@ -69,7 +70,7 @@ class SpecialAttrs(NamedTuple):
 
     attr_a: int
     attr_b: str
-    
+
     @classmethod
     def _validator(cls, _in: bytes):
         # msgpack unpack the bytes back to python object
@@ -106,15 +107,15 @@ class MyTable(TableSpec):
     special_attrs: Annotated[
         SpecialAttrsType,
         ConstrainRepr("NOT NULL")
-    ] 
+    ]
 ```
 
 ### Define database as code with `ORMBase`
 
 After the table definition is ready, you can further define ORM types.
 
-`simple-sqlite3-orm` provides `ORMBase` for you to define the ORM with table you defined previously. 
-`ORMBase` supports defining database as code(table_name, table create configuration, indexes) for deterministically bootstrapping new empty database file. 
+`simple-sqlite3-orm` provides `ORMBase` for you to define the ORM with table you defined previously.
+`ORMBase` supports defining database as code(table_name, table create configuration, indexes) for deterministically bootstrapping new empty database file.
 You can do it as follow:
 
 ```python3
