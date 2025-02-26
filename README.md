@@ -45,6 +45,7 @@ pip install simple-sqlite3-orm
 ## Basic usage
 
 `simple-sqlite3-orm` applies docstrings to most of the APIs, you can always refer to docstrings for help and more information.
+Also, this chapter only shows usage of baisc CRUD operations, there are also many extra APIs available for advanced use cases.
 
 ### Define table as code with `TableSpec`
 
