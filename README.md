@@ -12,29 +12,25 @@ It targets basic CRUD operations while does it well, and is also opened to compl
 
 ## Features and hightlights
 
-1. Light-weight sqlite3 ORM based on Python3's std sqlite3 DB engine, with only `pydantic` and `typing_extensions` as dependencies.
-
-2. Support defining database as code with ease.
-
-3. Provides simple and clean APIs for basic CRUD operatations.
-
-4. All functions and types are fully typed and docstrings applied.
-
-5. Opened to advanced and more complicated use cases with helper functions, extra APIs and sqlite3 specific constants.
+- Light-weight sqlite3 ORM based on Python3's std sqlite3 DB engine, with only `pydantic` and `typing_extensions` as dependencies.
+- Support defining database as code with ease.
+- Provides simple and clean APIs for basic CRUD operatations.
+- All functions and types are fully typed and docstrings applied.
+- Opened to advanced and more complicated use cases with helper functions, extra APIs and sqlite3 specific constants.
 
 ## Natively supported Python types by `simple-sqlite3-orm`
 
 Besides the Python types that sqlite3 directly supported,`simple-sqlite3-orm` also adds direct support to the following python types:
 
-1. Enums types: IntEnum and StrEnum.
-2. Literal types: str Literal and int Literal.
-3. Supported types that wrapped within Optional.
+- Enums types: IntEnum and StrEnum.
+- Literal types: str Literal and int Literal.
+- Supported types that wrapped within Optional.
 
 Also, `simple-sqlite3-orm` provides datetime support with the following types:
 
-1. `DatetimeUnixTimestamp`: will be serialized and stored as REAL in database.
-2. `DatetimeUnixTimestampInt`: will be serialized and stored as INTEGER in database.
-3. `DatetimeISO8601`: will be serialized into ISO8601 format string and stored as TEXT in database.
+- `DatetimeUnixTimestamp`: will be serialized and stored as REAL in database.
+- `DatetimeUnixTimestampInt`: will be serialized and stored as INTEGER in database.
+- `DatetimeISO8601`: will be serialized into ISO8601 format string and stored as TEXT in database.
 
 ## Installation
 
