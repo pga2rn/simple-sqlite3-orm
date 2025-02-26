@@ -137,6 +137,12 @@ Like select operation, you can detele entries by matching column(s):
 affected_row_counts: int = orm.orm_delete_entries(entry_type="C")
 ```
 
+## Advanced usage
+
+`simple-sqlite3-orm` also provides ORM threadpool(`ORMThreadPoolBase`) and asyncio ORM(`AsyncORMBase`, experimental) supports.
+
+ORM threadpool and asyncio ORM implements most of the APIs available in `ORMBase`.
+
 ## License
 
 `simple-sqlite3-orm` is licensed under Apache 2.0 License.
