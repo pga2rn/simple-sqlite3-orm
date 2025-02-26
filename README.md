@@ -69,9 +69,7 @@ from typing_extensions import Annotated
 
 class SpecialAttrs(NamedTuple):
     """Custom type that stored as msgpack bytes in database."""
-
-    attr_a: int
-    attr_b: str
+    ...
 
     @classmethod
     def _validator(cls, _in: bytes):
@@ -93,10 +91,7 @@ SpecialAttrsType = Annotated[
 Define your table as follow:
 
 ```python
-from simple_sqlite3_orm import (
-    ConstrainRepr,
-    TableSpec,
-)
+from simple_sqlite3_orm import ConstrainRepr, TableSpec
 
 class MyTable(TableSpec):
     entry_id: Annotated[int, ConstrainRepr("PRIMARY KEY")]
@@ -105,11 +100,7 @@ class MyTable(TableSpec):
         ConstrainRepr("NOT NULL", ("CHECK", "entry_type IN (A,B,C)"))
     ]
     entry_token: bytes
-    entry_contents: str | None = None
-    special_attrs: Annotated[
-        SpecialAttrsType,
-        ConstrainRepr("NOT NULL")
-    ]
+    special_attrs: Annotated[SpecialAttrsType, ConstrainRepr("NOT NULL")]
 ```
 
 ### Define database as code with `ORMBase`
@@ -120,12 +111,8 @@ After the table definition is ready, you can further define ORM types.
 `ORMBase` supports defining database as code(table_name, table create configuration, indexes) for deterministically bootstrapping new empty database file.
 You can do it as follow:
 
-```python3
-from simple_sqlite3_orm import (
-    CreateIndexParams,
-    CreateTableParams,
-    ORMBase,
-)
+```python
+from simple_sqlite3_orm import CreateIndexParams, CreateTableParams, ORMBase
 
 class MyORM(ORMBase[MyTable]):
 
@@ -155,19 +142,15 @@ Alternatively, you can also use `orm_create_table` and `orm_create_index` separa
 
 You can use `orm_insert_entry` to insert exactly one entry:
 
-```python3
+```python
 entry_to_insert: MyTable
-orm: MyORM
-
 orm.orm_insert_entry(entry_to_insert)
 ```
 
 Or you can insert an Iterable that yields entries:
 
-```python3
+```python
 entries_to_insert: Iterable[MyTable]
-orm: MyORM
-
 inserted_entries_count = orm.orm_insert_entries(entries_to_insert)
 ```
 
@@ -176,11 +159,7 @@ inserted_entries_count = orm.orm_insert_entries(entries_to_insert)
 You can select entries by matching column(s) from database:
 
 ```python3
-orm: MyORM
-
 res_gen: Generator[MyTable] = orm.orm_select_entries(entry_type="A", entry_token=b"abcdef")
-
-# you can iter throught the result as follow
 for entry in res_gen:
     ...
 ```
@@ -190,8 +169,6 @@ for entry in res_gen:
 Like select operation, you can detele entries by matching column(s):
 
 ```python3
-orm: MyORM
-
 affected_row_counts: int = orm.orm_delete_entries(entry_type="C")
 ```
 
