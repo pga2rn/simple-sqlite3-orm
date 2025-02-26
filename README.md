@@ -10,15 +10,29 @@ A simple yet powerful SQLite3 ORM based on Python's sqlite3 DB engine, powered b
 
 It is very light-weight ORM, targets basic CRUD operations, does it well, and also opened to complicated use cases.
 
-## Basic usage
+## Features and hightlights
 
-### Installation
+1. Light-weight sqlite3 ORM based on Python3's std sqlite3 DB engine, with only `pydantic` and `typing_extensions` as dependencies.
+
+2. Support defining database as code with ease.
+
+3. Provides simple and clean APIs for basic CRUD operatations.
+
+4. All functions and types are fully typed and docstrings applied.
+
+5. Opened to advanced and more complicated use cases with helper functions, extra APIs and sqlite3 specific constants.
+
+## Installation
+
+`simple-sqlite3-orm` is published on pypi.
 
 ```shell
 pip install simple-sqlite3-orm
 ```
 
 `simple-sqlite3-orm` supports Python 3.8+.
+
+## Basic usage
 
 ### Natively supported data types by `simple-sqlite3-orm`
 
@@ -177,3 +191,7 @@ orm: MyORM
 
 affected_row_counts: int = orm.orm_delete_entries(entry_type="C")
 ```
+
+# License
+
+`simple-sqlite3-orm` is licensed under Apache 2.0 License.
