@@ -1,4 +1,4 @@
-# Simple python SQLite3 ORM
+# Simple Python SQLite3 ORM
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=pga2rn_simple-sqlite3-orm&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=pga2rn_simple-sqlite3-orm)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=pga2rn_simple-sqlite3-orm&metric=coverage)](https://sonarcloud.io/summary/new_code?id=pga2rn_simple-sqlite3-orm)
@@ -8,7 +8,7 @@
 
 A simple yet powerful SQLite3 ORM based on Python's sqlite3 DB engine, powered by pydantic.
 
-It is very light-weight ORM, targets basic CRUD operations, does it well, and also opened to complicated use cases.
+It targets basic CRUD operations while does it well, and is also opened to complicated use cases.
 
 ## Features and hightlights
 
@@ -22,6 +22,20 @@ It is very light-weight ORM, targets basic CRUD operations, does it well, and al
 
 5. Opened to advanced and more complicated use cases with helper functions, extra APIs and sqlite3 specific constants.
 
+## Natively supported Python types by `simple-sqlite3-orm`
+
+Besides the Python types that sqlite3 directly supported,`simple-sqlite3-orm` also adds direct support to the following python types:
+
+1. Enums types: IntEnum and StrEnum.
+2. Literal types: str Literal and int Literal.
+3. Supported types that wrapped within Optional.
+
+Also, `simple-sqlite3-orm` provides datetime support with the following types:
+
+1. `DatetimeUnixTimestamp`: will be serialized and stored as REAL in database.
+2. `DatetimeUnixTimestampInt`: will be serialized and stored as INTEGER in database.
+3. `DatetimeISO8601`: will be serialized into ISO8601 format string and stored as TEXT in database.
+
 ## Installation
 
 `simple-sqlite3-orm` is published on pypi.
@@ -34,19 +48,7 @@ pip install simple-sqlite3-orm
 
 ## Basic usage
 
-### Natively supported data types by `simple-sqlite3-orm`
-
-Besides the Python native types that sqlite3 directly supported,`simple-sqlite3-orm` also add direct supports to the following python types:
-
-1. Enums types: IntEnum and StrEnum.
-2. Literal types: str Literal or int Literal.
-3. native supported types that wrapped within Optional.
-
-Also, `simple-sqlite3-orm` provides datetime support with the following types:
-
-1. DatetimeUnixTimestamp: will be serialized and stored as REAL in database.
-2. DatetimeUnixTimestampInt: will be serialized and stored as INTEGER in database.
-3. DatetimeISO8601: will be serialized into ISO8601 format string and stored as TEXT in database.
+`simple-sqlite3-orm` applies docstrings to most of the APIs, you can always refer to docstrings for help and more information.
 
 ### Define table as code with `TableSpec`
 
@@ -193,6 +195,6 @@ orm: MyORM
 affected_row_counts: int = orm.orm_delete_entries(entry_type="C")
 ```
 
-# License
+## License
 
 `simple-sqlite3-orm` is licensed under Apache 2.0 License.
