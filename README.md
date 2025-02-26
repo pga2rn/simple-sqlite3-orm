@@ -54,44 +54,10 @@ pip install simple-sqlite3-orm
 
 `simple-sqlite3-orm` provides `TableSpec` as base for you to define table.
 `TableSpec` subclasses pydantic's `BaseModel`, so you can follow your experience of using pydantic to define your table with ease.
-
-With pydantic's powerful validation/serialization feature, you can simply define custom type that mapping to sqlite3's data type following pydantic way.
-
-Example custom type:
+With pydantic's powerful validation/serialization feature, you can also simply define custom type that mapping to sqlite3's data type following pydantic way.
 
 ```python
-from typing import NamedTuple
-
-import msgpack
-from pydantic import PlainSerializer, PlainValidator
-from simple_sqlite3_orm import TypeAffin
-from typing_extensions import Annotated
-
-class SpecialAttrs(NamedTuple):
-    """Custom type that stored as msgpack bytes in database."""
-    ...
-
-    @classmethod
-    def _validator(cls, _in: bytes):
-        # msgpack unpack the bytes back to python object
-        ...
-
-    def _serializer(self) -> bytes:
-        # msgpack the python object to bytes
-        ...
-
-SpecialAttrsType = Annotated[
-    SpecialAttrs,
-    TypeAffinityRepr(bytes),
-    PlainValidator(SpecialAttrs._validator),
-    PlainSerializer(SpecialAttrs._serializer),
-]
-```
-
-Define your table as follow:
-
-```python
-from simple_sqlite3_orm import ConstrainRepr, TableSpec
+from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr
 
 class MyTable(TableSpec):
     entry_id: Annotated[int, ConstrainRepr("PRIMARY KEY")]
@@ -100,7 +66,10 @@ class MyTable(TableSpec):
         ConstrainRepr("NOT NULL", ("CHECK", "entry_type IN (A,B,C)"))
     ]
     entry_token: bytes
-    special_attrs: Annotated[SpecialAttrsType, ConstrainRepr("NOT NULL")]
+
+    # A custom type that defines validator/serializer in pydantic way,
+    #   this custom type is serialized into bytes and stored as BLOB in database.
+    special_attrs: Annotated[SpecialAttrsType, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL")]
 ```
 
 ### Define database as code with `ORMBase`
