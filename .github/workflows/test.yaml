@@ -69,6 +69,13 @@ jobs:
           files: ./test_result/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
 
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          files: ./test_result/pytest.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+
   pytest_on_supported_os_version:
     strategy:
       fail-fast: true
