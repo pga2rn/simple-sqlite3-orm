@@ -1,7 +1,7 @@
 # Simple Python SQLite3 ORM
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=pga2rn_simple-sqlite3-orm&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=pga2rn_simple-sqlite3-orm)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=pga2rn_simple-sqlite3-orm&metric=coverage)](https://sonarcloud.io/summary/new_code?id=pga2rn_simple-sqlite3-orm)
+[![codecov](https://codecov.io/gh/pga2rn/simple-sqlite3-orm/graph/badge.svg?token=UAE1NENEG7)](https://codecov.io/gh/pga2rn/simple-sqlite3-orm)
 [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=pga2rn_simple-sqlite3-orm&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=pga2rn_simple-sqlite3-orm)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=pga2rn_simple-sqlite3-orm&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=pga2rn_simple-sqlite3-orm)
 [![PyPI version](https://badge.fury.io/py/simple-sqlite3-orm.svg)](https://badge.fury.io/py/simple-sqlite3-orm)
