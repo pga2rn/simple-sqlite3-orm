@@ -49,12 +49,12 @@ jobs:
       - name: Install package
         run: |
           python -m pip install -q -U pip
-          pip install -q .[dev]
+          pip install -U uv
 
       - name: Execute pytest with coverage
         run: |
-          coverage run -m pytest --junit-xml=test_result/pytest.xml
-          coverage xml -o test_result/coverage.xml
+          uv run coverage run -m pytest --junit-xml=test_result/pytest.xml
+          uv run coverage xml -o test_result/coverage.xml
 
       - name: SonarCloud code scanning
         uses: SonarSource/sonarqube-scan-action@v5
@@ -98,10 +98,10 @@ jobs:
           python-version: ${{ matrix.python_version }}
           cache: "pip"
 
-      - name: Install package
+      - name: Setup test environment
         run: |
           python -m pip install -q -U pip
-          pip install -q .[dev]
+          pip install -U uv
 
       - name: Execute pytest
-        run: pytest
+        run: uv run pytest
