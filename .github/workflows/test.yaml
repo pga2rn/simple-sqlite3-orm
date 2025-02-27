@@ -53,7 +53,7 @@ jobs:
 
       - name: Execute pytest with coverage
         run: |
-          uv run coverage run -m pytest --junit-xml=test_result/pytest.xml
+          uv run coverage run -m pytest --junit-xml=test_result/junit.xml
           uv run coverage xml -o test_result/coverage.xml
 
       - name: SonarCloud code scanning
@@ -74,7 +74,7 @@ jobs:
         if: ${{ !cancelled() && matrix.python_version == '3.12' }}
         uses: codecov/test-results-action@v1
         with:
-          files: ./test_result/pytest.xml
+          files: ./test_result/junit.xml
           token: ${{ secrets.CODECOV_TOKEN }}
 
   pytest_on_supported_os_version:
