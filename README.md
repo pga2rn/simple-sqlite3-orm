@@ -8,33 +8,31 @@
 
 A simple yet powerful SQLite3 ORM based on Python's sqlite3 DB engine, powered by pydantic.
 
-It targets basic CRUD operations while does it well, and is also opened to complicated use cases.
+It targets basic CRUD operations and does it well, while also opened to complicated use cases.
 
 ## Features and hightlights
 
 - Light-weight sqlite3 ORM based on Python3's std sqlite3 DB engine, with only `pydantic` and `typing_extensions` as dependencies.
-- Support defining database as code with ease.
+- Support defining your database and table as code.
 - Provides simple and clean APIs for basic CRUD operatations.
 - All functions and types are fully typed and docstrings applied.
 - Opened to advanced and more complicated use cases with helper functions, extra APIs and sqlite3 specific constants.
 
-## Natively supported Python types by `simple-sqlite3-orm`
+## Natively supported Python types
 
 Besides the Python types that sqlite3 directly supported,`simple-sqlite3-orm` also adds direct support to the following python types:
 
-- Enums types: IntEnum and StrEnum.
+- Enums types: `IntEnum` and `StrEnum`.
 - Literal types: str Literal and int Literal.
-- Supported types that wrapped within Optional.
+- Supported types that wrapped within Optional(like `Optional[str]`).
 
-Also, `simple-sqlite3-orm` provides datetime support with the following types:
+`simple-sqlite3-orm` also provides the following types for datetime support:
 
 - `DatetimeUnixTimestamp`: will be serialized and stored as REAL in database.
 - `DatetimeUnixTimestampInt`: will be serialized and stored as INTEGER in database.
 - `DatetimeISO8601`: will be serialized into ISO8601 format string and stored as TEXT in database.
 
 ## Installation
-
-`simple-sqlite3-orm` is published on pypi.
 
 ```shell
 pip install simple-sqlite3-orm
@@ -47,9 +45,12 @@ pip install simple-sqlite3-orm
 `simple-sqlite3-orm` applies docstrings to most of the APIs, you can always refer to docstrings for help and more information.
 Also, this chapter only shows usage of baisc CRUD operations, there are also many extra APIs available for advanced use cases.
 
-### Define table as code with `TableSpec`
+For a more complicated example, see[sample_db](tests/sample_db).
+
+### Define your table as code
 
 `simple-sqlite3-orm` provides `TableSpec` as base for you to define table.
+
 `TableSpec` subclasses pydantic's `BaseModel`, so you can follow your experience of using pydantic to define your table with ease.
 With pydantic's powerful validation/serialization feature, you can also simply define custom type that mapping to sqlite3's data type following pydantic way.
 
@@ -69,7 +70,7 @@ class MyTable(TableSpec):
     special_attrs: Annotated[SpecialAttrsType, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL")]
 ```
 
-### Define database as code with `ORMBase`
+### Define your database as code
 
 After the table definition is ready, you can further define ORM types.
 
@@ -91,7 +92,7 @@ class MyORM(ORMBase[MyTable]):
 
 ### Bootstrap new database
 
-After defining the ORM, you can bootstrap a new database deterministically as follow:
+After defining the ORM, you can bootstrap a new empty database, create table(and indexes) deterministically as follow:
 
 ```python3
 import sqlite3
