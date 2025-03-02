@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Mapping
-from typing import Any, Iterable, Literal, TypedDict, TypeVar
+from types import MappingProxyType
+from typing import Any, ClassVar, Iterable, Literal, TypedDict, TypeVar
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -37,6 +38,22 @@ class CreateIndexParams(TypedDict):
 
 class TableSpec(BaseModel):
     """Define table as pydantic model, with specific APIs."""
+
+    table_columns: ClassVar[MappingProxyType[str, FieldInfo]]
+    """Mapping of case-insensitive column names and corresponding original column names."""
+
+    table_columns_by_index: ClassVar[tuple[str, ...]]
+    """Ordered tuple of original column names."""
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **_) -> None:
+        # NOTE: we only care about the field names, so it doesn't matter whether the model itself is
+        #       fully initialized(like whether the forwardrefs are resolved, etc.) or not.
+
+        # NOTE: multidict.istr will do some internal processing against the input str,
+        #       from outside the processed str is exactly the same as the original input.
+        cls.table_columns = MappingProxyType(cls.model_fields.copy())
+        cls.table_columns_by_index = tuple(cls.table_columns)
 
     @classmethod
     def _generate_where_stmt(
@@ -296,8 +313,10 @@ class TableSpec(BaseModel):
             An instance of self.
         """
         if with_validation:
-            return cls.model_validate(dict(zip(cls.model_fields, _row)), **kwargs)
-        return cls.model_construct(**dict(zip(cls.model_fields, _row)))
+            return cls.model_validate(
+                dict(zip(cls.model_fields.keys(), _row)), **kwargs
+            )
+        return cls.model_construct(**dict(zip(cls.model_fields.keys(), _row)))
 
     @classmethod
     def table_from_dict(
