@@ -52,7 +52,7 @@ class TableSpec(BaseModel):
 
         # NOTE: multidict.istr will do some internal processing against the input str,
         #       from outside the processed str is exactly the same as the original input.
-        cls.table_columns = MappingProxyType(cls.model_fields.copy())
+        cls.table_columns = MappingProxyType(cls.model_fields)
         cls.table_columns_by_index = tuple(cls.table_columns)
 
     @classmethod
@@ -112,7 +112,7 @@ class TableSpec(BaseModel):
         Raises:
             ValueError on non-existed col.
         """
-        if metadata := cls.model_fields.get(col):
+        if metadata := cls.table_columns.get(col):
             return metadata
         raise ValueError(f"{col} is not defined in {cls=}")
 
@@ -125,7 +125,7 @@ class TableSpec(BaseModel):
             ValueError if any of col doesn't exist in the table.
         """
         for col in cols:
-            if col not in cls.model_fields:
+            if col not in cls.table_columns:
                 raise ValueError(f"{col} is not defined in {cls=}")
 
     @classmethod
@@ -167,7 +167,7 @@ class TableSpec(BaseModel):
         """
 
         cols_spec = ",".join(
-            cls.table_dump_column(col_name) for col_name in cls.model_fields
+            cls.table_dump_column(col_name) for col_name in cls.table_columns
         )
         table_options: list[str] = []
         if without_rowid:
@@ -256,7 +256,7 @@ class TableSpec(BaseModel):
         _fields = [col[0] for col in _cursor.description]
 
         # when we realize that the input is not a row, but something like function call's output.
-        if not all(col in cls.model_fields for col in _fields):
+        if not all(col in cls.table_columns for col in _fields):
             return _row
 
         if validation:
@@ -288,7 +288,7 @@ class TableSpec(BaseModel):
         """
         _fields = [col[0] for col in _cursor.description]
         _to_be_processed = {
-            k: v for k, v in zip(_fields, _row) if k in cls.model_fields
+            k: v for k, v in zip(_fields, _row) if k in cls.table_columns
         }
         if validation:
             return cls.model_validate(_to_be_processed)
@@ -313,10 +313,8 @@ class TableSpec(BaseModel):
             An instance of self.
         """
         if with_validation:
-            return cls.model_validate(
-                dict(zip(cls.model_fields.keys(), _row)), **kwargs
-            )
-        return cls.model_construct(**dict(zip(cls.model_fields.keys(), _row)))
+            return cls.model_validate(dict(zip(cls.table_columns, _row)), **kwargs)
+        return cls.model_construct(**dict(zip(cls.table_columns, _row)))
 
     @classmethod
     def table_from_dict(
@@ -384,7 +382,7 @@ class TableSpec(BaseModel):
             _cols_named_placeholder = (f":{_col}" for _col in insert_cols)
             gen_insert_value_stmt = f"VALUES ({','.join(_cols_named_placeholder)})"
         else:
-            _cols_named_placeholder = (f":{_col}" for _col in cls.model_fields)
+            _cols_named_placeholder = (f":{_col}" for _col in cls.table_columns)
             gen_insert_value_stmt = f"VALUES ({','.join(_cols_named_placeholder)}) "
 
         gen_returning_stmt = cls._generate_returning_stmt(
