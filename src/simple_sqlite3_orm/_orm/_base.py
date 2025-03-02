@@ -417,7 +417,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         """Select entries from the table accordingly.
 
         Args:
-            col_value_pairs: Mapping[str, Any] | None: provide col/value pairs by a Mapping, if provided,
+            col_value_pairs(Mapping[str, Any] | None): provide col/value pairs by a Mapping, if provided,
                 the pairs in this mapping will take prior than the one specified in <col_values>.
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional):
@@ -494,7 +494,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             the FIRST one from the result with fetchone API.
 
         Args:
-            col_value_pairs: Mapping[str, Any] | None: provide col/value pairs by a Mapping, if provided,
+            col_value_pairs(Mapping[str, Any] | None): provide col/value pairs by a Mapping, if provided,
                 the pairs in this mapping will take prior than the one specified in <col_values>.
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional):
@@ -602,7 +602,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         """Delete entries from the table accordingly.
 
         Args:
-            col_value_pairs: Mapping[str, Any] | None: provide col/value pairs by a Mapping, if provided,
+            col_value_pairs(Mapping[str, Any] | None): provide col/value pairs by a Mapping, if provided,
                 the pairs in this mapping will take prior than the one specified in <col_values>.
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional): Order the matching entries
                 before executing the deletion, used together with <_limit>. Defaults to None.
@@ -673,7 +673,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         NOTE that only sqlite3 version >= 3.35 supports returning statement.
 
         Args:
-            col_value_pairs: Mapping[str, Any] | None: provide col/value pairs by a Mapping, if provided,
+            col_value_pairs(Mapping[str, Any] | None): provide col/value pairs by a Mapping, if provided,
                 the pairs in this mapping will take prior than the one specified in <col_values>.
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional): Order the matching entries
                 before executing the deletion, used together with <_limit>. Defaults to None.
@@ -756,25 +756,32 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                     return
                 _not_before = _row[0]
 
-    def orm_check_entry_exist(self, **cols: Any) -> bool:
+    def orm_check_entry_exist(
+        self, col_value_pairs: Mapping[str, Any] | None = None, **col_values: Any
+    ) -> bool:
         """A quick method to check whether entry(entries) indicated by cols exists.
 
         This method uses COUNT function to count the selected entry.
 
         Args:
+            col_value_pairs(Mapping[str, Any] | None): provide col/value pairs by a Mapping, if provided,
+                the pairs in this mapping will take prior than the one specified in <col_values>.
             **cols: cols pair to locate the entry(entries).
 
         Returns:
             Returns True if at least one entry matches the input cols exists, otherwise False.
         """
+        if col_value_pairs:
+            col_values.update(col_value_pairs)
+
         _stmt = self.orm_table_spec.table_select_stmt(
             select_from=self.orm_table_name,
             select_cols="*",
             function="count",
-            where_cols=tuple(cols),
+            where_cols=tuple(col_values),
         )
         with self._con as con:
-            _cur = con.execute(_stmt, cols)
+            _cur = con.execute(_stmt, col_values)
             _cur.row_factory = None  # bypass con scope row_factory
             _res: tuple[int] = _cur.fetchone()
             return _res[0] > 0
