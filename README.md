@@ -58,7 +58,7 @@ With pydantic's powerful validation/serialization feature, you can also simply d
 from typing import TypedDict, Literal
 from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr
 
-# Optionally, you can define a TypedDict for select and delete related APIs' type hints.
+# It is recommended to define a TypedDict for using the select and delete related APIs.
 #   Due to the limitation of Python typing system, currently there is no way to
 #   use the defined TableSpec(pydantic model) to type hint the kwargs.
 # See the following sections of select and delete db operations for more details.
@@ -126,7 +126,7 @@ entry_to_insert: MyTable
 orm.orm_insert_entry(entry_to_insert)
 ```
 
-Or you can insert an Iterable that yields entries:
+Or you can insert a a bunch of entries by an Iterable that yields entries:
 
 ```python
 entries_to_insert: Iterable[MyTable]
@@ -140,8 +140,8 @@ You can select entries by matching column(s) from database:
 ```python
 res_gen: Generator[MyTable] = orm.orm_select_entries(entry_type="A", entry_token=b"abcdef")
 
-# or using the defined TypedDict for type hints:
-res_gen: Generator[MyTable] = orm.orm_select_entries(**MyTableHint(entry_type="A", entry_token=b"abcdef"))
+# or using the defined TypedDict:
+res_gen: Generator[MyTable] = orm.orm_select_entries(MyTableHint(entry_type="A", entry_token=b"abcdef"))
 
 for entry in res_gen:
     ...
@@ -154,8 +154,8 @@ Like select operation, you can detele entries by matching column(s):
 ```python
 affected_row_counts: int = orm.orm_delete_entries(entry_type="C")
 
-# or using the defined TypedDict for type hints:
-affected_row_counts: int = orm.orm_delete_entries(**MyTableHint(entry_type="C"))
+# or using the defined TypedDict:
+affected_row_counts: int = orm.orm_delete_entries(MyTableHint(entry_type="C"))
 ```
 
 ## ORM pool support
