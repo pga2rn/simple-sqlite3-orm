@@ -386,7 +386,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _row_factory: Callable[[sqlite3.Cursor, Any], RT],
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[RT]: ...
@@ -400,7 +399,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _row_factory: None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType | Any]: ...
@@ -413,7 +411,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _row_factory: RowFactoryType | None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType | Any]:
@@ -428,7 +425,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _limit (int | None, optional): Limit the number of result entries. Defaults to None.
             _row_factory (RowFactoryType | None, optional): Set to use different row factory for this query.
                 Defaults to None(do not change row_factory).
-            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             _stmt (str, optional): If provided, all params will be ignored and query statement will not
                 be generated with the params, instead the provided <_stmt> will be used as query statement.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
@@ -440,9 +436,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Yields:
             Generator[TableSpecType | Any]: A generator that can be used to yield entry from result.
         """
-        if _col_values_dict:
-            col_values.update(_col_values_dict)
-
         if col_value_pairs:
             col_values.update(col_value_pairs)
 
@@ -469,7 +462,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _distinct: bool = False,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _row_factory: Callable[[sqlite3.Cursor, Any], RT],
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> RT: ...
@@ -482,7 +474,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _distinct: bool = False,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _row_factory: None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> TableSpecType | Any: ...
@@ -494,7 +485,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _distinct: bool = False,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _row_factory: RowFactoryType | None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> TableSpecType | Any | None:
@@ -511,7 +501,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 Order the result accordingly. Defaults to None, not sorting the result.
             _row_factory (RowFactoryType | None, optional): Set to use different row factory for this query.
                 Defaults to None(do not change row_factory).
-            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             _stmt (str, optional): If provided, all params will be ignored and query statement will not
                 be generated with the params, instead the provided <_stmt> will be used as query statement.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
@@ -523,9 +512,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             TableSpecType | Any: Exactly one entry, or None if not hit.
         """
-        if _col_values_dict:
-            col_values.update(_col_values_dict)
-
         if col_value_pairs:
             col_values.update(col_value_pairs)
 
@@ -610,7 +596,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         *,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> int:
@@ -622,7 +607,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional): Order the matching entries
                 before executing the deletion, used together with <_limit>. Defaults to None.
             _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
-            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             _stmt (str, optional): If provided, all params will be ignored and query statement will not
                 be generated with the params, instead the provided <_stmt> will be used as query statement.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
@@ -631,9 +615,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             int: The num of entries deleted.
         """
-        if _col_values_dict:
-            col_values.update(_col_values_dict)
-
         if col_value_pairs:
             col_values.update(col_value_pairs)
 
@@ -659,7 +640,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _limit: int | None = None,
         _returning_cols: ColsDefinition | Literal["*"],
         _row_factory: Callable[[sqlite3.Cursor, Any], RT],
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[RT]: ...
@@ -673,7 +653,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _limit: int | None = None,
         _returning_cols: ColsDefinition | Literal["*"],
         _row_factory: None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType | Any]: ...
@@ -686,7 +665,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _limit: int | None = None,
         _returning_cols: ColsDefinition | Literal["*"],
         _row_factory: RowFactoryType | None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType | Any]:
@@ -703,7 +681,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _returning_cols (ColsDefinition | Literal["*"] ): Return the deleted entries on execution.
             _row_factory (RowFactoryType | None, optional): Set to use different row factory for this query.
                 Defaults to None(do not change row_factory).
-            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
             _stmt (str, optional): If provided, all params will be ignored and query statement will not
                 be generated with the params, instead the provided <_stmt> will be used as query statement.
             **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
@@ -713,9 +690,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             Generator[TableSpecType | Any]: If <_returning_cols> is defined, returns a generator which can
                 be used to yield the deleted entries from.
         """
-        if _col_values_dict:
-            col_values.update(_col_values_dict)
-
         if col_value_pairs:
             col_values.update(col_value_pairs)
 
