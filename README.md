@@ -55,7 +55,19 @@ For a more complicated example, see[sample_db](tests/sample_db).
 With pydantic's powerful validation/serialization feature, you can also simply define custom type that mapping to sqlite3's data type following pydantic way.
 
 ```python
+from typing import TypedDict, Literal
 from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr
+
+# Optionally, you can define a TypedDict for select and delete related APIs' type hints.
+#   Due to the limitation of Python typing system, currently there is no way to
+#   use the defined TableSpec(pydantic model) to type hint the kwargs.
+# See the following sections of select and delete db operations for more details.
+class MyTableHint(TypedDict, total=False):
+    # no need to copy and paste the full type annotations from the actual TableSpec, only the actual type is needed
+    entry_id: int
+    entry_type: Literal["A", "B", "C"]
+    entry_token: bytes
+    special_attrs: SpecialAttrsType
 
 class MyTable(TableSpec):
     entry_id: Annotated[int, ConstrainRepr("PRIMARY KEY")]
@@ -125,8 +137,12 @@ inserted_entries_count = orm.orm_insert_entries(entries_to_insert)
 
 You can select entries by matching column(s) from database:
 
-```python3
+```python
 res_gen: Generator[MyTable] = orm.orm_select_entries(entry_type="A", entry_token=b"abcdef")
+
+# or using the defined TypedDict for type hints:
+res_gen: Generator[MyTable] = orm.orm_select_entries(**MyTableHint(entry_type="A", entry_token=b"abcdef"))
+
 for entry in res_gen:
     ...
 ```
@@ -135,15 +151,18 @@ for entry in res_gen:
 
 Like select operation, you can detele entries by matching column(s):
 
-```python3
+```python
 affected_row_counts: int = orm.orm_delete_entries(entry_type="C")
+
+# or using the defined TypedDict for type hints:
+affected_row_counts: int = orm.orm_delete_entries(**MyTableHint(entry_type="C"))
 ```
 
-## Advanced usage
+## ORM pool support
 
 `simple-sqlite3-orm` also provides ORM threadpool(`ORMThreadPoolBase`) and asyncio ORM(`AsyncORMBase`, experimental) supports.
 
-ORM threadpool and asyncio ORM implements most of the APIs available in `ORMBase`.
+ORM threadpool and asyncio ORM implements most of the APIs available in `ORMBase`, except for the `orm_conn` API.
 
 ## License
 
