@@ -16,7 +16,7 @@ from tests.conftest import (
     TEST_INSERT_BATCH_SIZE,
 )
 from tests.sample_db.orm import SampleDB
-from tests.sample_db.table import SampleTable
+from tests.sample_db.table import SampleTable, SampleTableCols
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class TestWithSampleDB:
     ):
         logger.info("test select exactly one entry")
         assert entry_to_lookup == self.orm_inst.orm_select_entry(
-            key_id=entry_to_lookup.key_id
+            SampleTableCols(key_id=entry_to_lookup.key_id)
         )
 
     def test_orm_execute(self, setup_test_data: dict[str, SampleTable]):
@@ -86,8 +86,10 @@ class TestWithSampleDB:
         logger.info("test lookup entries")
         for _entry in entries_to_lookup:
             _looked_up = self.orm_inst.orm_select_entries(
-                key_id=_entry.key_id,
-                prim_key_sha256hash=_entry.prim_key_sha256hash,
+                SampleTableCols(
+                    key_id=_entry.key_id,
+                    prim_key_sha256hash=_entry.prim_key_sha256hash,
+                ),
             )
             _looked_up = list(_looked_up)
             assert len(_looked_up) == 1
@@ -123,8 +125,10 @@ class TestWithSampleDB:
 
             for entry in entries_to_remove:
                 _res = self.orm_inst.orm_delete_entries(
-                    key_id=entry.key_id,
-                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                    SampleTableCols(
+                        key_id=entry.key_id,
+                        prim_key_sha256hash=entry.prim_key_sha256hash,
+                    ),
                     # NOTE(20241230): limit on update/delete requires compile flag SQLITE_ENABLE_UPDATE_DELETE_LIMIT enabled,
                     #   which is not set to be enabled by default. See https://www.sqlite.org/compile.html for more details.
                     # _limit=1,
@@ -133,9 +137,11 @@ class TestWithSampleDB:
         else:
             for entry in entries_to_remove:
                 _res = self.orm_inst.orm_delete_entries_with_returning(
+                    SampleTableCols(
+                        key_id=entry.key_id,
+                        prim_key_sha256hash=entry.prim_key_sha256hash,
+                    ),
                     _returning_cols="*",
-                    key_id=entry.key_id,
-                    prim_key_sha256hash=entry.prim_key_sha256hash,
                     # _limit=1,
                 )
                 assert isinstance(_res, Generator)
