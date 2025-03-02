@@ -29,7 +29,7 @@ from tests.sample_db._types import (
 )
 
 
-class SampleTableHint(TypedDict, total=False):
+class SampleTableCols(TypedDict, total=False):
     unix_timestamp: float
     unix_timestamp_int: int
     datetime_iso8601: str
