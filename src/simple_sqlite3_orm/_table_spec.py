@@ -47,11 +47,6 @@ class TableSpec(BaseModel):
 
     @classmethod
     def __pydantic_init_subclass__(cls, **_) -> None:
-        # NOTE: we only care about the field names, so it doesn't matter whether the model itself is
-        #       fully initialized(like whether the forwardrefs are resolved, etc.) or not.
-
-        # NOTE: multidict.istr will do some internal processing against the input str,
-        #       from outside the processed str is exactly the same as the original input.
         cls.table_columns = MappingProxyType(cls.model_fields)
         cls.table_columns_by_index = tuple(cls.table_columns)
 
