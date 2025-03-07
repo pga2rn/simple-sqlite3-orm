@@ -14,7 +14,7 @@ from simple_sqlite3_orm._orm._base import DO_NOT_CHANGE_ROW_FACTORY
 from tests.conftest import SELECT_ALL_BATCH_SIZE, _generate_random_str
 from tests.sample_db._types import Mystr
 from tests.sample_db.orm import SampleDB
-from tests.sample_db.table import SampleTable
+from tests.sample_db.table import SampleTable, SampleTableCols
 
 logger = logging.getLogger(__name__)
 
@@ -106,24 +106,42 @@ class TestORMBase:
         assert res and res[0][0] > 0
 
     def test_orm_check_entry_exist(self, setup_connection: SampleDB):
-        assert setup_connection.orm_check_entry_exist(prim_key=entry_for_test.prim_key)
+        assert setup_connection.orm_check_entry_exist(
+            SampleTableCols(prim_key=entry_for_test.prim_key)
+        )
+        assert setup_connection.orm_check_entry_exist(
+            **SampleTableCols(prim_key=entry_for_test.prim_key)
+        )
         assert not setup_connection.orm_check_entry_exist(prim_key=Mystr("not_exist"))
 
     def test_select_entry(self, setup_connection: SampleDB):
-        _selected_row = setup_connection.orm_select_entry(prim_key=mstr)
-        assert entry_for_test == _selected_row
+        _selected_row = setup_connection.orm_select_entry(
+            SampleTableCols(prim_key=mstr)
+        )
+        _selected_row2 = setup_connection.orm_select_entry(
+            **SampleTableCols(prim_key=mstr)
+        )
+        assert entry_for_test == _selected_row == _selected_row2
 
     def test_select_entries(self, setup_connection: SampleDB):
         select_result = setup_connection.orm_select_entries(
+            SampleTableCols(prim_key=mstr),
             _distinct=True,
             _order_by=(("key_id", "DESC"),),
             _limit=1,
-            prim_key=mstr,
         )
         select_result = list(select_result)
 
-        assert len(select_result) == 1
-        assert select_result[0] == entry_for_test
+        select_result2 = setup_connection.orm_select_entries(
+            **SampleTableCols(prim_key=mstr),
+            _distinct=True,
+            _order_by=(("key_id", "DESC"),),
+            _limit=1,
+        )
+        select_result2 = list(select_result2)
+
+        assert len(select_result) == len(select_result2) == 1
+        assert select_result[0] == select_result2[0] == entry_for_test
 
     def test_select_all_entries(self, setup_connection: SampleDB):
         select_result = setup_connection.orm_select_all_with_pagination(
@@ -134,14 +152,25 @@ class TestORMBase:
         assert len(select_result) == 1
         assert select_result[0] == entry_for_test
 
-    def test_function_call(self, setup_connection: SampleDB):
+    def test_select_with_function_call(self, setup_connection: SampleDB):
+        _stmt = setup_connection.orm_table_spec.table_select_stmt(
+            select_from=setup_connection.orm_bootstrap_table_name,
+            select_cols="*",
+            function="count",
+        )
+
         with setup_connection.orm_con as con:
-            cur = con.execute(f"SELECT count(*) FROM {SampleDB._orm_table_name};")
+            cur = con.execute(_stmt)
             res = cur.fetchone()
             assert res[0] == 1
 
     def test_delete_entries(self, setup_connection: SampleDB):
-        assert setup_connection.orm_delete_entries(key_id=entry_for_test.key_id) == 1
+        assert (
+            setup_connection.orm_delete_entries(
+                SampleTableCols(key_id=entry_for_test.key_id)
+            )
+            == 1
+        )
 
 
 @pytest.mark.parametrize(

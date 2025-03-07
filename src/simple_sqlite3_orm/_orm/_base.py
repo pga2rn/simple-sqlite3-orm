@@ -11,6 +11,7 @@ from typing import (
     Generic,
     Iterable,
     Literal,
+    Mapping,
     TypeVar,
     Union,
     overload,
@@ -379,12 +380,12 @@ class ORMBase(ORMCommonBase[TableSpecType]):
     @overload
     def orm_select_entries(
         self,
+        col_value_pairs: Mapping[str, Any] | None = None,
         *,
         _distinct: bool = False,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _row_factory: Callable[[sqlite3.Cursor, Any], RT],
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[RT]: ...
@@ -392,41 +393,42 @@ class ORMBase(ORMCommonBase[TableSpecType]):
     @overload
     def orm_select_entries(
         self,
+        col_value_pairs: Mapping[str, Any] | None = None,
         *,
         _distinct: bool = False,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _row_factory: None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType | Any]: ...
 
     def orm_select_entries(
         self,
+        col_value_pairs: Mapping[str, Any] | None = None,
         *,
         _distinct: bool = False,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _row_factory: RowFactoryType | None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType | Any]:
         """Select entries from the table accordingly.
 
         Args:
+            col_value_pairs(Mapping[str, Any] | None): provide col/value pairs by a Mapping, if provided,
+                the pairs in this mapping will take prior than the one specified in <col_values>.
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional):
                 Order the result accordingly. Defaults to None, not sorting the result.
             _limit (int | None, optional): Limit the number of result entries. Defaults to None.
             _row_factory (RowFactoryType | None, optional): Set to use different row factory for this query.
                 Defaults to None(do not change row_factory).
-            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
-            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
-                the one specified by <_col_vlues_dict>.
             _stmt (str, optional): If provided, all params will be ignored and query statement will not
                 be generated with the params, instead the provided <_stmt> will be used as query statement.
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
+                the one specified by <_col_vlues_dict>.
 
         Raises:
             sqlite3.DatabaseError on failed sql execution.
@@ -434,10 +436,10 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Yields:
             Generator[TableSpecType | Any]: A generator that can be used to yield entry from result.
         """
-        if not _stmt:
-            if _col_values_dict:
-                col_values.update(_col_values_dict)
+        if col_value_pairs:
+            col_values.update(col_value_pairs)
 
+        if not _stmt:
             _stmt = self.orm_table_spec.table_select_stmt(
                 select_from=self.orm_table_name,
                 distinct=_distinct,
@@ -445,6 +447,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 limit=_limit,
                 where_cols=tuple(col_values),
             )
+
         with self._con as con:
             _cur = con.execute(_stmt, col_values)
             if _row_factory is not None:
@@ -454,11 +457,11 @@ class ORMBase(ORMCommonBase[TableSpecType]):
     @overload
     def orm_select_entry(
         self,
+        col_value_pairs: Mapping[str, Any] | None = None,
         *,
         _distinct: bool = False,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _row_factory: Callable[[sqlite3.Cursor, Any], RT],
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> RT: ...
@@ -466,22 +469,22 @@ class ORMBase(ORMCommonBase[TableSpecType]):
     @overload
     def orm_select_entry(
         self,
+        col_value_pairs: Mapping[str, Any] | None = None,
         *,
         _distinct: bool = False,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _row_factory: None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> TableSpecType | Any: ...
 
     def orm_select_entry(
         self,
+        col_value_pairs: Mapping[str, Any] | None = None,
         *,
         _distinct: bool = False,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _row_factory: RowFactoryType | None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> TableSpecType | Any | None:
@@ -491,16 +494,17 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             the FIRST one from the result with fetchone API.
 
         Args:
+            col_value_pairs(Mapping[str, Any] | None): provide col/value pairs by a Mapping, if provided,
+                the pairs in this mapping will take prior than the one specified in <col_values>.
             _distinct (bool, optional): Deduplicate and only return unique entries. Defaults to False.
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional):
                 Order the result accordingly. Defaults to None, not sorting the result.
             _row_factory (RowFactoryType | None, optional): Set to use different row factory for this query.
                 Defaults to None(do not change row_factory).
-            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
-            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
-                the one specified by <_col_vlues_dict>.
             _stmt (str, optional): If provided, all params will be ignored and query statement will not
                 be generated with the params, instead the provided <_stmt> will be used as query statement.
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
+                the one specified by <_col_vlues_dict>.
 
         Raises:
             sqlite3.DatabaseError on failed sql execution.
@@ -508,10 +512,10 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             TableSpecType | Any: Exactly one entry, or None if not hit.
         """
-        if not _stmt:
-            if _col_values_dict:
-                col_values.update(_col_values_dict)
+        if col_value_pairs:
+            col_values.update(col_value_pairs)
 
+        if not _stmt:
             _stmt = self.orm_table_spec.table_select_stmt(
                 select_from=self.orm_table_name,
                 distinct=_distinct,
@@ -519,6 +523,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 limit=1,
                 where_cols=tuple(col_values),
             )
+
         with self._con as con:
             _cur = con.execute(_stmt, col_values)
             if _row_factory is not None:
@@ -587,32 +592,33 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
     def orm_delete_entries(
         self,
+        col_value_pairs: Mapping[str, Any] | None = None,
         *,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> int:
         """Delete entries from the table accordingly.
 
         Args:
+            col_value_pairs(Mapping[str, Any] | None): provide col/value pairs by a Mapping, if provided,
+                the pairs in this mapping will take prior than the one specified in <col_values>.
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional): Order the matching entries
                 before executing the deletion, used together with <_limit>. Defaults to None.
             _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
-            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
-            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
-                the one specified by <_col_vlues_dict>.
             _stmt (str, optional): If provided, all params will be ignored and query statement will not
                 be generated with the params, instead the provided <_stmt> will be used as query statement.
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
+                the one specified by <_col_vlues_dict>.
 
         Returns:
             int: The num of entries deleted.
         """
-        if not _stmt:
-            if _col_values_dict:
-                col_values.update(_col_values_dict)
+        if col_value_pairs:
+            col_values.update(col_value_pairs)
 
+        if not _stmt:
             _stmt = self.orm_table_spec.table_delete_stmt(
                 delete_from=self.orm_table_name,
                 limit=_limit,
@@ -620,6 +626,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 returning_cols=None,
                 where_cols=tuple(col_values),
             )
+
         with self._con as con:
             _cur = con.execute(_stmt, col_values)
             return _cur.rowcount
@@ -627,12 +634,12 @@ class ORMBase(ORMCommonBase[TableSpecType]):
     @overload
     def orm_delete_entries_with_returning(
         self,
+        col_value_pairs: Mapping[str, Any] | None = None,
         *,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _returning_cols: ColsDefinition | Literal["*"],
         _row_factory: Callable[[sqlite3.Cursor, Any], RT],
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[RT]: ...
@@ -640,24 +647,24 @@ class ORMBase(ORMCommonBase[TableSpecType]):
     @overload
     def orm_delete_entries_with_returning(
         self,
+        col_value_pairs: Mapping[str, Any] | None = None,
         *,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _returning_cols: ColsDefinition | Literal["*"],
         _row_factory: None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType | Any]: ...
 
     def orm_delete_entries_with_returning(
         self,
+        col_value_pairs: Mapping[str, Any] | None = None,
         *,
         _order_by: ColsDefinition | ColsDefinitionWithDirection | None = None,
         _limit: int | None = None,
         _returning_cols: ColsDefinition | Literal["*"],
         _row_factory: RowFactoryType | None = None,
-        _col_values_dict: dict[str, Any] | None = None,
         _stmt: str | None = None,
         **col_values: Any,
     ) -> Generator[TableSpecType | Any]:
@@ -666,26 +673,27 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         NOTE that only sqlite3 version >= 3.35 supports returning statement.
 
         Args:
+            col_value_pairs(Mapping[str, Any] | None): provide col/value pairs by a Mapping, if provided,
+                the pairs in this mapping will take prior than the one specified in <col_values>.
             _order_by (ColsDefinition | ColsDefinitionWithDirection | None, optional): Order the matching entries
                 before executing the deletion, used together with <_limit>. Defaults to None.
             _limit (int | None, optional): Only delete <_limit> number of entries. Defaults to None.
             _returning_cols (ColsDefinition | Literal["*"] ): Return the deleted entries on execution.
             _row_factory (RowFactoryType | None, optional): Set to use different row factory for this query.
                 Defaults to None(do not change row_factory).
-            _col_values_dict (dict[str, Any] | None, optional): provide col/value pairs by dict. Defaults to None.
-            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
-                the one specified by <_col_vlues_dict>.
             _stmt (str, optional): If provided, all params will be ignored and query statement will not
                 be generated with the params, instead the provided <_stmt> will be used as query statement.
+            **col_values: provide col/value pairs by kwargs. Col/value pairs in <col_values> have lower priority over
+                the one specified by <_col_vlues_dict>.
 
         Returns:
             Generator[TableSpecType | Any]: If <_returning_cols> is defined, returns a generator which can
                 be used to yield the deleted entries from.
         """
-        if not _stmt:
-            if _col_values_dict:
-                col_values.update(_col_values_dict)
+        if col_value_pairs:
+            col_values.update(col_value_pairs)
 
+        if not _stmt:
             _stmt = self.orm_table_spec.table_delete_stmt(
                 delete_from=self.orm_table_name,
                 limit=_limit,
@@ -748,25 +756,32 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                     return
                 _not_before = _row[0]
 
-    def orm_check_entry_exist(self, **cols: Any) -> bool:
+    def orm_check_entry_exist(
+        self, col_value_pairs: Mapping[str, Any] | None = None, **col_values: Any
+    ) -> bool:
         """A quick method to check whether entry(entries) indicated by cols exists.
 
         This method uses COUNT function to count the selected entry.
 
         Args:
+            col_value_pairs(Mapping[str, Any] | None): provide col/value pairs by a Mapping, if provided,
+                the pairs in this mapping will take prior than the one specified in <col_values>.
             **cols: cols pair to locate the entry(entries).
 
         Returns:
             Returns True if at least one entry matches the input cols exists, otherwise False.
         """
+        if col_value_pairs:
+            col_values.update(col_value_pairs)
+
         _stmt = self.orm_table_spec.table_select_stmt(
             select_from=self.orm_table_name,
             select_cols="*",
             function="count",
-            where_cols=tuple(cols),
+            where_cols=tuple(col_values),
         )
         with self._con as con:
-            _cur = con.execute(_stmt, cols)
+            _cur = con.execute(_stmt, col_values)
             _cur.row_factory = None  # bypass con scope row_factory
             _res: tuple[int] = _cur.fetchone()
             return _res[0] > 0

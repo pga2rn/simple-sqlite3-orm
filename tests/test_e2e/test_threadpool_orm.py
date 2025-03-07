@@ -10,7 +10,7 @@ import pytest
 from simple_sqlite3_orm.utils import batched
 from tests.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
 from tests.sample_db.orm import SampleDBConnectionPool
-from tests.sample_db.table import SampleTable
+from tests.sample_db.table import SampleTable, SampleTableCols
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +87,10 @@ class TestWithSampleDBAndThreadPool:
         logger.info("test lookup entries")
         for _entry in entries_to_lookup:
             _looked_up = thread_pool.orm_select_entries(
-                key_id=_entry.key_id,
-                prim_key_sha256hash=_entry.prim_key_sha256hash,
+                SampleTableCols(
+                    key_id=_entry.key_id,
+                    prim_key_sha256hash=_entry.prim_key_sha256hash,
+                ),
             )
             _looked_up = list(_looked_up)
             assert len(_looked_up) == 1
@@ -109,17 +111,21 @@ class TestWithSampleDBAndThreadPool:
 
             for entry in entries_to_remove:
                 _res = thread_pool.orm_delete_entries(
-                    key_id=entry.key_id,
-                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                    SampleTableCols(
+                        key_id=entry.key_id,
+                        prim_key_sha256hash=entry.prim_key_sha256hash,
+                    ),
                     # _limit=1,
                 )
                 assert _res == 1
         else:
             for entry in entries_to_remove:
                 _res = thread_pool.orm_delete_entries_with_returning(
+                    SampleTableCols(
+                        key_id=entry.key_id,
+                        prim_key_sha256hash=entry.prim_key_sha256hash,
+                    ),
                     _returning_cols="*",
-                    key_id=entry.key_id,
-                    prim_key_sha256hash=entry.prim_key_sha256hash,
                     # _limit=1,
                 )
                 _res_list = list(_res)

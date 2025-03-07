@@ -12,7 +12,7 @@ import pytest_asyncio
 from simple_sqlite3_orm.utils import batched
 from tests.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
 from tests.sample_db.orm import SampleDBAsyncio
-from tests.sample_db.table import SampleTable
+from tests.sample_db.table import SampleTable, SampleTableCols
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +98,9 @@ class TestWithSampleDBWithAsyncIO:
         logger.info("test lookup entries")
         for _entry in setup_test_data.values():
             _looked_up = await async_pool.orm_select_entries(
-                key_id=_entry.key_id,
-                prim_key_sha256hash=_entry.prim_key_sha256hash,
+                SampleTableCols(
+                    key_id=_entry.key_id, prim_key_sha256hash=_entry.prim_key_sha256hash
+                ),
             )
 
             _looked_up_list = []
@@ -136,17 +137,21 @@ class TestWithSampleDBWithAsyncIO:
 
             for entry in entries_to_remove:
                 _res = await async_pool.orm_delete_entries(
-                    key_id=entry.key_id,
-                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                    SampleTableCols(
+                        key_id=entry.key_id,
+                        prim_key_sha256hash=entry.prim_key_sha256hash,
+                    ),
                     # _limit=1,
                 )
                 assert _res == 1
         else:
             for entry in entries_to_remove:
                 _res = await async_pool.orm_delete_entries_with_returning(
+                    SampleTableCols(
+                        key_id=entry.key_id,
+                        prim_key_sha256hash=entry.prim_key_sha256hash,
+                    ),
                     _returning_cols="*",
-                    key_id=entry.key_id,
-                    prim_key_sha256hash=entry.prim_key_sha256hash,
                     # _limit=1,
                 )
 
