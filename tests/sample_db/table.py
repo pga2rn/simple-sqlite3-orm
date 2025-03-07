@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TypedDict
 
 from pydantic import SkipValidation
 from typing_extensions import Annotated
@@ -29,6 +29,23 @@ from tests.sample_db._types import (
 )
 
 
+class SampleTableCols(TypedDict, total=False):
+    unix_timestamp: float
+    unix_timestamp_int: int
+    datetime_iso8601: str
+
+    choice_abc: ChoiceABC
+    optional_choice_123: Choice123
+    optional_num_literal: Optional[SomeIntLiteral]
+    str_literal: SomeStrLiteral
+
+    key_id: int
+    prim_key: Mystr
+    prim_key_sha256hash: bytes
+    prim_key_magicf: float
+    prim_key_bln: bool
+
+
 class SampleTable(TableSpec):
     """This sample table contains as much different types of fields as possible."""
 
@@ -51,6 +68,7 @@ class SampleTable(TableSpec):
             ("DEFAULT", wrap_value(ChoiceABC.A)),
         ),
     ] = ChoiceABC.A
+
     optional_choice_123: Annotated[
         Optional[Choice123],
         ConstrainRepr(
@@ -84,6 +102,7 @@ class SampleTable(TableSpec):
         ),
         SkipValidation,
     ] = None
+
     str_literal: Annotated[
         SomeStrLiteral,
         ConstrainRepr(
@@ -101,8 +120,11 @@ class SampleTable(TableSpec):
 
     # ------ built-in types ------ #
     key_id: Annotated[
-        int, TypeAffinityRepr(int), ConstrainRepr("NOT NULL"), SkipValidation
+        int,
+        ConstrainRepr("NOT NULL"),
+        SkipValidation,
     ]
+
     # Here for convenience, all prim_ prefixed field can be
     #   derived by prim_key, check MyStr's methods for mor details.
     prim_key: Annotated[
@@ -116,12 +138,15 @@ class SampleTable(TableSpec):
         ),
         SkipValidation,
     ]
+
     prim_key_sha256hash: Annotated[
         bytes,
         ConstrainRepr("NOT NULL", "UNIQUE"),
         SkipValidation,
     ]
+
     prim_key_magicf: float
+
     prim_key_bln: bool
 
     def __hash__(self) -> int:
