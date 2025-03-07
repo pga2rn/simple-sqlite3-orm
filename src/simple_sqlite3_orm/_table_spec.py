@@ -614,6 +614,11 @@ class TableSpec(BaseModel):
         This method is basically the same as table_dump_asdict, but instead return a
             tuple of the dumped values.
 
+        Args:
+            *cols: which cols to export, if not specified, export all cols.
+            **kwargs: any other kwargs that passed to pydantic model_dump method.
+                Note that the include kwarg is used to specific which cols to dump.
+
         Returns:
             A tuple of dumped col values.
         """
