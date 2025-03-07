@@ -40,10 +40,10 @@ class TableSpec(BaseModel):
     """Define table as pydantic model, with specific APIs."""
 
     table_columns: ClassVar[MappingProxyType[str, FieldInfo]]
-    """Mapping of case-insensitive column names and corresponding original column names."""
+    """A view of TableSpec's model_fields."""
 
     table_columns_by_index: ClassVar[tuple[str, ...]]
-    """Ordered tuple of original column names."""
+    """Ordered tuple of column names, matching exactly with table schema."""
 
     @classmethod
     def __pydantic_init_subclass__(cls, **_) -> None:
