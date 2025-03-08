@@ -485,15 +485,16 @@ class TableSpec(BaseModel):
         )
         return res
 
+    @classmethod
     def table_preprare_update_where_cols(
-        self, where_cols: Mapping[str, Any]
+        cls, where_cols: Mapping[str, Any]
     ) -> Mapping[str, Any]:
         """Regulate the <where_cols> so that it will not overlap with <set_cols>.
 
         This is MUST for directly using the sqlite query stmt generated from table_update_stmt.
         """
         return {
-            f"{self._table_update_where_cols_prefix}{k}": v
+            f"{cls._table_update_where_cols_prefix}{k}": v
             for k, v in where_cols.items()
         }
 
