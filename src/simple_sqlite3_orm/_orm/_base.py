@@ -436,11 +436,13 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Yields:
             Generator[TableSpecType | Any]: A generator that can be used to yield entry from result.
         """
+        _table_spec = self.orm_table_spec
         if col_value_pairs:
             col_values.update(col_value_pairs)
+        col_values = _table_spec.table_serialize_mapping(col_values)
 
         if not _stmt:
-            _stmt = self.orm_table_spec.table_select_stmt(
+            _stmt = _table_spec.table_select_stmt(
                 select_from=self.orm_table_name,
                 distinct=_distinct,
                 order_by=_order_by,
@@ -512,11 +514,13 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             TableSpecType | Any: Exactly one entry, or None if not hit.
         """
+        _table_spec = self.orm_table_spec
         if col_value_pairs:
             col_values.update(col_value_pairs)
+        col_values = _table_spec.table_serialize_mapping(col_values)
 
         if not _stmt:
-            _stmt = self.orm_table_spec.table_select_stmt(
+            _stmt = _table_spec.table_select_stmt(
                 select_from=self.orm_table_name,
                 distinct=_distinct,
                 order_by=_order_by,
@@ -532,7 +536,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
     def orm_insert_entries(
         self,
-        _in: Iterable[TableSpecType],
+        _in: Iterable[TableSpecType] | Iterable[Mapping[str, Any]],
         *,
         or_option: INSERT_OR | None = None,
         _stmt: str | None = None,
@@ -551,18 +555,29 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             int: Number of inserted entries.
         """
+        _table_spec = self.orm_table_spec
         if not _stmt:
-            _stmt = self.orm_table_spec.table_insert_stmt(
+            _stmt = _table_spec.table_insert_stmt(
                 insert_into=self.orm_table_name,
                 or_option=or_option,
             )
+
+        def _in_parser():
+            for entry in _in:
+                if isinstance(entry, _table_spec):
+                    yield entry.table_dump_asdict()
+                elif isinstance(entry, Mapping):
+                    yield _table_spec.table_serialize_mapping(entry)
+                else:
+                    raise ValueError(f"unknown input {type(entry)=}")
+
         with self._con as con:
-            _cur = con.executemany(_stmt, (_row.table_dump_asdict() for _row in _in))
+            _cur = con.executemany(_stmt, _in_parser())
             return _cur.rowcount
 
     def orm_insert_entry(
         self,
-        _in: TableSpecType,
+        _in: TableSpecType | Mapping[str, Any],
         *,
         or_option: INSERT_OR | None = None,
         _stmt: str | None = None,
@@ -581,13 +596,22 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             int: Number of inserted entries. In normal case it should be 1.
         """
+        _table_spec = self.orm_table_spec
         if not _stmt:
-            _stmt = self.orm_table_spec.table_insert_stmt(
+            _stmt = _table_spec.table_insert_stmt(
                 insert_into=self.orm_table_name,
                 or_option=or_option,
             )
+
+        if isinstance(_in, _table_spec):
+            param = _in.table_dump_asdict()
+        elif isinstance(_in, Mapping):
+            param = _table_spec.table_serialize_mapping(_in)
+        else:
+            raise ValueError(f"unknown input {type(_in)=}")
+
         with self._con as con:
-            _cur = con.execute(_stmt, _in.table_dump_asdict())
+            _cur = con.execute(_stmt, param)
             return _cur.rowcount
 
     def orm_delete_entries(
@@ -615,11 +639,13 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             int: The num of entries deleted.
         """
+        _table_spec = self.orm_table_spec
         if col_value_pairs:
             col_values.update(col_value_pairs)
+        col_values = _table_spec.table_serialize_mapping(col_values)
 
         if not _stmt:
-            _stmt = self.orm_table_spec.table_delete_stmt(
+            _stmt = _table_spec.table_delete_stmt(
                 delete_from=self.orm_table_name,
                 limit=_limit,
                 order_by=_order_by,
@@ -771,10 +797,12 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             Returns True if at least one entry matches the input cols exists, otherwise False.
         """
+        _table_spec = self.orm_table_spec
         if col_value_pairs:
             col_values.update(col_value_pairs)
+        col_values = _table_spec.table_serialize_mapping(col_values)
 
-        _stmt = self.orm_table_spec.table_select_stmt(
+        _stmt = _table_spec.table_select_stmt(
             select_from=self.orm_table_name,
             select_cols="*",
             function="count",
