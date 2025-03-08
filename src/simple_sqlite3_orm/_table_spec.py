@@ -10,7 +10,7 @@ from pydantic.fields import FieldInfo
 from typing_extensions import NotRequired, Self
 
 from simple_sqlite3_orm._sqlite_spec import (
-    INSERT_OR,
+    OR_OPTION,
     ORDER_DIRECTION,
     SQLiteBuiltInFuncs,
 )
@@ -339,7 +339,7 @@ class TableSpec(BaseModel):
         insert_into: str,
         insert_cols: tuple[str, ...] | None = None,
         insert_default: bool = False,
-        or_option: INSERT_OR | None = None,
+        or_option: OR_OPTION | None = None,
         returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         returning_stmt: str | None = None,
     ) -> str:
@@ -396,7 +396,7 @@ class TableSpec(BaseModel):
     def table_update_stmt(
         cls,
         *,
-        or_option: INSERT_OR | None = None,
+        or_option: OR_OPTION | None = None,
         update_target: str,
         set_cols: tuple[str, ...],
         where_cols: tuple[str, ...] | None = None,

@@ -212,7 +212,7 @@ SQLiteBuiltInFuncs = Union[
 # ------ other helper literals ------ #
 #
 
-INSERT_OR = Literal["abort", "fail", "ignore", "replace", "rollback"]
+OR_OPTION = Literal["abort", "fail", "ignore", "replace", "rollback"]
 ORDER_DIRECTION = Literal["ASC", "DESC"]
 
 CONDITION_OPERATORS = Literal[
