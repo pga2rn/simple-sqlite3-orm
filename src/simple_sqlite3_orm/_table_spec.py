@@ -690,7 +690,7 @@ class TableSpec(BaseModel):
         return res
 
     def table_dump_asdict(self, *cols: str, **kwargs) -> dict[str, Any]:
-        """Dump self as a dict, containing all cols or specified cols.
+        """Serialize self as a dict, containing all cols or specified cols, for DB operations.
 
         Under the hook this method calls pydantic model_dump on self.
         The dumped dict can be used to directly insert into the table.
@@ -713,8 +713,22 @@ class TableSpec(BaseModel):
         except Exception as e:
             raise ValueError(f"failed to dump as dict: {e!r}") from e
 
+    def table_asdict(self, *cols: str) -> dict[str, Any]:
+        """Directly export the self as a dict, without serializing.
+
+        Args:
+            *cols: which cols to export, if not specified, export all cols.
+            exclude_unset (bool, optional): whether include not set field of self.
+                Defaults to False, include unset fields(which will return their default values).
+
+        Returns:
+            A dict of col/values from self.
+        """
+        _cols_to_look = cols if cols else self.table_columns_by_index
+        return {k: getattr(self, k) for k in _cols_to_look}
+
     def table_dump_astuple(self, *cols: str, **kwargs) -> tuple[Any, ...]:
-        """Dump self's values as a tuple, containing all cols or specified cols.
+        """Serialize self's value as a tuple, containing all cols or specified cols, for DB operations.
 
         This method is basically the same as table_dump_asdict, but instead return a
             tuple of the dumped values.
@@ -775,7 +789,7 @@ class TableSpec(BaseModel):
                 raise ValueError(
                     f"failed to deserialize col {k} with value {v}: {e!r}"
                 ) from e
-        return _empty_inst.__dict__
+        return {k: v for k, v in _empty_inst.__dict__.items() if k in _to_be_processed}
 
 
 TableSpecType = TypeVar("TableSpecType", bound=TableSpec)
