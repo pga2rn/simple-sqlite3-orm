@@ -3,12 +3,13 @@ from __future__ import annotations
 import contextlib
 import sqlite3
 from collections.abc import Mapping
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Optional, TypedDict
 
 import pytest
 from typing_extensions import Annotated
 
 from simple_sqlite3_orm import ConstrainRepr, CreateTableParams, TableSpec
+from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
 
 
 class SimpleTableForTest(TableSpec):
@@ -23,6 +24,12 @@ class SimpleTableForTest(TableSpec):
     ]
 
     extra: Optional[float] = None
+
+
+class SimpleTableForTestCols(TypedDict, total=False):
+    id: int
+    id_str: str
+    extra: float
 
 
 TBL_NAME = "test_table"
@@ -53,7 +60,11 @@ def test_table_create(table_create_params: CreateTableParams) -> None:
 
 
 class TestTableSpecWithDB:
-    """A quick and simple test to test through normal usage of tablespec"""
+    """A quick and simple test to test through normal usage of tablespec.
+
+    NOTE that this test is mostly focusing on syntax, i.e., to ensure that the generated
+        sqlite3 query can be parsed and accepted by sqlite3 DB engine.
+    """
 
     ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123)
 
@@ -93,6 +104,120 @@ class TestTableSpecWithDB:
             assert len(res) == 1
             assert isinstance(res[0], SimpleTableForTest)
             assert res[0] == _to_lookup
+
+    #
+    # ------ UPDATE sqlite3 stmt test ------ #
+    #
+
+    UPDATE_API_TEST_CASES = [
+        (
+            _set_values := SimpleTableForTestCols(id_str="1.23456"),
+            SimpleTableForTest.table_update_stmt(
+                update_target=TBL_NAME,
+                set_cols=tuple(_set_values),
+                where_cols=("id",),
+            ),
+            ENTRY_FOR_TEST.model_copy(update=_set_values),
+        ),
+    ]
+
+    if SQLITE3_COMPILE_OPTION_FLAGS.SQLITE_ENABLE_UPDATE_DELETE_LIMIT:
+        UPDATE_API_TEST_CASES.extend(
+            [
+                (
+                    _set_values := SimpleTableForTestCols(
+                        id_str="2.3456", extra=2.3456
+                    ),
+                    SimpleTableForTest.table_update_stmt(
+                        update_target=TBL_NAME,
+                        set_cols=tuple(_set_values),
+                        where_cols=("id",),
+                        order_by=("id",),
+                        limit=1,
+                    ),
+                    ENTRY_FOR_TEST.model_copy(update=_set_values),
+                ),
+                (
+                    _set_values := SimpleTableForTestCols(
+                        id_str="2.3456", extra=2.3456
+                    ),
+                    SimpleTableForTest.table_update_stmt(
+                        or_option="fail",
+                        update_target=TBL_NAME,
+                        set_cols=tuple(_set_values),
+                        where_cols=("id",),
+                        order_by=("id",),
+                        limit=1,
+                    ),
+                    ENTRY_FOR_TEST.model_copy(update=_set_values),
+                ),
+            ]
+        )
+
+        if SQLITE3_COMPILE_OPTION_FLAGS.RETURNING_AVAILABLE:
+            UPDATE_API_TEST_CASES.append(
+                (
+                    _set_values := SimpleTableForTestCols(
+                        id_str="2.3456", extra=2.3456
+                    ),
+                    SimpleTableForTest.table_update_stmt(
+                        or_option="fail",
+                        update_target=TBL_NAME,
+                        set_cols=tuple(_set_values),
+                        where_cols=("id",),
+                        returning_cols="*",
+                        order_by=("id",),
+                        limit=1,
+                    ),
+                    ENTRY_FOR_TEST.model_copy(update=_set_values),
+                )
+            )
+
+    if SQLITE3_COMPILE_OPTION_FLAGS.RETURNING_AVAILABLE:
+        UPDATE_API_TEST_CASES.append(
+            (
+                _set_values := SimpleTableForTestCols(id_str="2.3456", extra=2.3456),
+                SimpleTableForTest.table_update_stmt(
+                    or_option="fail",
+                    update_target=TBL_NAME,
+                    set_cols=tuple(_set_values),
+                    where_cols=("id",),
+                    returning_cols="*",
+                ),
+                ENTRY_FOR_TEST.model_copy(update=_set_values),
+            )
+        )
+
+    @pytest.mark.parametrize(
+        "set_values, update_stmt, expected_result", UPDATE_API_TEST_CASES
+    )
+    def test_update_entry(
+        self,
+        db_conn: sqlite3.Connection,
+        set_values: Mapping[str, Any],
+        update_stmt: str,
+        expected_result: SimpleTableForTest,
+        prepare_test_entry,
+    ):
+        to_update = self.ENTRY_FOR_TEST
+
+        _params = SimpleTableForTestCols(id=to_update.id, **set_values)
+        with db_conn as _conn:
+            _conn.execute(update_stmt, _params)
+
+        with db_conn as _conn:
+            _cur = _conn.execute(
+                SimpleTableForTest.table_select_stmt(
+                    select_from=TBL_NAME, where_cols=("id",)
+                ),
+                {"id": to_update.id},
+            )
+            _cur.row_factory = SimpleTableForTest.table_row_factory
+
+            res = _cur.fetchone()
+            assert res == expected_result
+
+    # ------ end of UPDATE sqlite3 stmt test ------ #
 
 
 @pytest.mark.parametrize(
