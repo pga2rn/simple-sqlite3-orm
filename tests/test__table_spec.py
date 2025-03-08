@@ -312,12 +312,12 @@ def test_table_from_dict(
     "_in, _expected",
     (
         (
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
-            {"id": 1, "id_str": "1", "extra": 1.0},
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+            {"id": 1, "id_str": "1", "extra": 1.0, "int_str": "789"},
         ),
         (
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
-            {"id": 1, "extra": 1.0},
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+            {"int_str": "789"},
         ),
     ),
 )
@@ -329,19 +329,19 @@ def test_table_dump_asdict(_in: SimpleTableForTest, _expected: dict[str, Any]):
     "_in, _cols, _expected",
     (
         (
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
-            ["id", "id_str", "extra"],
-            (1, "1", 1.0),
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+            ["id", "id_str", "extra", "int_str"],
+            (1, "1", 1.0, "789"),
         ),
         (
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
-            ["extra"],
-            (1.0,),
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+            ["int_str"],
+            ("789",),
         ),
     ),
 )
 def test_table_dump_astuple(
-    _in: SimpleTableForTest, _cols: tuple[str, ...], _expected: tuple[Any, ...]
+    _in: SimpleTableForTest, _cols: list[str], _expected: tuple[Any, ...]
 ):
     assert _in.table_dump_astuple(*_cols) == _expected
 
