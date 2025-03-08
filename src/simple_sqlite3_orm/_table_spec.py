@@ -391,7 +391,9 @@ class TableSpec(BaseModel):
         )
         return res
 
-    _table_update_where_cols_prefix = "__table_spec_"
+    _table_update_where_cols_prefix: ClassVar[Literal["__table_spec_"]] = (
+        "__table_spec_"
+    )
 
     @classmethod
     @lru_cache
