@@ -24,6 +24,19 @@ from tests.sample_db.table import (
 # for reproducible test
 random.seed(0)
 
+# sqlite3 lib features set
+
+
+class SQLITE3_COMPILE_OPTION_FLAGS:
+    with contextlib.closing(sqlite3.connect(":memory:")) as conn:
+        RETURNING_AVAILABLE = sqlite3.sqlite_version_info >= (3, 35, 0)
+        SQLITE_ENABLE_UPDATE_DELETE_LIMIT = bool(
+            utils.check_pragma_compile_time_options(
+                conn, "SQLITE_ENABLE_UPDATE_DELETE_LIMIT"
+            )
+        )
+
+
 # test config
 
 TEST_ENTRY_NUM = 120_000
