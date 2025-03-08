@@ -190,7 +190,7 @@ class ConstrainRepr:
         return hash(self.constraints)
 
 
-def gen_sql_stmt(*components: str) -> str:
+def gen_sql_stmt(*components: str, end_with: str | None = ";") -> str:
     """Combine each components into a single sql stmt."""
     with StringIO() as buffer:
         for comp in components:
@@ -198,5 +198,6 @@ def gen_sql_stmt(*components: str) -> str:
                 continue
             buffer.write(" ")
             buffer.write(comp)
-        buffer.write(";")
+        if end_with:
+            buffer.write(end_with)
         return buffer.getvalue().strip()
