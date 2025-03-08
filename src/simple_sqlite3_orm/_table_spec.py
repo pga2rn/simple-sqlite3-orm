@@ -733,5 +733,49 @@ class TableSpec(BaseModel):
         except Exception as e:
             raise ValueError(f"failed to dump as tuple: {e!r}") from e
 
+    @classmethod
+    def table_serialize_mapping(cls, _in: Mapping[str, Any]) -> dict[str, Any]:
+        """Serialize input mapping into a dict by this TableSpec, ready for DB operations.
+
+        Values in the input mapping are python types used in application.
+
+        This is a convenient method for when we only need to specify some of the cols, so that
+            we cannot use TableSpec as TableSpec requires all cols to be set.
+
+        NOTE that for APIs provided by simple_sqlite3_orm, when col/value pairs are provided as mapping,
+            the serialization will be done by the APIs, no need to call this method when using ORM.
+        """
+        _inst = cls.model_construct(**_in)
+        return _inst.model_dump()
+
+    @classmethod
+    def table_deserialize_asdict_row_factory(
+        cls,
+        _cursor: sqlite3.Cursor,
+        _row: tuple[Any, ...] | Any,
+    ) -> dict[str, Any]:
+        """Deserialize raw row from a query into a dict by this TableSpec, ready for application use.
+
+        This is a convenient method when we execute query that only select some cols.
+        For this use case, use thid method as row_factory to deserialize the raw row. This method
+            will deserialize the row from raw into actual field types defined in this TableSpec.
+        """
+        _fields = [col[0] for col in _cursor.description]
+        _to_be_processed = {
+            k: v for k, v in zip(_fields, _row) if k in cls.table_columns
+        }
+
+        # See https://github.com/pydantic/pydantic/discussions/7367
+        _assignment_validator = cls.__pydantic_validator__.validate_assignment
+        _empty_inst = cls.model_construct()
+        for k, v in _to_be_processed.items():
+            try:
+                _assignment_validator(_empty_inst, k, v)
+            except Exception as e:
+                raise ValueError(
+                    f"failed to deserialize col {k} with value {v}: {e!r}"
+                ) from e
+        return _empty_inst.__dict__
+
 
 TableSpecType = TypeVar("TableSpecType", bound=TableSpec)
