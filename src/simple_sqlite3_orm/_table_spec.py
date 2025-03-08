@@ -415,10 +415,11 @@ class TableSpec(BaseModel):
 
         Check https://www.sqlite.org/lang_update.html for more details.
 
-        NOTE: to avoid overlapping between <set_cols> and <where_cols>, this method
-            will prefix cols name with <_table_spec_update_where_cols_prefix> when generating
+        NOTE: to avoid overlapping between <set_cols> and <where_cols> when generating named-placeholders,
+            this method will prefix cols name with <_table_spec_update_where_cols_prefix> when generating
             WHERE statement.
-            To directly use the stmt generated from this API when where
+            To directly use the stmt generated from this API, dev must use table_preprare_update_where_cols
+            to prepare the col/value mapping for params.
 
         NOTE that UPDATE-FROM extension is currently not supported by this method.
         NOTE that UPDATE-WITH-LIMIT is an optional feature, needs to be enabled at compiled time with
