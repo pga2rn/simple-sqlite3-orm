@@ -66,7 +66,7 @@ class TestTableSpecWithDB:
         sqlite3 query can be parsed and accepted by sqlite3 DB engine.
     """
 
-    ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123)
+    ENTRY_FOR_TEST = ENTRY_FOR_TEST
 
     @pytest.fixture
     def db_conn(self):
@@ -111,11 +111,31 @@ class TestTableSpecWithDB:
 
     UPDATE_API_TEST_CASES = [
         (
-            _set_values := SimpleTableForTestCols(id_str="1.23456"),
+            _set_values := SimpleTableForTestCols(id=678, id_str="1.23456"),
+            _where_cols := ENTRY_FOR_TEST.table_dump_asdict(),
             SimpleTableForTest.table_update_stmt(
                 update_target=TBL_NAME,
                 set_cols=tuple(_set_values),
-                where_cols=("id",),
+                where_cols=tuple(_where_cols),
+            ),
+            ENTRY_FOR_TEST.model_copy(update=_set_values),
+        ),
+        (
+            _set_values := SimpleTableForTestCols(id=678, id_str="1.23456"),
+            _where_cols := ENTRY_FOR_TEST.table_dump_asdict(),
+            SimpleTableForTest.table_update_stmt(
+                update_target=TBL_NAME,
+                set_cols=tuple(_set_values),
+                where_stmt=f"WHERE id = {ENTRY_FOR_TEST.id}",
+            ),
+            ENTRY_FOR_TEST.model_copy(update=_set_values),
+        ),
+        (
+            _set_values := SimpleTableForTestCols(id=678, id_str="1.23456"),
+            _where_cols := ENTRY_FOR_TEST.table_dump_asdict(),
+            SimpleTableForTest.table_update_stmt(
+                update_target=TBL_NAME,
+                set_cols=tuple(_set_values),
             ),
             ENTRY_FOR_TEST.model_copy(update=_set_values),
         ),
@@ -126,12 +146,13 @@ class TestTableSpecWithDB:
             [
                 (
                     _set_values := SimpleTableForTestCols(
-                        id_str="2.3456", extra=2.3456
+                        id=678, id_str="2.3456", extra=2.3456
                     ),
+                    _where_cols := ENTRY_FOR_TEST.table_dump_asdict(),
                     SimpleTableForTest.table_update_stmt(
                         update_target=TBL_NAME,
                         set_cols=tuple(_set_values),
-                        where_cols=("id",),
+                        where_cols=tuple(_where_cols),
                         order_by=("id",),
                         limit=1,
                     ),
@@ -139,13 +160,14 @@ class TestTableSpecWithDB:
                 ),
                 (
                     _set_values := SimpleTableForTestCols(
-                        id_str="2.3456", extra=2.3456
+                        id=678, id_str="2.3456", extra=2.3456
                     ),
+                    _where_cols := ENTRY_FOR_TEST.table_dump_asdict(),
                     SimpleTableForTest.table_update_stmt(
                         or_option="fail",
                         update_target=TBL_NAME,
                         set_cols=tuple(_set_values),
-                        where_cols=("id",),
+                        where_cols=tuple(_where_cols),
                         order_by=("id",),
                         limit=1,
                     ),
@@ -158,13 +180,14 @@ class TestTableSpecWithDB:
             UPDATE_API_TEST_CASES.append(
                 (
                     _set_values := SimpleTableForTestCols(
-                        id_str="2.3456", extra=2.3456
+                        id=678, id_str="2.3456", extra=2.3456
                     ),
+                    _where_cols := ENTRY_FOR_TEST.table_dump_asdict(),
                     SimpleTableForTest.table_update_stmt(
                         or_option="fail",
                         update_target=TBL_NAME,
                         set_cols=tuple(_set_values),
-                        where_cols=("id",),
+                        where_cols=tuple(_where_cols),
                         returning_cols="*",
                         order_by=("id",),
                         limit=1,
@@ -177,11 +200,12 @@ class TestTableSpecWithDB:
         UPDATE_API_TEST_CASES.append(
             (
                 _set_values := SimpleTableForTestCols(id_str="2.3456", extra=2.3456),
+                _where_cols := ENTRY_FOR_TEST.table_dump_asdict(),
                 SimpleTableForTest.table_update_stmt(
                     or_option="fail",
                     update_target=TBL_NAME,
                     set_cols=tuple(_set_values),
-                    where_cols=("id",),
+                    where_cols=tuple(_where_cols),
                     returning_cols="*",
                 ),
                 ENTRY_FOR_TEST.model_copy(update=_set_values),
@@ -189,28 +213,28 @@ class TestTableSpecWithDB:
         )
 
     @pytest.mark.parametrize(
-        "set_values, update_stmt, expected_result", UPDATE_API_TEST_CASES
+        "set_values, where_cols, update_stmt, expected_result", UPDATE_API_TEST_CASES
     )
     def test_update_entry(
         self,
         db_conn: sqlite3.Connection,
         set_values: Mapping[str, Any],
+        where_cols: Mapping[str, Any],
         update_stmt: str,
         expected_result: SimpleTableForTest,
         prepare_test_entry,
     ):
-        to_update = self.ENTRY_FOR_TEST
-
-        _params = SimpleTableForTestCols(id=to_update.id, **set_values)
+        _params = SimpleTableForTestCols(
+            **SimpleTableForTest.table_preprare_update_where_cols(where_cols),
+            **set_values,
+        )
         with db_conn as _conn:
             _conn.execute(update_stmt, _params)
 
+        # NOTE: we only have one entry at the table
         with db_conn as _conn:
             _cur = _conn.execute(
-                SimpleTableForTest.table_select_stmt(
-                    select_from=TBL_NAME, where_cols=("id",)
-                ),
-                {"id": to_update.id},
+                SimpleTableForTest.table_select_stmt(select_from=TBL_NAME)
             )
             _cur.row_factory = SimpleTableForTest.table_row_factory
 
