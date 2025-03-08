@@ -120,6 +120,25 @@ class TestTableSpecWithDB:
             ),
             ENTRY_FOR_TEST.model_copy(update=_set_values),
         ),
+        (
+            _set_values := SimpleTableForTestCols(id=678, id_str="1.23456"),
+            _where_cols := ENTRY_FOR_TEST.table_dump_asdict(),
+            SimpleTableForTest.table_update_stmt(
+                update_target=TBL_NAME,
+                set_cols=tuple(_set_values),
+                where_stmt=f"WHERE id = {ENTRY_FOR_TEST.id}",
+            ),
+            ENTRY_FOR_TEST.model_copy(update=_set_values),
+        ),
+        (
+            _set_values := SimpleTableForTestCols(id=678, id_str="1.23456"),
+            _where_cols := ENTRY_FOR_TEST.table_dump_asdict(),
+            SimpleTableForTest.table_update_stmt(
+                update_target=TBL_NAME,
+                set_cols=tuple(_set_values),
+            ),
+            ENTRY_FOR_TEST.model_copy(update=_set_values),
+        ),
     ]
 
     if SQLITE3_COMPILE_OPTION_FLAGS.SQLITE_ENABLE_UPDATE_DELETE_LIMIT:
