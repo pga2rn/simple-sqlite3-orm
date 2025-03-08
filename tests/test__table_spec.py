@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import sqlite3
 from collections.abc import Mapping
-from typing import Any, Iterable, Optional, TypedDict
+from typing import Any, Optional, TypedDict
 
 import pytest
 from pydantic import PlainSerializer, PlainValidator
@@ -273,12 +273,20 @@ class TestTableSpecWithDB:
 @pytest.mark.parametrize(
     "_in, _validate, _expected",
     (
-        ([1, "1", 1.0], True, SimpleTableForTest(id=1, id_str="1", extra=1.0)),
-        ([1, "1", 1.0], False, SimpleTableForTest(id=1, id_str="1", extra=1.0)),
+        (
+            (1, "1", 1.0, "789"),
+            True,
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+        ),
+        (
+            (1, "1", 1.0, 789),
+            False,
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+        ),
     ),
 )
 def test_table_from_tuple(
-    _in: Iterable[Any], _validate: bool, _expected: SimpleTableForTest
+    _in: tuple[Any, ...], _validate: bool, _expected: SimpleTableForTest
 ):
     assert (
         SimpleTableForTest.table_from_tuple(_in, with_validation=_validate) == _expected
@@ -289,14 +297,14 @@ def test_table_from_tuple(
     "_in, _validate, _expected",
     (
         (
-            {"id": 1, "id_str": "1", "extra": 1.0},
+            {"id": 1, "id_str": "1", "extra": 1.0, "int_str": "789"},
             True,
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
         ),
         (
-            {"id": 1, "id_str": "1", "extra": 1.0},
+            {"id": 1, "id_str": "1", "extra": 1.0, "int_str": 789},
             False,
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
         ),
     ),
 )
