@@ -439,7 +439,7 @@ class TableSpec(BaseModel):
         else:
             _gen_or_option_stmt = ""
 
-        gen_update_stmt = f"UPDATE {_gen_or_option_stmt} INTO {update_target}"
+        gen_update_stmt = f"UPDATE {_gen_or_option_stmt} {update_target}"
 
         cls.table_check_cols(set_cols)
         _cols_named_placeholder = (f"{_col} = :{_col}" for _col in set_cols)
