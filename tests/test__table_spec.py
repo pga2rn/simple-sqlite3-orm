@@ -111,7 +111,7 @@ class TestTableSpecWithDB:
 
     UPDATE_API_TEST_CASES = [
         (
-            _set_values := SimpleTableForTestCols(id_str="1.23456"),
+            _set_values := SimpleTableForTestCols(id=678, id_str="1.23456"),
             SimpleTableForTest.table_update_stmt(
                 update_target=TBL_NAME,
                 set_cols=tuple(_set_values),
@@ -126,7 +126,7 @@ class TestTableSpecWithDB:
             [
                 (
                     _set_values := SimpleTableForTestCols(
-                        id_str="2.3456", extra=2.3456
+                        id=678, id_str="2.3456", extra=2.3456
                     ),
                     SimpleTableForTest.table_update_stmt(
                         update_target=TBL_NAME,
@@ -139,7 +139,7 @@ class TestTableSpecWithDB:
                 ),
                 (
                     _set_values := SimpleTableForTestCols(
-                        id_str="2.3456", extra=2.3456
+                        id=678, id_str="2.3456", extra=2.3456
                     ),
                     SimpleTableForTest.table_update_stmt(
                         or_option="fail",
@@ -158,7 +158,7 @@ class TestTableSpecWithDB:
             UPDATE_API_TEST_CASES.append(
                 (
                     _set_values := SimpleTableForTestCols(
-                        id_str="2.3456", extra=2.3456
+                        id=678, id_str="2.3456", extra=2.3456
                     ),
                     SimpleTableForTest.table_update_stmt(
                         or_option="fail",
@@ -201,7 +201,10 @@ class TestTableSpecWithDB:
     ):
         to_update = self.ENTRY_FOR_TEST
 
-        _params = SimpleTableForTestCols(id=to_update.id, **set_values)
+        _params = SimpleTableForTestCols(
+            id=to_update.id,
+            **SimpleTableForTest.table_preprare_update_where_cols(set_values),
+        )
         with db_conn as _conn:
             _conn.execute(update_stmt, _params)
 
