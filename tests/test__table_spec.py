@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 from collections.abc import Mapping
 from typing import Any, Iterable, Optional
@@ -7,7 +8,7 @@ from typing import Any, Iterable, Optional
 import pytest
 from typing_extensions import Annotated
 
-from simple_sqlite3_orm import ConstrainRepr, TableSpec
+from simple_sqlite3_orm import ConstrainRepr, CreateTableParams, TableSpec
 
 
 class SimpleTableForTest(TableSpec):
@@ -25,6 +26,30 @@ class SimpleTableForTest(TableSpec):
 
 
 TBL_NAME = "test_table"
+ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123)
+
+
+@pytest.mark.parametrize(
+    "table_create_params",
+    (
+        (CreateTableParams(if_not_exists=True)),
+        (CreateTableParams(strict=True)),
+        (CreateTableParams(temporary=True)),
+        (CreateTableParams(without_rowid=True)),
+        (
+            CreateTableParams(
+                if_not_exists=True, strict=True, temporary=True, without_rowid=True
+            )
+        ),
+    ),
+)
+def test_table_create(table_create_params: CreateTableParams) -> None:
+    with contextlib.closing(sqlite3.connect(":memory:")) as db_conn:
+        table_create_stmt = SimpleTableForTest.table_create_stmt(
+            table_name=TBL_NAME, **table_create_params
+        )
+        with db_conn as _conn:
+            _conn.execute(table_create_stmt)
 
 
 class TestTableSpecWithDB:
@@ -32,18 +57,22 @@ class TestTableSpecWithDB:
 
     ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123)
 
-    @pytest.fixture(scope="class")
+    @pytest.fixture
     def db_conn(self):
-        conn = sqlite3.connect(":memory:")
-        try:
-            yield conn
-        finally:
-            conn.close()
+        with contextlib.closing(sqlite3.connect(":memory:")) as db_conn:
+            table_create_stmt = SimpleTableForTest.table_create_stmt(
+                table_name=TBL_NAME
+            )
+            with db_conn as _conn:
+                _conn.execute(table_create_stmt)
+            yield db_conn
 
-    def test_table_create(self, db_conn: sqlite3.Connection):
-        table_create_stmt = SimpleTableForTest.table_create_stmt(table_name=TBL_NAME)
+    @pytest.fixture
+    def prepare_test_entry(self, db_conn: sqlite3.Connection):
+        _to_insert = self.ENTRY_FOR_TEST
+        table_insert_stmt = SimpleTableForTest.table_insert_stmt(insert_into=TBL_NAME)
         with db_conn as _conn:
-            _conn.execute(table_create_stmt)
+            _conn.execute(table_insert_stmt, _to_insert.table_dump_asdict())
 
     def test_insert_entry(self, db_conn: sqlite3.Connection):
         _to_insert = self.ENTRY_FOR_TEST
@@ -51,7 +80,7 @@ class TestTableSpecWithDB:
         with db_conn as _conn:
             _conn.execute(table_insert_stmt, _to_insert.table_dump_asdict())
 
-    def test_lookup_entry(self, db_conn: sqlite3.Connection):
+    def test_lookup_entry(self, db_conn: sqlite3.Connection, prepare_test_entry):
         _to_lookup = self.ENTRY_FOR_TEST
         table_select_stmt = SimpleTableForTest.table_select_stmt(
             select_from=TBL_NAME, select_cols="rowid, *", where_cols=("id",)
