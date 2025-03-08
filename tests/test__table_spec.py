@@ -6,9 +6,15 @@ from collections.abc import Mapping
 from typing import Any, Iterable, Optional, TypedDict
 
 import pytest
+from pydantic import PlainSerializer, PlainValidator
 from typing_extensions import Annotated
 
-from simple_sqlite3_orm import ConstrainRepr, CreateTableParams, TableSpec
+from simple_sqlite3_orm import (
+    ConstrainRepr,
+    CreateTableParams,
+    TableSpec,
+    TypeAffinityRepr,
+)
 from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
 
 
@@ -24,16 +30,23 @@ class SimpleTableForTest(TableSpec):
     ]
 
     extra: Optional[float] = None
+    int_str: Annotated[
+        int,
+        TypeAffinityRepr(str),
+        PlainSerializer(lambda x: str(x)),
+        PlainValidator(lambda x: int(x)),
+    ] = 0
 
 
 class SimpleTableForTestCols(TypedDict, total=False):
     id: int
     id_str: str
     extra: float
+    int_str: int
 
 
 TBL_NAME = "test_table"
-ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123)
+ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123, int_str=987)
 
 
 @pytest.mark.parametrize(
@@ -318,3 +331,14 @@ def test_table_dump_astuple(
     _in: SimpleTableForTest, _cols: tuple[str, ...], _expected: tuple[Any, ...]
 ):
     assert _in.table_dump_astuple(*_cols) == _expected
+
+
+@pytest.mark.parametrize(
+    "_in, _expected",
+    (
+        (SimpleTableForTestCols(int_str=123), {"int_str": "123"}),
+        (SimpleTableForTestCols(id=456, int_str=789), {"id": 456, "int_str": "789"}),
+    ),
+)
+def test_serializing_mapping(_in: Mapping[str, Any], _expected: Mapping[str, Any]):
+    assert SimpleTableForTest.table_serialize_mapping(_in) == _expected
