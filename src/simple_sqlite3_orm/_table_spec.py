@@ -746,7 +746,7 @@ class TableSpec(BaseModel):
             the serialization will be done by the APIs, no need to call this method when using ORM.
         """
         _inst = cls.model_construct(**_in)
-        return _inst.model_dump()
+        return _inst.model_dump(exclude_unset=True)
 
     @classmethod
     def table_deserialize_asdict_row_factory(
