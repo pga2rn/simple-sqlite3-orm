@@ -60,7 +60,7 @@ class TableSpec(BaseModel):
             return where_stmt
         if where_cols:
             cls.table_check_cols(where_cols)
-            _conditions = (f"{_col}=:{_col}" for _col in where_cols)
+            _conditions = (f"{_col} = :{_col}" for _col in where_cols)
             _where_cols_stmt = " AND ".join(_conditions)
             return f"WHERE {_where_cols_stmt}"
         return ""
@@ -439,11 +439,13 @@ class TableSpec(BaseModel):
         else:
             _gen_or_option_stmt = ""
 
-        gen_update_stmt = f"UPDATE {_gen_or_option_stmt} {update_target}"
+        gen_update_stmt = gen_sql_stmt(
+            "UPDATE", _gen_or_option_stmt, update_target, end_with=None
+        )
 
         cls.table_check_cols(set_cols)
         _cols_named_placeholder = (f"{_col} = :{_col}" for _col in set_cols)
-        gen_set_stmt = f"SET ({','.join(_cols_named_placeholder)})"
+        gen_set_stmt = f"SET {', '.join(_cols_named_placeholder)}"
 
         gen_where_stmt = cls._generate_where_stmt(where_cols, where_stmt)
         gen_returning_stmt = cls._generate_returning_stmt(
