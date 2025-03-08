@@ -412,24 +412,26 @@ class TableSpec(BaseModel):
         Check https://www.sqlite.org/lang_update.html for more details.
 
         NOTE that UPDATE-FROM extension is currently not supported by this method.
+        NOTE that UPDATE-WITH-LIMIT is an optional feature, needs to be enabled at compiled time with
+            SQLITE_ENABLE_UPDATE_DELETE_LIMIT.
 
         Args:
             or_option (INSERT_OR | None, optional): The fallback operation if update failed. Defaults to None.
-            update_target (str): The name of table insert into.
+            update_target (str): The name of table to update.
             set_cols (tuple[str, ...]): The cols to be updated.
             where_cols (tuple[str, ...] | None, optional): A list of cols to be compared in where
                 statement. Defaults to None.
             where_stmt (str | None, optional): The full where statement string, this
                 precedes the <where_cols> param if set. Defaults to None.
-            returning_cols (tuple[str, ...] | Literal["*"] | None): Which cols are included in the returned entries.
-                Defaults to None.
+            returning_cols (tuple[str, ...] | Literal["*"] | None): If specified, enable RETURNING stmt, and specifying Which cols
+                included in the returned entries. Defaults to None.
             returning_stmt (str | None, optional): The full returning statement string, this
                 precedes the <returning_cols> param. Defaults to None.
             order_by (Iterable[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
-                A list of cols for ordering result. Defaults to None.
+                Works with LIMIT, to specify the range that LIMIT affects. Defaults to None.
             order_by_stmt (str | None, optional): The order_by statement string, this
                 precedes the <order_by> param if set. Defaults to None.
-            limit (int | None, optional): Limit the number of result entries. Defaults to None.
+            limit (int | None, optional): Limit the number of affected entries. Defaults to None.
 
         Returns:
             str: The generated update sqlite3 query.
