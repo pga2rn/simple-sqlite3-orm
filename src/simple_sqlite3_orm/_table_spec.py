@@ -363,11 +363,11 @@ class TableSpec(BaseModel):
             str: The generated insert statement.
         """
         if or_option:
-            gen_or_option_stmt = f"OR {or_option.upper()}"
+            _gen_or_option_stmt = f"OR {or_option.upper()}"
         else:
-            gen_or_option_stmt = ""
+            _gen_or_option_stmt = ""
 
-        gen_insert_stmt = f"INSERT {gen_or_option_stmt} INTO {insert_into}"
+        gen_insert_stmt = f"INSERT {_gen_or_option_stmt} INTO {insert_into}"
 
         if insert_default:
             gen_insert_value_stmt = "DEFAULT VALUES"
@@ -388,6 +388,77 @@ class TableSpec(BaseModel):
             gen_insert_stmt,
             gen_insert_value_stmt,
             gen_returning_stmt,
+        )
+        return res
+
+    @classmethod
+    @lru_cache
+    def table_update_stmt(
+        cls,
+        *,
+        or_option: INSERT_OR | None = None,
+        update_target: str,
+        set_cols: tuple[str, ...],
+        where_cols: tuple[str, ...] | None = None,
+        where_stmt: str | None = None,
+        returning_cols: tuple[str, ...] | Literal["*"] | None = None,
+        returning_stmt: str | None = None,
+        order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
+        order_by_stmt: str | None = None,
+        limit: int | None = None,
+    ) -> str:
+        """Get sql query for updating row(s) at <table_name>.
+
+        Check https://www.sqlite.org/lang_update.html for more details.
+
+        NOTE that UPDATE-FROM extension is currently not supported by this method.
+
+        Args:
+            or_option (INSERT_OR | None, optional): The fallback operation if update failed. Defaults to None.
+            update_target (str): The name of table insert into.
+            set_cols (tuple[str, ...]): The cols to be updated.
+            where_cols (tuple[str, ...] | None, optional): A list of cols to be compared in where
+                statement. Defaults to None.
+            where_stmt (str | None, optional): The full where statement string, this
+                precedes the <where_cols> param if set. Defaults to None.
+            returning_cols (tuple[str, ...] | Literal["*"] | None): Which cols are included in the returned entries.
+                Defaults to None.
+            returning_stmt (str | None, optional): The full returning statement string, this
+                precedes the <returning_cols> param. Defaults to None.
+            order_by (Iterable[str  |  tuple[str, ORDER_DIRECTION], ...] | None, optional):
+                A list of cols for ordering result. Defaults to None.
+            order_by_stmt (str | None, optional): The order_by statement string, this
+                precedes the <order_by> param if set. Defaults to None.
+            limit (int | None, optional): Limit the number of result entries. Defaults to None.
+
+        Returns:
+            str: The generated update sqlite3 query.
+        """
+        if or_option:
+            _gen_or_option_stmt = f"OR {or_option.upper()}"
+        else:
+            _gen_or_option_stmt = ""
+
+        gen_update_stmt = f"UPDATE {_gen_or_option_stmt} INTO {update_target}"
+
+        cls.table_check_cols(set_cols)
+        _cols_named_placeholder = (f"{_col} = :{_col}" for _col in set_cols)
+        gen_set_stmt = f"SET ({','.join(_cols_named_placeholder)})"
+
+        gen_where_stmt = cls._generate_where_stmt(where_cols, where_stmt)
+        gen_returning_stmt = cls._generate_returning_stmt(
+            returning_cols, returning_stmt
+        )
+        gen_order_by_stmt = cls._generate_order_by_stmt(order_by, order_by_stmt)
+        gen_limit_stmt = f"LIMIT {limit}" if limit is not None else ""
+
+        res = gen_sql_stmt(
+            gen_update_stmt,
+            gen_set_stmt,
+            gen_where_stmt,
+            gen_returning_stmt,
+            gen_order_by_stmt,
+            gen_limit_stmt,
         )
         return res
 
