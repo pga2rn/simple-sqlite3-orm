@@ -391,6 +391,8 @@ class TableSpec(BaseModel):
         )
         return res
 
+    _table_update_where_cols_prefix = "__table_spec_"
+
     @classmethod
     @lru_cache
     def table_update_stmt(
@@ -410,6 +412,11 @@ class TableSpec(BaseModel):
         """Get sql query for updating row(s) at <table_name>.
 
         Check https://www.sqlite.org/lang_update.html for more details.
+
+        NOTE: to avoid overlapping between <set_cols> and <where_cols>, this method
+            will prefix cols name with <_table_spec_update_where_cols_prefix> when generating
+            WHERE statement.
+            To directly use the stmt generated from this API when where
 
         NOTE that UPDATE-FROM extension is currently not supported by this method.
         NOTE that UPDATE-WITH-LIMIT is an optional feature, needs to be enabled at compiled time with
@@ -449,7 +456,19 @@ class TableSpec(BaseModel):
         _cols_named_placeholder = (f"{_col} = :{_col}" for _col in set_cols)
         gen_set_stmt = f"SET {', '.join(_cols_named_placeholder)}"
 
-        gen_where_stmt = cls._generate_where_stmt(where_cols, where_stmt)
+        if where_cols and not where_stmt:
+            _condition = (
+                f"{_col} = :{cls._table_update_where_cols_prefix}{_col}"
+                for _col in where_cols
+            )
+            gen_where_stmt = gen_sql_stmt(
+                "WHERE", " AND ".join(_condition), end_with=None
+            )
+        elif where_stmt:
+            gen_where_stmt = where_stmt
+        else:
+            gen_where_stmt = ""
+
         gen_returning_stmt = cls._generate_returning_stmt(
             returning_cols, returning_stmt
         )
@@ -465,6 +484,18 @@ class TableSpec(BaseModel):
             gen_limit_stmt,
         )
         return res
+
+    def table_preprare_update_where_cols(
+        self, where_cols: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        """Regulate the <where_cols> so that it will not overlap with <set_cols>.
+
+        This is MUST for directly using the sqlite query stmt generated from table_update_stmt.
+        """
+        return {
+            f"{self._table_update_where_cols_prefix}{k}": v
+            for k, v in where_cols.items()
+        }
 
     @classmethod
     @lru_cache
