@@ -789,6 +789,7 @@ class TableSpec(BaseModel):
                 raise ValueError(
                     f"failed to deserialize col {k} with value {v}: {e!r}"
                 ) from e
+        # NOTE: model's __dict__ will contain unset fields that have default values.
         return {k: v for k, v in _empty_inst.__dict__.items() if k in _to_be_processed}
 
 
