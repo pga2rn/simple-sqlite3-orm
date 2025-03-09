@@ -767,22 +767,38 @@ class TableSpec(BaseModel):
         cls,
         _cursor: sqlite3.Cursor,
         _row: tuple[Any, ...] | Any,
+        *,
+        allow_unknown_cols: bool = True,
     ) -> dict[str, Any]:
         """Deserialize raw row from a query into a dict by this TableSpec, ready for application use.
 
         This is a convenient method when we execute query that only select some cols.
         For this use case, use thid method as row_factory to deserialize the raw row. This method
             will deserialize the row from raw into actual field types defined in this TableSpec.
+
+        Args:
+            allow_unknown_cols (bool, optional): If True, unknown cols will be preserved AS IT into the result.
+                Defaults to True.
+
+        Raises:
+            ValueError if `allow_unknown_cols` is False and unknown cols presented, or pydantic validation failed.
+
+        Returns:
+            A dict of deserialized(except unknown cols) col/value pairs.
         """
         _fields = [col[0] for col in _cursor.description]
-        _to_be_processed = {
-            k: v for k, v in zip(_fields, _row) if k in cls.table_columns
-        }
+        _to_be_processed = dict(zip(_fields, _row))
 
         # See https://github.com/pydantic/pydantic/discussions/7367
         _assignment_validator = cls.__pydantic_validator__.validate_assignment
         _empty_inst = cls.model_construct()
         for k, v in _to_be_processed.items():
+            if k not in cls.table_columns:
+                if not allow_unknown_cols:
+                    raise ValueError(f"unknown col {k}")
+                _empty_inst.__dict__["k"] = v
+                continue
+
             try:
                 _assignment_validator(_empty_inst, k, v)
             except Exception as e:
