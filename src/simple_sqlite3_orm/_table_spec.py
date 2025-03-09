@@ -796,7 +796,7 @@ class TableSpec(BaseModel):
             if k not in cls.table_columns:
                 if not allow_unknown_cols:
                     raise ValueError(f"unknown col {k}")
-                _empty_inst.__dict__["k"] = v
+                _empty_inst.__dict__[k] = v
                 continue
 
             try:
