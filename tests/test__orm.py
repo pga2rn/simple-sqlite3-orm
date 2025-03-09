@@ -44,6 +44,8 @@ def enable_debug_logging(caplog: pytest.LogCaptureFixture):
 
 
 class TestORMBase:
+    """A quick test for testing functionality of ORM base."""
+
     @pytest.fixture(scope="class")
     def setup_connection(self):
         with sqlite3.connect(":memory:") as conn:
@@ -74,16 +76,16 @@ class TestORMBase:
 
     def test_create_index(self, setup_connection: SimpleTableORM):
         setup_connection.orm_create_index(
-            index_name="idx_prim_key_sha256hash",
-            index_keys=("prim_key_sha256hash",),
+            index_name="id_str_index",
+            index_keys=("id_str",),
             allow_existed=True,
             unique=True,
         )
 
         with pytest.raises(sqlite3.DatabaseError):
             setup_connection.orm_create_index(
-                index_name="idx_prim_key_sha256hash",
-                index_keys=("prim_key_sha256hash",),
+                index_name="id_str_index",
+                index_keys=("id_str",),
                 allow_existed=False,
             )
 
@@ -127,7 +129,7 @@ class TestORMBase:
         select_result = setup_connection.orm_select_entries(
             SimpleTableForTestCols(id=ENTRY_FOR_TEST.id),
             _distinct=True,
-            _order_by=(("key_id", "DESC"),),
+            _order_by=(("id", "DESC"),),
             _limit=1,
         )
         select_result = list(select_result)
@@ -135,7 +137,7 @@ class TestORMBase:
         select_result2 = setup_connection.orm_select_entries(
             **SimpleTableForTestCols(id=ENTRY_FOR_TEST.id),
             _distinct=True,
-            _order_by=(("key_id", "DESC"),),
+            _order_by=(("id", "DESC"),),
             _limit=1,
         )
         select_result2 = list(select_result2)
@@ -193,13 +195,13 @@ class TestORMBase:
             [
                 CreateIndexParams(
                     index_name="test_index",
-                    index_cols=("key_id", "prim_key"),
+                    index_cols=("id_str",),
                     if_not_exists=True,
                     unique=True,
                 ),
                 CreateIndexParams(
                     index_name="test_index2",
-                    index_cols=("prim_key_sha256hash",),
+                    index_cols=("int_str",),
                 ),
             ],
         ),
