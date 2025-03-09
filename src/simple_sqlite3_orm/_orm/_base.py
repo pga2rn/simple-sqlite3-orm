@@ -819,7 +819,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Yields:
             Generator[TableSpecType, None, None]: A generator that can be used to yield entry from result.
         """
-        if batch_size < 0:
+        if batch_size < 0:  # pragma: no cover
             raise ValueError("batch_size must be positive integer")
 
         _stmt = self.orm_table_spec.table_select_stmt(

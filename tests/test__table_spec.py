@@ -3,47 +3,16 @@ from __future__ import annotations
 import contextlib
 import sqlite3
 from collections.abc import Mapping
-from typing import Any, Optional, TypedDict
+from typing import Any
 
 import pytest
-from pydantic import PlainSerializer, PlainValidator
-from typing_extensions import Annotated
 
-from simple_sqlite3_orm import (
-    ConstrainRepr,
-    CreateTableParams,
-    TableSpec,
-    TypeAffinityRepr,
+from simple_sqlite3_orm import CreateTableParams
+from tests.conftest import (
+    SQLITE3_COMPILE_OPTION_FLAGS,
+    SimpleTableForTest,
+    SimpleTableForTestCols,
 )
-from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
-
-
-class SimpleTableForTest(TableSpec):
-    id: Annotated[
-        int,
-        ConstrainRepr("PRIMARY KEY"),
-    ]
-
-    id_str: Annotated[
-        str,
-        ConstrainRepr("NOT NULL"),
-    ]
-
-    extra: Optional[float] = None
-    int_str: Annotated[
-        int,
-        TypeAffinityRepr(str),
-        PlainSerializer(lambda x: str(x)),
-        PlainValidator(lambda x: int(x)),
-    ] = 0
-
-
-class SimpleTableForTestCols(TypedDict, total=False):
-    id: int
-    id_str: str
-    extra: float
-    int_str: int
-
 
 TBL_NAME = "test_table"
 ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123, int_str=987)
