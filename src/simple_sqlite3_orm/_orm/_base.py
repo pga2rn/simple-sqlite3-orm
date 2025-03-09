@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 import warnings
 from functools import cached_property, partial
+from itertools import chain
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -575,7 +576,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
     ) -> int:
         """Insert an iterable of rows represented as mappings into this table.
 
-        Each mapping stores cols with values in application types.
+        Each mapping stores cols with values in application types. Assuming that all entries in
+            this Iterable contains mapping with the same schema.
 
         Args:
             _in (Iterable[Mapping[str, Any]]): An iterable of mappings to insert.
@@ -590,15 +592,26 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             int: Number of inserted entries.
         """
+        try:
+            _first_entry = next(iter(_in))
+        except StopIteration:
+            return 0
+
         _table_spec = self.orm_table_spec
         if not _stmt:
             _stmt = _table_spec.table_insert_stmt(
                 insert_into=self.orm_table_name,
                 or_option=or_option,
+                insert_cols=tuple(_first_entry),
             )
+
         with self._con as con:
             _cur = con.executemany(
-                _stmt, (_table_spec.table_serialize_mapping(entry) for entry in _in)
+                _stmt,
+                (
+                    _table_spec.table_serialize_mapping(entry)
+                    for entry in chain([_first_entry], _in)
+                ),
             )
             return _cur.rowcount
 
@@ -657,7 +670,9 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _table_spec = self.orm_table_spec
         if not _stmt:
             _stmt = _table_spec.table_insert_stmt(
-                insert_into=self.orm_table_name, or_option=or_option
+                insert_into=self.orm_table_name,
+                or_option=or_option,
+                insert_cols=tuple(_in),
             )
 
         with self._con as con:
