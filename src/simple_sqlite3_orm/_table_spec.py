@@ -710,7 +710,7 @@ class TableSpec(BaseModel):
         try:
             _included_cols = set(cols) if cols else None
             return self.model_dump(include=_included_cols, **kwargs)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             raise ValueError(f"failed to dump as dict: {e!r}") from e
 
     def table_asdict(self, *cols: str) -> dict[str, Any]:
@@ -744,7 +744,7 @@ class TableSpec(BaseModel):
         try:
             _included_cols = set(cols) if cols else None
             return tuple(self.model_dump(include=_included_cols, **kwargs).values())
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             raise ValueError(f"failed to dump as tuple: {e!r}") from e
 
     @classmethod
@@ -801,7 +801,7 @@ class TableSpec(BaseModel):
 
             try:
                 _assignment_validator(_empty_inst, k, v)
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 raise ValueError(
                     f"failed to deserialize col {k} with value {v}: {e!r}"
                 ) from e
