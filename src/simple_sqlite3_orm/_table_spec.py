@@ -724,7 +724,7 @@ class TableSpec(BaseModel):
         Returns:
             A dict of col/values from self.
         """
-        _cols_to_look = cols if cols else self.table_columns_by_index
+        _cols_to_look = cols if cols else self.table_columns
         return {k: getattr(self, k) for k in _cols_to_look}
 
     def table_dump_astuple(self, *cols: str, **kwargs) -> tuple[Any, ...]:
