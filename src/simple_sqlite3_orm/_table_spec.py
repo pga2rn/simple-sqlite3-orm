@@ -374,9 +374,9 @@ class TableSpec(BaseModel):
         else:
             if insert_cols:
                 _cols = insert_cols
+                cls.table_check_cols(_cols)
             else:
                 _cols = tuple(cls.table_columns)
-            cls.table_check_cols(_cols)
 
             _cols_named_placeholder = (f":{_col}" for _col in _cols)
             gen_insert_cols_specify_stmt = gen_sql_stmt(
