@@ -370,19 +370,21 @@ class TableSpec(BaseModel):
         gen_insert_stmt = f"INSERT {_gen_or_option_stmt} INTO {insert_into}"
 
         if insert_default:
-            gen_insert_value_stmt = "DEFAULT VALUES"
-        elif insert_cols:
-            cls.table_check_cols(insert_cols)
+            gen_insert_cols_specify_stmt = "DEFAULT VALUES"
+        else:
+            if insert_cols:
+                _cols = insert_cols
+            else:
+                _cols = tuple(cls.table_columns)
+            cls.table_check_cols(_cols)
 
-            _cols_named_placeholder = (f":{_col}" for _col in insert_cols)
-            gen_insert_value_stmt = gen_sql_stmt(
-                f"({','.join(insert_cols)})",
+            _cols_named_placeholder = (f":{_col}" for _col in _cols)
+            gen_insert_cols_specify_stmt = gen_sql_stmt(
+                f"({','.join(_cols)})",
                 "VALUES",
                 f"({','.join(_cols_named_placeholder)})",
+                end_with=None,
             )
-        else:
-            _cols_named_placeholder = (f":{_col}" for _col in cls.table_columns)
-            gen_insert_value_stmt = f"VALUES ({','.join(_cols_named_placeholder)}) "
 
         gen_returning_stmt = cls._generate_returning_stmt(
             returning_cols, returning_stmt
@@ -390,7 +392,7 @@ class TableSpec(BaseModel):
 
         res = gen_sql_stmt(
             gen_insert_stmt,
-            gen_insert_value_stmt,
+            gen_insert_cols_specify_stmt,
             gen_returning_stmt,
         )
         return res
