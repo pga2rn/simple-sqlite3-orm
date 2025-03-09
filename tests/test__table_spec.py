@@ -8,8 +8,10 @@ from typing import Any, Iterable, Optional, TypedDict
 import pytest
 from typing_extensions import Annotated
 
-from simple_sqlite3_orm import ConstrainRepr, CreateTableParams, TableSpec
+from simple_sqlite3_orm import ConstrainRepr, CreateTableParams, TableSpec, utils
 from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
+
+ID_STR_DEFAULT_VALUE = "aabbcc"
 
 
 class SimpleTableForTest(TableSpec):
@@ -20,7 +22,7 @@ class SimpleTableForTest(TableSpec):
 
     id_str: Annotated[
         str,
-        ConstrainRepr("NOT NULL"),
+        ConstrainRepr("NOT NULL", ("DEFAULT", utils.wrap_value(ID_STR_DEFAULT_VALUE))),
     ]
 
     extra: Optional[float] = None
@@ -85,11 +87,55 @@ class TestTableSpecWithDB:
         with db_conn as _conn:
             _conn.execute(table_insert_stmt, _to_insert.table_dump_asdict())
 
-    def test_insert_entry(self, db_conn: sqlite3.Connection):
-        _to_insert = self.ENTRY_FOR_TEST
-        table_insert_stmt = SimpleTableForTest.table_insert_stmt(insert_into=TBL_NAME)
+    @pytest.mark.parametrize(
+        "case, to_insert",
+        (
+            (
+                "insert a complete row",
+                (SimpleTableForTestCols(id=1, id_str="1", extra=0.123)),
+            ),
+            (
+                "insert a partially set row, omit id(rowid alias)",
+                (SimpleTableForTestCols(id_str="1", extra=0.123)),
+            ),
+            (
+                "insert a row with order shuffled",
+                (SimpleTableForTestCols(extra=0.123, id=1, id_str="1")),
+            ),
+        ),
+    )
+    def test_insert_entry(
+        self, case, to_insert: SimpleTableForTestCols, db_conn: sqlite3.Connection
+    ):
+        table_insert_stmt = SimpleTableForTest.table_insert_stmt(
+            insert_into=TBL_NAME, insert_cols=tuple(to_insert)
+        )
         with db_conn as _conn:
-            _conn.execute(table_insert_stmt, _to_insert.table_dump_asdict())
+            _conn.execute(table_insert_stmt, to_insert)
+
+        with db_conn as _conn:
+            _cur = _conn.execute(
+                SimpleTableForTest.table_select_stmt(select_from=TBL_NAME)
+            )
+            _cur.row_factory = SimpleTableForTest.table_row_factory
+
+            _res: SimpleTableForTest = _cur.fetchone()
+            assert all(v == getattr(_res, k) for k, v in to_insert.items())
+
+    def test_insert_default_values(self, db_conn: sqlite3.Connection):
+        table_insert_stmt = SimpleTableForTest.table_insert_stmt(
+            insert_into=TBL_NAME, insert_default=True
+        )
+        with db_conn as _conn:
+            _conn.execute(table_insert_stmt)
+
+        with db_conn as _conn:
+            _cur = _conn.execute(
+                SimpleTableForTest.table_select_stmt(select_from=TBL_NAME)
+            )
+            # for cols with no defautl value defined, NULL will be assigned
+            # for rowid, it will be automatically incremented
+            assert _cur.fetchone() == (1, ID_STR_DEFAULT_VALUE, None)
 
     def test_lookup_entry(self, db_conn: sqlite3.Connection, prepare_test_entry):
         _to_lookup = self.ENTRY_FOR_TEST
