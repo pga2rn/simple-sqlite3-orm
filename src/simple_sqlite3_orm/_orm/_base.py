@@ -453,7 +453,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         with self._con as con:
             _cur = con.execute(_stmt, col_values)
             if _row_factory is not None:
-                _cur.row_factory = _row_factory
+                _cur.row_factory = _row_factory  # type: ignore
             yield from _cur
 
     @overload
@@ -531,20 +531,21 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         with self._con as con:
             _cur = con.execute(_stmt, col_values)
             if _row_factory is not None:
-                _cur.row_factory = _row_factory
+                _cur.row_factory = _row_factory  # type: ignore
             return _cur.fetchone()
 
     def orm_insert_entries(
         self,
-        _in: Iterable[TableSpecType] | Iterable[Mapping[str, Any]],
+        _in: Iterable[TableSpecType],
         *,
         or_option: INSERT_OR | None = None,
         _stmt: str | None = None,
     ) -> int:
-        """Insert entry/entries into this table.
+        """Insert an iterable of rows represented as TableSpec insts into this table.
 
         Args:
-            _in (Iterable[TableSpecType]): A list of entries to insert.
+            _in (Iterable[TableSpecType]): An iterable of rows as TableSpec insts to insert.
+            or_option (INSERT_OR | None, optional): The fallback operation if insert failed. Defaults to None.
             _stmt (str, optional): If provided, all params will be ignored and query statement will not
                 be generated with the params, instead the provided <_stmt> will be used as query statement.
 
@@ -561,23 +562,49 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 insert_into=self.orm_table_name,
                 or_option=or_option,
             )
-
-        def _in_parser():
-            for entry in _in:
-                if isinstance(entry, _table_spec):
-                    yield entry.table_dump_asdict()
-                elif isinstance(entry, Mapping):
-                    yield _table_spec.table_serialize_mapping(entry)
-                else:
-                    raise ValueError(f"unknown input {type(entry)=}")
-
         with self._con as con:
-            _cur = con.executemany(_stmt, _in_parser())
+            _cur = con.executemany(_stmt, (entry.table_dump_asdict() for entry in _in))
+            return _cur.rowcount
+
+    def orm_insert_mappings(
+        self,
+        _in: Iterable[Mapping[str, Any]],
+        *,
+        or_option: INSERT_OR | None = None,
+        _stmt: str | None = None,
+    ) -> int:
+        """Insert an iterable of rows represented as mappings into this table.
+
+        Each mapping stores cols with values in application types.
+
+        Args:
+            _in (Iterable[Mapping[str, Any]]): An iterable of mappings to insert.
+            or_option (INSERT_OR | None, optional): The fallback operation if insert failed. Defaults to None.
+            _stmt (str, optional): If provided, all params will be ignored and query statement will not
+                be generated with the params, instead the provided <_stmt> will be used as query statement.
+
+        Raises:
+            ValueError: On invalid types of _in.
+            sqlite3.DatabaseError: On failed sql execution.
+
+        Returns:
+            int: Number of inserted entries.
+        """
+        _table_spec = self.orm_table_spec
+        if not _stmt:
+            _stmt = _table_spec.table_insert_stmt(
+                insert_into=self.orm_table_name,
+                or_option=or_option,
+            )
+        with self._con as con:
+            _cur = con.executemany(
+                _stmt, (_table_spec.table_serialize_mapping(entry) for entry in _in)
+            )
             return _cur.rowcount
 
     def orm_insert_entry(
         self,
-        _in: TableSpecType | Mapping[str, Any],
+        _in: TableSpecType,
         *,
         or_option: INSERT_OR | None = None,
         _stmt: str | None = None,
@@ -599,19 +626,42 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _table_spec = self.orm_table_spec
         if not _stmt:
             _stmt = _table_spec.table_insert_stmt(
-                insert_into=self.orm_table_name,
-                or_option=or_option,
+                insert_into=self.orm_table_name, or_option=or_option
             )
 
-        if isinstance(_in, _table_spec):
-            param = _in.table_dump_asdict()
-        elif isinstance(_in, Mapping):
-            param = _table_spec.table_serialize_mapping(_in)
-        else:
-            raise ValueError(f"unknown input {type(_in)=}")
+        with self._con as con:
+            _cur = con.execute(_stmt, _in.table_dump_asdict())
+            return _cur.rowcount
+
+    def orm_insert_mapping(
+        self,
+        _in: Mapping[str, Any],
+        *,
+        or_option: INSERT_OR | None = None,
+        _stmt: str | None = None,
+    ) -> int:
+        """Insert exactly one entry(represented as a mapping) into this table.
+
+        Args:
+            _in (TableSpecType): The instance of entry to insert.
+            _stmt (str, optional): If provided, all params will be ignored and query statement will not
+                be generated with the params, instead the provided <_stmt> will be used as query statement.
+
+        Raises:
+            ValueError: On invalid types of _in.
+            sqlite3.DatabaseError: On failed sql execution.
+
+        Returns:
+            int: Number of inserted entries. In normal case it should be 1.
+        """
+        _table_spec = self.orm_table_spec
+        if not _stmt:
+            _stmt = _table_spec.table_insert_stmt(
+                insert_into=self.orm_table_name, or_option=or_option
+            )
 
         with self._con as con:
-            _cur = con.execute(_stmt, param)
+            _cur = con.execute(_stmt, _table_spec.table_serialize_mapping(_in))
             return _cur.rowcount
 
     def orm_delete_entries(
@@ -732,7 +782,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             with self._con as con:
                 _cur = con.execute(_stmt, col_values)
                 if _row_factory is not None:
-                    _cur.row_factory = _row_factory
+                    _cur.row_factory = _row_factory  # type: ignore
                 yield from _cur
 
         return _gen()
