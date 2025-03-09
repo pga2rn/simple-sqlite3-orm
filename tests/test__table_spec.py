@@ -260,14 +260,15 @@ class TestTableSpecWithDB:
         self, db_conn: sqlite3.Connection, prepare_test_entry
     ):
         _stmt = SimpleTableForTest.table_select_stmt(
-            select_from=TBL_NAME, select_cols=("int_str",)
+            select_from=TBL_NAME,
+            select_cols="int_str, count(*) AS count",
         )
         with db_conn as conn:
             _cur = conn.execute(_stmt, SimpleTableForTestCols(id=ENTRY_FOR_TEST.id))
             _cur.row_factory = SimpleTableForTest.table_deserialize_asdict_row_factory
 
             _res: SimpleTableForTestCols = _cur.fetchone()
-            assert _res.get("int_str") == ENTRY_FOR_TEST.table_asdict().get("int_str")
+            assert _res == {"int_str": ENTRY_FOR_TEST.int_str, "count": 1}
 
 
 @pytest.mark.parametrize(
