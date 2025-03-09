@@ -592,8 +592,9 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Returns:
             int: Number of inserted entries.
         """
+        _in_iter = iter(_in)
         try:
-            _first_entry = next(iter(_in))
+            _first_entry = next(_in_iter)
         except StopIteration:
             return 0
 
@@ -610,7 +611,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 _stmt,
                 (
                     _table_spec.table_serialize_mapping(entry)
-                    for entry in chain([_first_entry], _in)
+                    for entry in chain([_first_entry], _in_iter)
                 ),
             )
             return _cur.rowcount
