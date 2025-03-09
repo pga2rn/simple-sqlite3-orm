@@ -160,6 +160,20 @@ class TestORMBase:
 
 
 @pytest.mark.parametrize(
+    "opts",
+    (
+        ({"allow_existed": True, "without_rowid": True}),
+        ({"without_rowid": False}),
+        ({"_stmt": SimpleTableForTest.table_create_stmt(table_name=TBL_NAME)}),
+    ),
+)
+def test_create_table(opts):
+    with contextlib.closing(sqlite3.connect(":memory:")) as conn:
+        orm_inst = SimpleTableORM(conn)
+        orm_inst.orm_create_table(**opts)
+
+
+@pytest.mark.parametrize(
     "table_name, create_table_params, create_indexes_params",
     (
         (
