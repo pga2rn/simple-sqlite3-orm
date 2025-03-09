@@ -375,7 +375,11 @@ class TableSpec(BaseModel):
             cls.table_check_cols(insert_cols)
 
             _cols_named_placeholder = (f":{_col}" for _col in insert_cols)
-            gen_insert_value_stmt = f"VALUES ({','.join(_cols_named_placeholder)})"
+            gen_insert_value_stmt = gen_sql_stmt(
+                f"({','.join(insert_cols)})",
+                "VALUES",
+                f"({','.join(_cols_named_placeholder)})",
+            )
         else:
             _cols_named_placeholder = (f":{_col}" for _col in cls.table_columns)
             gen_insert_value_stmt = f"VALUES ({','.join(_cols_named_placeholder)}) "
