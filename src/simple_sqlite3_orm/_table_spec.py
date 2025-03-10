@@ -765,6 +765,8 @@ class TableSpec(BaseModel):
         NOTE that for APIs provided by simple_sqlite3_orm, when col/value pairs are provided as mapping,
             the serialization will be done by the APIs, no need to call this method when using ORM.
         """
+        if not _in:
+            return {}
         _inst = cls.model_construct(**_in)
         return _inst.model_dump(exclude_unset=True)
 
