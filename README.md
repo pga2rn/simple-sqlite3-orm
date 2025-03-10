@@ -20,13 +20,13 @@ It targets basic CRUD operations and does it well, while also opened to complica
 
 ## Natively supported Python types
 
-Besides the Python types that sqlite3 directly supported,`simple-sqlite3-orm` also adds direct support to the following python types:
+Besides the sqlite3 natively supported python types,`simple-sqlite3-orm` also adds direct support to the following python types:
 
 - Enums types: `IntEnum` and `StrEnum`.
 - Literal types: str Literal and int Literal.
 - Supported types that wrapped within Optional(like `Optional[str]`).
 
-`simple-sqlite3-orm` also provides the following types for datetime support:
+`simple-sqlite3-orm` also datetime support with the following types:
 
 - `DatetimeUnixTimestamp`: will be serialized and stored as REAL in database.
 - `DatetimeUnixTimestampInt`: will be serialized and stored as INTEGER in database.
@@ -51,23 +51,13 @@ For a more complicated example, see[sample_db](tests/sample_db).
 
 `simple-sqlite3-orm` provides `TableSpec` as base for you to define table.
 
-`TableSpec` subclasses pydantic's `BaseModel`, so you can follow your experience of using pydantic to define your table with ease.
-With pydantic's powerful validation/serialization feature, you can also simply define custom type that mapping to sqlite3's data type following pydantic way.
+`TableSpec` subclasses pydantic's `BaseModel`, so you can follow your experience of using pydantic to define your table as code.
+
+Also, it is recommended to define a `TypedDict` for your table. All CRUD ORM APIs support taking mappings as params, you can utilize the TypedDict for using these APIS with type hint.
 
 ```python
 from typing import TypedDict, Literal
 from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr
-
-# It is recommended to define a TypedDict for using the select and delete related APIs.
-#   Due to the limitation of Python typing system, currently there is no way to
-#   use the defined TableSpec(pydantic model) to type hint the kwargs.
-# See the following sections of select and delete db operations for more details.
-class MyTableCols(TypedDict, total=False):
-    # no need to copy and paste the full type annotations from the actual TableSpec, only the actual type is needed
-    entry_id: int
-    entry_type: Literal["A", "B", "C"]
-    entry_token: bytes
-    special_attrs: SpecialAttrsType
 
 class MyTable(TableSpec):
     entry_id: Annotated[int, ConstrainRepr("PRIMARY KEY")]
@@ -80,6 +70,14 @@ class MyTable(TableSpec):
     # A custom type that defines validator/serializer in pydantic way,
     #   this custom type is serialized into bytes and stored as BLOB in database.
     special_attrs: Annotated[SpecialAttrsType, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL")]
+
+class MyTableCols(TypedDict, total=False):
+    # no need to copy and paste the full type annotations from the actual TableSpec,
+    #   only the actual type is needed
+    entry_id: int
+    entry_type: Literal["A", "B", "C"]
+    entry_token: bytes
+    special_attrs: SpecialAttrsType
 ```
 
 ### Define your database as code
@@ -87,8 +85,7 @@ class MyTable(TableSpec):
 After the table definition is ready, you can further define ORM types.
 
 `simple-sqlite3-orm` provides `ORMBase` for you to define the ORM with table you defined previously.
-`ORMBase` supports defining database as code(table_name, table create configuration, indexes) for deterministically bootstrapping new empty database file.
-You can do it as follow:
+`ORMBase` supports defining database as code with specifying table_name, table create configuration and indexes for deterministically bootstrapping new empty database file.
 
 ```python
 from simple_sqlite3_orm import CreateIndexParams, CreateTableParams, ORMBase
@@ -117,37 +114,56 @@ orm.orm_bootstrap_db()
 
 Alternatively, you can also use `orm_create_table` and `orm_create_index` separately to bootstrap a new database.
 
-### Insert entries into database
+### Insert rows
 
-You can use `orm_insert_entry` to insert exactly one entry:
+You can use `orm_insert_entry` or `orm_insert_mapping` to insert exactly one entry:
 
 ```python
 entry_to_insert: MyTable
+mapping_to_insert: MyTableCols
+
+# insert a row by MyTable instance
 orm.orm_insert_entry(entry_to_insert)
+
+# insert a row by mapping as MyTableCols TypedDict
+#   with a mapping, you can insert partially set row and let DB engine fill
+#   the unprovided cols with DEFAULT value or NULL.
+orm.orm_insert_mapping(mapping_to_insert)
 ```
 
 Or you can insert a a bunch of entries by an Iterable that yields entries:
 
 ```python
 entries_to_insert: Iterable[MyTable]
+mappings_to_insert: Iterable[MyTableCols]
+
 inserted_entries_count = orm.orm_insert_entries(entries_to_insert)
+inserted_entries_count = orm.orm_insert_mappings(mappings_to_insert)
 ```
 
-### Select entries from database
+### Select rows
 
 You can select entries by matching column(s) from database:
 
 ```python
-res_gen: Generator[MyTable] = orm.orm_select_entries(entry_type="A", entry_token=b"abcdef")
-
-# or using the defined TypedDict:
 res_gen: Generator[MyTable] = orm.orm_select_entries(MyTableCols(entry_type="A", entry_token=b"abcdef"))
 
 for entry in res_gen:
     ...
 ```
 
-### Delete entries from database
+### Update rows
+
+You can update specific rows by matching column(s):
+
+```python
+orm.orm_update_entries(
+    set_values=MyTableCols(entry_token="ccddee123", entry_type="C"),
+    where_cols_value=MyTableCols(entry_id=123),
+)
+```
+
+### Delete rows
 
 Like select operation, you can detele entries by matching column(s):
 
