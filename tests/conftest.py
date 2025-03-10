@@ -54,7 +54,7 @@ class SimpleTableForTest(TableSpec):
 class SimpleTableForTestCols(TypedDict, total=False):
     id: int
     id_str: str
-    extra: float
+    extra: Optional[float]
     int_str: int
 
 

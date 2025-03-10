@@ -15,6 +15,7 @@ from simple_sqlite3_orm import (
 )
 from simple_sqlite3_orm._orm._base import DO_NOT_CHANGE_ROW_FACTORY
 from tests.conftest import (
+    ID_STR_DEFAULT_VALUE,
     SELECT_ALL_BATCH_SIZE,
     SimpleTableForTest,
     SimpleTableForTestCols,
@@ -108,6 +109,50 @@ class TestORMBase:
             **SimpleTableForTestCols(id=ENTRY_FOR_TEST.id)
         )
         assert ENTRY_FOR_TEST == _selected_row == _selected_row2
+
+    @pytest.mark.parametrize(
+        "row_as_mapping, expected",
+        (
+            (
+                SimpleTableForTestCols(id=123, int_str=123, id_str="123"),
+                SimpleTableForTestCols(id=123, int_str=123, id_str="123", extra=None),
+            ),
+            (
+                SimpleTableForTestCols(int_str=123, id_str="456", extra=1.23),
+                SimpleTableForTestCols(int_str=123, id_str="456", extra=1.23, id=1),
+            ),
+            (
+                SimpleTableForTestCols(int_str=123),
+                SimpleTableForTestCols(
+                    int_str=123, id=1, id_str=ID_STR_DEFAULT_VALUE, extra=None
+                ),
+            ),
+        ),
+    )
+    def test_insert_mapping(self, row_as_mapping, expected, orm_inst: SimpleTableORM):
+        orm_inst.orm_insert_mapping(row_as_mapping)
+        assert orm_inst.orm_select_entry(row_as_mapping).table_asdict() == expected
+
+    @pytest.mark.parametrize(
+        "row_as_mappings",
+        (
+            (
+                [
+                    SimpleTableForTestCols(id_str=str(i), int_str=i, extra=0.123)
+                    for i in range(123)
+                ]
+            ),
+            ([]),
+        ),
+    )
+    def test_insert_mappings(self, row_as_mappings, orm_inst: SimpleTableORM):
+        assert len(row_as_mappings) == orm_inst.orm_insert_mappings(row_as_mappings)
+
+        for row_as_mapping in row_as_mappings:
+            assert (
+                orm_inst.orm_select_entry(row_as_mapping).table_asdict(*row_as_mapping)
+                == row_as_mapping
+            )
 
     def test_select_entries(self, orm_inst: SimpleTableORM, prepare_test_entry):
         select_result = orm_inst.orm_select_entries(
