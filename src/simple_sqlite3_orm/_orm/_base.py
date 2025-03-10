@@ -723,12 +723,12 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             if where_stmt:
                 _extra_params = dict(where_stmt=where_stmt)
             elif where_cols_value:
+                _extra_params = dict(where_cols=tuple(where_cols_value))
                 _serialized_where_col_values = (
                     _table_spec.table_preprare_update_where_cols(
                         _table_spec.table_serialize_mapping(where_cols_value)
                     )
                 )
-                _extra_params = dict(where_cols=tuple(_serialized_where_col_values))
 
             _stmt = _table_spec.table_update_stmt(
                 or_option=or_option,
