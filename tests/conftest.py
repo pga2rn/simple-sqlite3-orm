@@ -28,7 +28,7 @@ random.seed(0)
 
 # simple table for test
 
-ID_STR_DEFAULT_VALUE = 9800
+ID_STR_DEFAULT_VALUE = "9800"
 
 
 class SimpleTableForTest(TableSpec):

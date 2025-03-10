@@ -73,15 +73,15 @@ class TestTableSpecWithDB:
         (
             (
                 "insert a complete row",
-                (SimpleTableForTestCols(id=1, id_str="1", extra=0.123)),
+                (SimpleTableForTestCols(int_str=987, id=1, id_str="1", extra=0.123)),
             ),
             (
                 "insert a partially set row, omit id(rowid alias)",
-                (SimpleTableForTestCols(id_str="1", extra=0.123)),
+                (SimpleTableForTestCols(id_str="1", int_str=987, extra=0.123)),
             ),
             (
                 "insert a row with order shuffled",
-                (SimpleTableForTestCols(extra=0.123, id=1, id_str="1")),
+                (SimpleTableForTestCols(int_str=987, extra=0.123, id=1, id_str="1")),
             ),
         ),
     )
@@ -116,7 +116,7 @@ class TestTableSpecWithDB:
             )
             # for cols with no defautl value defined, NULL will be assigned
             # for rowid, it will be automatically incremented
-            assert _cur.fetchone() == (1, ID_STR_DEFAULT_VALUE, None)
+            assert _cur.fetchone() == (1, ID_STR_DEFAULT_VALUE, None, None)
 
     def test_lookup_entry(self, db_conn: sqlite3.Connection, prepare_test_entry):
         _to_lookup = self.ENTRY_FOR_TEST
