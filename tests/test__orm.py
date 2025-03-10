@@ -214,7 +214,7 @@ class TestORMBase:
             ),
             (
                 SimpleTableForTestCols(id_str="123", extra=None, int_str=789, id=567),
-                SimpleTableForTestCols(id_str="123", extra=0.123, int_str=789, id=1),
+                SimpleTableForTest(id_str="123", extra=0.123, int_str=789, id=1),
                 SimpleTableForTestCols(id=567),
                 SimpleTableForTestCols(id=1, id_str="123", extra=0.123, int_str=789),
             ),
