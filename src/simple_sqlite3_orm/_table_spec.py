@@ -10,7 +10,7 @@ from pydantic.fields import FieldInfo
 from typing_extensions import NotRequired, Self
 
 from simple_sqlite3_orm._sqlite_spec import (
-    INSERT_OR,
+    OR_OPTIONS,
     ORDER_DIRECTION,
     SQLiteBuiltInFuncs,
 )
@@ -339,7 +339,7 @@ class TableSpec(BaseModel):
         insert_into: str,
         insert_cols: tuple[str, ...] | None = None,
         insert_default: bool = False,
-        or_option: INSERT_OR | None = None,
+        or_option: OR_OPTIONS | None = None,
         returning_cols: tuple[str, ...] | Literal["*"] | None = None,
         returning_stmt: str | None = None,
     ) -> str:
@@ -406,7 +406,7 @@ class TableSpec(BaseModel):
     def table_update_stmt(
         cls,
         *,
-        or_option: INSERT_OR | None = None,
+        or_option: OR_OPTIONS | None = None,
         update_target: str,
         set_cols: tuple[str, ...],
         where_cols: tuple[str, ...] | None = None,
@@ -498,7 +498,7 @@ class TableSpec(BaseModel):
     def table_preprare_update_where_cols(
         cls, where_cols: Mapping[str, Any]
     ) -> Mapping[str, Any]:
-        """Regulate the <where_cols> so that it will not overlap with <set_cols>.
+        """Regulate the named-placeholder <where_cols> so that it will not overlap with <set_cols>.
 
         This is MUST for directly using the sqlite query stmt generated from table_update_stmt.
         """

@@ -21,7 +21,7 @@ from typing import (
 from typing_extensions import ParamSpec, Self
 
 from simple_sqlite3_orm._orm._utils import parameterized_class_getitem
-from simple_sqlite3_orm._sqlite_spec import INSERT_OR
+from simple_sqlite3_orm._sqlite_spec import OR_OPTIONS
 from simple_sqlite3_orm._table_spec import (
     CreateIndexParams,
     CreateTableParams,
@@ -539,7 +539,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         self,
         _in: Iterable[TableSpecType],
         *,
-        or_option: INSERT_OR | None = None,
+        or_option: OR_OPTIONS | None = None,
         _stmt: str | None = None,
     ) -> int:
         """Insert an iterable of rows represented as TableSpec insts into this table.
@@ -571,7 +571,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         self,
         _in: Iterable[Mapping[str, Any]],
         *,
-        or_option: INSERT_OR | None = None,
+        or_option: OR_OPTIONS | None = None,
         _stmt: str | None = None,
     ) -> int:
         """Insert an iterable of rows represented as mappings into this table.
@@ -620,7 +620,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         self,
         _in: TableSpecType,
         *,
-        or_option: INSERT_OR | None = None,
+        or_option: OR_OPTIONS | None = None,
         _stmt: str | None = None,
     ) -> int:
         """Insert exactly one entry into this table.
@@ -651,7 +651,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         self,
         _in: Mapping[str, Any],
         *,
-        or_option: INSERT_OR | None = None,
+        or_option: OR_OPTIONS | None = None,
         _stmt: str | None = None,
     ) -> int:
         """Insert exactly one entry(represented as a mapping) into this table.
@@ -678,6 +678,75 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
         with self._con as con:
             _cur = con.execute(_stmt, _table_spec.table_serialize_mapping(_in))
+            return _cur.rowcount
+
+    def orm_update_entries(
+        self,
+        *,
+        set_values: Mapping[str, Any] | TableSpec,
+        where_cols_value: Mapping[str, Any] | None = None,
+        where_stmt: str | None = None,
+        or_option: OR_OPTIONS | None = None,
+        _extra_params: Mapping[str, Any] | None = None,
+        _stmt: str | None = None,
+    ) -> int:
+        """UPDATE specific entries by matching <where_cols_value>.
+
+        NOTE: currently UPDATE-WITH-LIMIT and RETURNING are not supported by this method.
+
+        Args:
+            set_values (Mapping[str, Any] | TableSpec): values to update.
+            where_cols_value (Mapping[str, Any], optional): cols to matching. This method will
+                also generate WHERE statement of matching each cols specified in this mapping.
+            where_stmt (str | None, optional): directly provide WHERE statement. If provided,
+                <where_cols_value> will only be used as params.
+            or_option (OR_OPTIONS | None, optional): specify the operation if UPDATE failed.
+            _extra_params (Mapping[str, Any] | None, optional): provide extra named params
+                for sqlite3 query execution. NOTE that `_extra_params` takes higher priority
+                to any named params specified by `where_cols_value` and `set_values`. Defaults to None.
+            _stmt (str | None, optional): directly provide the UPDATE query, if provided,
+                <where_cols_value>, <where_stmt> and <or_option> will be ignored.
+
+        Raises:
+            SQLite3 DB Errors on failed operations.
+
+        Returns:
+            Affected rows count.
+        """
+        _table_spec = self.orm_table_spec
+
+        if isinstance(set_values, _table_spec):
+            _serialized_set_values = set_values.model_dump()
+        elif isinstance(set_values, Mapping):
+            _serialized_set_values = _table_spec.table_serialize_mapping(set_values)
+        else:  # pragma: no cover
+            raise ValueError(f"unexpected {type(set_values)=}")
+
+        _serialized_where_col_values = {}
+        if where_cols_value:
+            _serialized_where_col_values = _table_spec.table_preprare_update_where_cols(
+                _table_spec.table_serialize_mapping(where_cols_value)
+            )
+
+        if not _stmt:
+            _extra_update_stmt_params: dict[str, Any] = {}
+            if where_stmt:
+                _extra_update_stmt_params = dict(where_stmt=where_stmt)
+            elif where_cols_value:
+                _extra_update_stmt_params = dict(where_cols=tuple(where_cols_value))
+
+            _stmt = _table_spec.table_update_stmt(
+                or_option=or_option,
+                update_target=self.orm_table_name,
+                set_cols=tuple(_serialized_set_values),
+                **_extra_update_stmt_params,
+            )
+
+        _params = dict(**_serialized_set_values, **_serialized_where_col_values)
+        if _extra_params:
+            _params.update(_extra_params)
+        with self.orm_con as con:
+            _cur = con.execute(_stmt, _params)
             return _cur.rowcount
 
     def orm_delete_entries(

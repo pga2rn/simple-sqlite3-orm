@@ -197,6 +197,73 @@ class TestORMBase:
             res = cur.fetchone()
             assert res[0] == 1
 
+    @pytest.mark.parametrize(
+        "entry_to_insert, set_values, where_indicator, expected",
+        (
+            (
+                SimpleTableForTestCols(id_str="123", extra=None, int_str=789),
+                SimpleTableForTestCols(extra=0.123),
+                SimpleTableForTestCols(id=1),
+                SimpleTableForTestCols(id=1, id_str="123", extra=0.123, int_str=789),
+            ),
+            (
+                SimpleTableForTestCols(id_str="123", extra=None, int_str=789, id=567),
+                SimpleTableForTest(id_str="123", extra=0.123, int_str=789, id=1),
+                SimpleTableForTestCols(id=567),
+                SimpleTableForTestCols(id=1, id_str="123", extra=0.123, int_str=789),
+            ),
+        ),
+    )
+    def test_update_entries(
+        self,
+        entry_to_insert,
+        set_values,
+        where_indicator,
+        expected,
+        orm_inst: SimpleTableORM,
+    ):
+        orm_inst.orm_insert_mapping(entry_to_insert)
+
+        if isinstance(where_indicator, str):
+            orm_inst.orm_update_entries(
+                set_values=set_values, where_stmt=where_indicator
+            )
+        else:
+            orm_inst.orm_update_entries(
+                set_values=set_values, where_cols_value=where_indicator
+            )
+        assert orm_inst.orm_check_entry_exist(expected)
+
+    @pytest.mark.parametrize(
+        "entry_to_insert, set_values, where_stmt, params, expected",
+        (
+            (
+                SimpleTableForTest(id_str="123", extra=None, int_str=789, id=567),
+                SimpleTableForTestCols(extra=0.123),
+                "WHERE id > :lower_bound AND id < :upper_bound",
+                {"lower_bound": 1, "upper_bound": 987},
+                SimpleTableForTestCols(id=567, id_str="123", extra=0.123, int_str=789),
+            ),
+        ),
+    )
+    def test_update_entries_with_custom_stmt(
+        self,
+        entry_to_insert,
+        set_values,
+        where_stmt,
+        params,
+        expected,
+        orm_inst: SimpleTableORM,
+    ):
+        orm_inst.orm_insert_entry(entry_to_insert)
+
+        orm_inst.orm_update_entries(
+            set_values=set_values,
+            where_stmt=where_stmt,
+            _extra_params=params,
+        )
+        assert orm_inst.orm_check_entry_exist(expected)
+
     def test_delete_entries(self, orm_inst: SimpleTableORM, prepare_test_entry):
         assert (
             orm_inst.orm_delete_entries(SimpleTableForTestCols(id=ENTRY_FOR_TEST.id))
