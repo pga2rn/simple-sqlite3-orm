@@ -42,10 +42,9 @@ pip install simple-sqlite3-orm
 
 ## Basic usage
 
-`simple-sqlite3-orm` applies docstrings to most of the APIs, you can always refer to docstrings for help and more information.
-Also, this chapter only shows usage of baisc CRUD operations, there are also many extra APIs available for advanced use cases.
+This chapter only shows very basic(thus simple) usage of CRUD operations, there are also many extra APIs available for advanced use cases.
 
-For a more complicated example, see[sample_db](tests/sample_db).
+`simple-sqlite3-orm` applies docstrings to most of the APIs, you can always refer to docstrings for help and more information.
 
 ### Define your table as code
 
@@ -59,6 +58,8 @@ Also, it is recommended to define a `TypedDict` for your table. All CRUD ORM API
 from typing import TypedDict, Literal
 from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr
 
+# ------ Table definition ------ #
+
 class MyTable(TableSpec):
     entry_id: Annotated[int, ConstrainRepr("PRIMARY KEY")]
     entry_type: Annotated[
@@ -67,18 +68,22 @@ class MyTable(TableSpec):
     ]
     entry_token: bytes
 
-    # A custom type that defines validator/serializer in pydantic way,
+    # A custom type that defines serializer/deserializer in pydantic way,
     #   this custom type is serialized into bytes and stored as BLOB in database.
     special_attrs: Annotated[SpecialAttrsType, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL")]
 
+# ------ Helper TypedDict for MyTable ------ #
+
 class MyTableCols(TypedDict, total=False):
     # no need to copy and paste the full type annotations from the actual TableSpec,
-    #   only the actual type is needed
+    #   only the actual type is needed.
     entry_id: int
     entry_type: Literal["A", "B", "C"]
     entry_token: bytes
     special_attrs: SpecialAttrsType
 ```
+
+For a more complicated example, see[sample_db](tests/sample_db).
 
 ### Define your database as code
 
@@ -103,7 +108,7 @@ class MyORM(ORMBase[MyTable]):
 
 After defining the ORM, you can bootstrap a new empty database, create table(and indexes) deterministically as follow:
 
-```python3
+```python
 import sqlite3
 
 conn = sqlite3.connect("my_db.sqlite3")
@@ -149,17 +154,28 @@ You can select entries by matching column(s) from database:
 res_gen: Generator[MyTable] = orm.orm_select_entries(MyTableCols(entry_type="A", entry_token=b"abcdef"))
 
 for entry in res_gen:
+    # do something to each fetched entry here
     ...
 ```
 
 ### Update rows
 
-You can update specific rows by matching column(s):
+You can update specific rows as follow:
 
 ```python
+
+# specify rows by matching cols
+#   WHERE stmt will be generated from `where_cols_value`.
 orm.orm_update_entries(
     set_values=MyTableCols(entry_token="ccddee123", entry_type="C"),
     where_cols_value=MyTableCols(entry_id=123),
+)
+
+# alteratively, you can directly provide the WHERE stmt
+orm.orm_update_entries(
+    set_values=MyTableCols(entry_token="ccddee123", entry_type="C"),
+    where_stmt="WHERE entry_id > :entry_lower_bound AND entry_id < :entry_upper_bound",
+    _extra_params={"entry_lower_bound": 123, "entry_upper_bound": 456}
 )
 ```
 
