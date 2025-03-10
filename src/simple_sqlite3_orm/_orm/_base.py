@@ -687,6 +687,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         where_cols_value: Mapping[str, Any] | None = None,
         where_stmt: str | None = None,
         or_option: OR_OPTIONS | None = None,
+        _extra_params: Mapping[str, Any] | None = None,
         _stmt: str | None = None,
     ) -> int:
         """UPDATE specific entries by matching <where_cols_value>.
@@ -700,6 +701,9 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             where_stmt (str | None, optional): directly provide WHERE statement. If provided,
                 <where_cols_value> will only be used as params.
             or_option (OR_OPTIONS | None, optional): specify the operation if UPDATE failed.
+            _extra_params (Mapping[str, Any] | None, optional): provide extra named params
+                for sqlite3 query execution. NOTE that `_extra_params` takes higher priority
+                to any named params specified by `where_cols_value` and `set_values`. Defaults to None.
             _stmt (str | None, optional): directly provide the UPDATE query, if provided,
                 <where_cols_value>, <where_stmt> and <or_option> will be ignored.
 
@@ -725,23 +729,24 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             )
 
         if not _stmt:
-            _extra_params: dict[str, Any] = {}
+            _extra_update_stmt_params: dict[str, Any] = {}
             if where_stmt:
-                _extra_params = dict(where_stmt=where_stmt)
+                _extra_update_stmt_params = dict(where_stmt=where_stmt)
             elif where_cols_value:
-                _extra_params = dict(where_cols=tuple(where_cols_value))
+                _extra_update_stmt_params = dict(where_cols=tuple(where_cols_value))
 
             _stmt = _table_spec.table_update_stmt(
                 or_option=or_option,
                 update_target=self.orm_table_name,
                 set_cols=tuple(_serialized_set_values),
-                **_extra_params,
+                **_extra_update_stmt_params,
             )
 
+        _params = dict(**_serialized_set_values, **_serialized_where_col_values)
+        if _extra_params:
+            _params.update(_extra_params)
         with self.orm_con as con:
-            _cur = con.execute(
-                _stmt, dict(**_serialized_set_values, **_serialized_where_col_values)
-            )
+            _cur = con.execute(_stmt, _params)
             return _cur.rowcount
 
     def orm_delete_entries(
