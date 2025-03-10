@@ -4,7 +4,7 @@ annotated-types==0.7.0
     # via pydantic
 pydantic==2.10.6
     # via simple-sqlite3-orm (pyproject.toml)
-pydantic-core==2.27.2
+pydantic-core==2.31.1
     # via pydantic
 typing-extensions==4.12.2
     # via
