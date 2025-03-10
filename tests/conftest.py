@@ -7,11 +7,13 @@ import sqlite3
 import string
 import time
 from pathlib import Path
-from typing import Callable, Generator, get_args
+from typing import Callable, Generator, Optional, TypedDict, get_args
 
 import pytest
+from pydantic import PlainSerializer, PlainValidator
+from typing_extensions import Annotated
 
-from simple_sqlite3_orm import utils
+from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr, utils
 from tests.sample_db.table import (
     Choice123,
     ChoiceABC,
@@ -23,6 +25,38 @@ from tests.sample_db.table import (
 
 # for reproducible test
 random.seed(0)
+
+# simple table for test
+
+ID_STR_DEFAULT_VALUE = "9800"
+
+
+class SimpleTableForTest(TableSpec):
+    id: Annotated[
+        int,
+        ConstrainRepr("PRIMARY KEY"),
+    ]
+
+    id_str: Annotated[
+        str,
+        ConstrainRepr("NOT NULL", ("DEFAULT", utils.wrap_value(ID_STR_DEFAULT_VALUE))),
+    ]
+
+    extra: Optional[float] = None
+    int_str: Annotated[
+        int,
+        TypeAffinityRepr(str),
+        PlainSerializer(lambda x: str(x)),
+        PlainValidator(lambda x: int(x)),
+    ] = 0
+
+
+class SimpleTableForTestCols(TypedDict, total=False):
+    id: int
+    id_str: str
+    extra: Optional[float]
+    int_str: int
+
 
 # sqlite3 lib features set
 

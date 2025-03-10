@@ -1,36 +1,38 @@
 from __future__ import annotations
 
+import contextlib
 import functools
 import logging
 import sqlite3
-import time
-from datetime import datetime
 from typing import Any
 
 import pytest
 
-from simple_sqlite3_orm import CreateIndexParams, CreateTableParams
+from simple_sqlite3_orm import (
+    CreateIndexParams,
+    CreateTableParams,
+    ORMBase,
+)
 from simple_sqlite3_orm._orm._base import DO_NOT_CHANGE_ROW_FACTORY
-from tests.conftest import SELECT_ALL_BATCH_SIZE, _generate_random_str
-from tests.sample_db._types import Mystr
-from tests.sample_db.orm import SampleDB
-from tests.sample_db.table import SampleTable, SampleTableCols
+from tests.conftest import (
+    ID_STR_DEFAULT_VALUE,
+    SELECT_ALL_BATCH_SIZE,
+    SimpleTableForTest,
+    SimpleTableForTestCols,
+)
 
 logger = logging.getLogger(__name__)
 
 
-_cur_timestamp = time.time()
-mstr = Mystr(_generate_random_str())
-entry_for_test = SampleTable(
-    unix_timestamp=_cur_timestamp,  # type: ignore
-    unix_timestamp_int=int(_cur_timestamp),  # type: ignore
-    datetime_iso8601=datetime.fromtimestamp(_cur_timestamp).isoformat(),  # type: ignore
-    key_id=1,
-    prim_key=mstr,
-    prim_key_sha256hash=mstr.sha256hash,
-    prim_key_bln=mstr.bool,
-    prim_key_magicf=mstr.magicf,
-)
+TBL_NAME = "test_table"
+
+
+class SimpleTableORM(ORMBase[SimpleTableForTest]):
+    orm_bootstrap_table_name = TBL_NAME
+
+
+ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123, int_str=987)
+
 
 TABLE_SPEC_LOGGER = "simple_sqlite3_orm._table_spec"
 
@@ -44,133 +46,176 @@ def enable_debug_logging(caplog: pytest.LogCaptureFixture):
 
 
 class TestORMBase:
-    @pytest.fixture(scope="class")
-    def setup_connection(self):
-        with sqlite3.connect(":memory:") as conn:
-            orm_inst = SampleDB(conn)
+    """A quick test for testing functionality of ORM base."""
+
+    @pytest.fixture
+    def orm_inst(self):
+        with contextlib.closing(sqlite3.connect(":memory:")) as conn:
+            orm_inst = SimpleTableORM(conn)
+            orm_inst.orm_bootstrap_db()
             yield orm_inst
 
-    def test_create_without_rowid_table(self):
-        """NOTE: to test select_all_with_pagination, we cannot specify without_rowid, so we
-        create this test case dedicated for creating without_rowid table test."""
-        with sqlite3.connect(":memory:") as conn:
-            orm_inst = SampleDB(conn)
-            orm_inst.orm_create_table(without_rowid=True)
+    @pytest.fixture
+    def prepare_test_entry(self, orm_inst: SimpleTableORM):
+        orm_inst.orm_insert_entry(ENTRY_FOR_TEST)
 
-    def test_create_table(self, setup_connection: SampleDB):
-        setup_connection.orm_create_table(allow_existed=False)
-
-        if sqlite3.sqlite_version_info < (3, 37, 0):
-            logger.warning(
-                "STRICT table option is only available after sqlite3 version 3.37, "
-                f"get {sqlite3.sqlite_version_info}, skip testing STRICT table option."
-            )
-            setup_connection.orm_create_table(allow_existed=True)
-        else:
-            setup_connection.orm_create_table(allow_existed=True, strict=True)
-
-        with pytest.raises(sqlite3.DatabaseError):
-            setup_connection.orm_create_table(allow_existed=False)
-
-    def test_create_index(self, setup_connection: SampleDB):
-        setup_connection.orm_create_index(
-            index_name="idx_prim_key_sha256hash",
-            index_keys=("prim_key_sha256hash",),
+    def test_create_index(self, orm_inst: SimpleTableORM):
+        orm_inst.orm_create_index(
+            index_name="id_str_index",
+            index_keys=("id_str",),
             allow_existed=True,
             unique=True,
         )
 
         with pytest.raises(sqlite3.DatabaseError):
-            setup_connection.orm_create_index(
-                index_name="idx_prim_key_sha256hash",
-                index_keys=("prim_key_sha256hash",),
+            orm_inst.orm_create_index(
+                index_name="id_str_index",
+                index_keys=("id_str",),
                 allow_existed=False,
             )
 
-    def test_insert_entries(self, setup_connection: SampleDB):
-        setup_connection.orm_insert_entries((entry_for_test,))
+    def test_insert_entries(self, orm_inst: SimpleTableORM):
+        orm_inst.orm_insert_entries((ENTRY_FOR_TEST,))
 
         with pytest.raises(sqlite3.DatabaseError):
-            setup_connection.orm_insert_entry(entry_for_test, or_option="fail")
-        setup_connection.orm_insert_entry(entry_for_test, or_option="ignore")
-        setup_connection.orm_insert_entry(entry_for_test, or_option="replace")
+            orm_inst.orm_insert_entry(ENTRY_FOR_TEST, or_option="fail")
+        orm_inst.orm_insert_entry(ENTRY_FOR_TEST, or_option="ignore")
+        orm_inst.orm_insert_entry(ENTRY_FOR_TEST, or_option="replace")
 
-    def test_orm_execute(self, setup_connection: SampleDB):
-        sql_stmt = setup_connection.orm_table_spec.table_select_stmt(
-            select_from=setup_connection.orm_table_name,
+    def test_orm_execute(self, orm_inst: SimpleTableORM, prepare_test_entry):
+        sql_stmt = orm_inst.orm_table_spec.table_select_stmt(
+            select_from=orm_inst.orm_table_name,
             select_cols="*",
             function="count",
         )
 
-        res = setup_connection.orm_execute(sql_stmt)
+        res = orm_inst.orm_execute(sql_stmt)
         assert res and res[0][0] > 0
 
-    def test_orm_check_entry_exist(self, setup_connection: SampleDB):
-        assert setup_connection.orm_check_entry_exist(
-            SampleTableCols(prim_key=entry_for_test.prim_key)
+    def test_orm_check_entry_exist(self, orm_inst: SimpleTableORM, prepare_test_entry):
+        assert orm_inst.orm_check_entry_exist(
+            SimpleTableForTestCols(id=ENTRY_FOR_TEST.id)
         )
-        assert setup_connection.orm_check_entry_exist(
-            **SampleTableCols(prim_key=entry_for_test.prim_key)
+        assert orm_inst.orm_check_entry_exist(
+            **SimpleTableForTestCols(int_str=ENTRY_FOR_TEST.int_str)
         )
-        assert not setup_connection.orm_check_entry_exist(prim_key=Mystr("not_exist"))
+        assert not orm_inst.orm_check_entry_exist(int_str="123")
 
-    def test_select_entry(self, setup_connection: SampleDB):
-        _selected_row = setup_connection.orm_select_entry(
-            SampleTableCols(prim_key=mstr)
+    def test_select_entry(self, orm_inst: SimpleTableORM, prepare_test_entry):
+        _selected_row = orm_inst.orm_select_entry(
+            SimpleTableForTestCols(id=ENTRY_FOR_TEST.id)
         )
-        _selected_row2 = setup_connection.orm_select_entry(
-            **SampleTableCols(prim_key=mstr)
+        _selected_row2 = orm_inst.orm_select_entry(
+            **SimpleTableForTestCols(id=ENTRY_FOR_TEST.id)
         )
-        assert entry_for_test == _selected_row == _selected_row2
+        assert ENTRY_FOR_TEST == _selected_row == _selected_row2
 
-    def test_select_entries(self, setup_connection: SampleDB):
-        select_result = setup_connection.orm_select_entries(
-            SampleTableCols(prim_key=mstr),
+    @pytest.mark.parametrize(
+        "row_as_mapping, expected",
+        (
+            (
+                SimpleTableForTestCols(id=123, int_str=123, id_str="123"),
+                SimpleTableForTestCols(id=123, int_str=123, id_str="123", extra=None),
+            ),
+            (
+                SimpleTableForTestCols(int_str=123, id_str="456", extra=1.23),
+                SimpleTableForTestCols(int_str=123, id_str="456", extra=1.23, id=1),
+            ),
+            (
+                SimpleTableForTestCols(int_str=123),
+                SimpleTableForTestCols(
+                    int_str=123, id=1, id_str=ID_STR_DEFAULT_VALUE, extra=None
+                ),
+            ),
+        ),
+    )
+    def test_insert_mapping(self, row_as_mapping, expected, orm_inst: SimpleTableORM):
+        orm_inst.orm_insert_mapping(row_as_mapping)
+        assert orm_inst.orm_select_entry(row_as_mapping).table_asdict() == expected
+
+    @pytest.mark.parametrize(
+        "row_as_mappings",
+        (
+            (
+                [
+                    SimpleTableForTestCols(id_str=str(i), int_str=i, extra=0.123)
+                    for i in range(123)
+                ]
+            ),
+            ([]),
+        ),
+    )
+    def test_insert_mappings(self, row_as_mappings, orm_inst: SimpleTableORM):
+        assert len(row_as_mappings) == orm_inst.orm_insert_mappings(row_as_mappings)
+
+        for row_as_mapping in row_as_mappings:
+            assert (
+                orm_inst.orm_select_entry(row_as_mapping).table_asdict(*row_as_mapping)
+                == row_as_mapping
+            )
+
+    def test_select_entries(self, orm_inst: SimpleTableORM, prepare_test_entry):
+        select_result = orm_inst.orm_select_entries(
+            SimpleTableForTestCols(id=ENTRY_FOR_TEST.id),
             _distinct=True,
-            _order_by=(("key_id", "DESC"),),
+            _order_by=(("id", "DESC"),),
             _limit=1,
         )
         select_result = list(select_result)
 
-        select_result2 = setup_connection.orm_select_entries(
-            **SampleTableCols(prim_key=mstr),
+        select_result2 = orm_inst.orm_select_entries(
+            **SimpleTableForTestCols(id=ENTRY_FOR_TEST.id),
             _distinct=True,
-            _order_by=(("key_id", "DESC"),),
+            _order_by=(("id", "DESC"),),
             _limit=1,
         )
         select_result2 = list(select_result2)
 
         assert len(select_result) == len(select_result2) == 1
-        assert select_result[0] == select_result2[0] == entry_for_test
+        assert select_result[0] == select_result2[0] == ENTRY_FOR_TEST
 
-    def test_select_all_entries(self, setup_connection: SampleDB):
-        select_result = setup_connection.orm_select_all_with_pagination(
+    def test_select_all_entries(self, orm_inst: SimpleTableORM, prepare_test_entry):
+        select_result = orm_inst.orm_select_all_with_pagination(
             batch_size=SELECT_ALL_BATCH_SIZE
         )
         select_result = list(select_result)
 
         assert len(select_result) == 1
-        assert select_result[0] == entry_for_test
+        assert select_result[0] == ENTRY_FOR_TEST
 
-    def test_select_with_function_call(self, setup_connection: SampleDB):
-        _stmt = setup_connection.orm_table_spec.table_select_stmt(
-            select_from=setup_connection.orm_bootstrap_table_name,
+    def test_select_with_function_call(
+        self, orm_inst: SimpleTableORM, prepare_test_entry
+    ):
+        _stmt = orm_inst.orm_table_spec.table_select_stmt(
+            select_from=orm_inst.orm_bootstrap_table_name,
             select_cols="*",
             function="count",
         )
 
-        with setup_connection.orm_con as con:
+        with orm_inst.orm_con as con:
             cur = con.execute(_stmt)
             res = cur.fetchone()
             assert res[0] == 1
 
-    def test_delete_entries(self, setup_connection: SampleDB):
+    def test_delete_entries(self, orm_inst: SimpleTableORM, prepare_test_entry):
         assert (
-            setup_connection.orm_delete_entries(
-                SampleTableCols(key_id=entry_for_test.key_id)
-            )
+            orm_inst.orm_delete_entries(SimpleTableForTestCols(id=ENTRY_FOR_TEST.id))
             == 1
         )
+
+
+@pytest.mark.parametrize(
+    "opts",
+    (
+        ({"allow_existed": True, "without_rowid": True}),
+        ({"without_rowid": False}),
+        ({"_stmt": SimpleTableForTest.table_create_stmt(table_name=TBL_NAME)}),
+    ),
+)
+def test_create_table(opts):
+    with contextlib.closing(sqlite3.connect(":memory:")) as conn:
+        orm_inst = SimpleTableORM(conn)
+        orm_inst.orm_create_table(**opts)
 
 
 @pytest.mark.parametrize(
@@ -193,13 +238,13 @@ class TestORMBase:
             [
                 CreateIndexParams(
                     index_name="test_index",
-                    index_cols=("key_id", "prim_key"),
+                    index_cols=("id_str",),
                     if_not_exists=True,
                     unique=True,
                 ),
                 CreateIndexParams(
                     index_name="test_index2",
-                    index_cols=("prim_key_sha256hash",),
+                    index_cols=("int_str",),
                 ),
             ],
         ),
@@ -212,7 +257,7 @@ def test_bootstrap(
     create_indexes_params,
     setup_test_db_conn: sqlite3.Connection,
 ):
-    class _ORM(SampleDB):
+    class _ORM(SimpleTableORM):
         orm_bootstrap_table_name = table_name
         if create_table_params:
             orm_bootstrap_create_table_params = create_table_params
@@ -246,10 +291,10 @@ def _compare_callable(left_func, right_func) -> bool:
     "_row_factory_specifier, _expected_row_factory",
     (
         ("sqlite3_row_factory", sqlite3.Row),
-        ("table_spec", SampleTable.table_row_factory),
+        ("table_spec", SimpleTableForTest.table_row_factory),
         (
             "table_spec_no_validation",
-            functools.partial(SampleTable.table_row_factory, validation=False),
+            functools.partial(SimpleTableForTest.table_row_factory, validation=False),
         ),
         (DO_NOT_CHANGE_ROW_FACTORY, _dummy_row_factory),
         (None, None),
@@ -261,7 +306,7 @@ def test_row_factory_specifying(
     db_conn_func_scope: sqlite3.Connection,
 ):
     db_conn_func_scope.row_factory = _dummy_row_factory
-    _orm = SampleDB(db_conn_func_scope, row_factory=_row_factory_specifier)
+    _orm = SimpleTableORM(db_conn_func_scope, row_factory=_row_factory_specifier)
     _orm.orm_create_table()
     assert _compare_callable(_orm.orm_conn_row_factory, _expected_row_factory)
 

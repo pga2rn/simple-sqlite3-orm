@@ -3,39 +3,20 @@ from __future__ import annotations
 import contextlib
 import sqlite3
 from collections.abc import Mapping
-from typing import Any, Iterable, Optional, TypedDict
+from typing import Any
 
 import pytest
-from typing_extensions import Annotated
 
-from simple_sqlite3_orm import ConstrainRepr, CreateTableParams, TableSpec, utils
-from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
-
-ID_STR_DEFAULT_VALUE = "aabbcc"
-
-
-class SimpleTableForTest(TableSpec):
-    id: Annotated[
-        int,
-        ConstrainRepr("PRIMARY KEY"),
-    ]
-
-    id_str: Annotated[
-        str,
-        ConstrainRepr("NOT NULL", ("DEFAULT", utils.wrap_value(ID_STR_DEFAULT_VALUE))),
-    ]
-
-    extra: Optional[float] = None
-
-
-class SimpleTableForTestCols(TypedDict, total=False):
-    id: int
-    id_str: str
-    extra: float
-
+from simple_sqlite3_orm import CreateTableParams
+from tests.conftest import (
+    ID_STR_DEFAULT_VALUE,
+    SQLITE3_COMPILE_OPTION_FLAGS,
+    SimpleTableForTest,
+    SimpleTableForTestCols,
+)
 
 TBL_NAME = "test_table"
-ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123)
+ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123, int_str=987)
 
 
 @pytest.mark.parametrize(
@@ -92,15 +73,15 @@ class TestTableSpecWithDB:
         (
             (
                 "insert a complete row",
-                (SimpleTableForTestCols(id=1, id_str="1", extra=0.123)),
+                (SimpleTableForTestCols(int_str=987, id=1, id_str="1", extra=0.123)),
             ),
             (
                 "insert a partially set row, omit id(rowid alias)",
-                (SimpleTableForTestCols(id_str="1", extra=0.123)),
+                (SimpleTableForTestCols(id_str="1", int_str=987, extra=0.123)),
             ),
             (
                 "insert a row with order shuffled",
-                (SimpleTableForTestCols(extra=0.123, id=1, id_str="1")),
+                (SimpleTableForTestCols(int_str=987, extra=0.123, id=1, id_str="1")),
             ),
         ),
     )
@@ -135,7 +116,7 @@ class TestTableSpecWithDB:
             )
             # for cols with no defautl value defined, NULL will be assigned
             # for rowid, it will be automatically incremented
-            assert _cur.fetchone() == (1, ID_STR_DEFAULT_VALUE, None)
+            assert _cur.fetchone() == (1, ID_STR_DEFAULT_VALUE, None, None)
 
     def test_lookup_entry(self, db_conn: sqlite3.Connection, prepare_test_entry):
         _to_lookup = self.ENTRY_FOR_TEST
@@ -289,16 +270,38 @@ class TestTableSpecWithDB:
 
     # ------ end of UPDATE sqlite3 stmt test ------ #
 
+    def test_deserialize_asdict_row_factory(
+        self, db_conn: sqlite3.Connection, prepare_test_entry
+    ):
+        _stmt = SimpleTableForTest.table_select_stmt(
+            select_from=TBL_NAME,
+            select_cols="int_str, count(*) AS count",
+        )
+        with db_conn as conn:
+            _cur = conn.execute(_stmt, SimpleTableForTestCols(id=ENTRY_FOR_TEST.id))
+            _cur.row_factory = SimpleTableForTest.table_deserialize_asdict_row_factory
+
+            _res: SimpleTableForTestCols = _cur.fetchone()
+            assert _res == {"int_str": ENTRY_FOR_TEST.int_str, "count": 1}
+
 
 @pytest.mark.parametrize(
     "_in, _validate, _expected",
     (
-        ([1, "1", 1.0], True, SimpleTableForTest(id=1, id_str="1", extra=1.0)),
-        ([1, "1", 1.0], False, SimpleTableForTest(id=1, id_str="1", extra=1.0)),
+        (
+            (1, "1", 1.0, "789"),
+            True,
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+        ),
+        (
+            (1, "1", 1.0, 789),
+            False,
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+        ),
     ),
 )
 def test_table_from_tuple(
-    _in: Iterable[Any], _validate: bool, _expected: SimpleTableForTest
+    _in: tuple[Any, ...], _validate: bool, _expected: SimpleTableForTest
 ):
     assert (
         SimpleTableForTest.table_from_tuple(_in, with_validation=_validate) == _expected
@@ -309,14 +312,14 @@ def test_table_from_tuple(
     "_in, _validate, _expected",
     (
         (
-            {"id": 1, "id_str": "1", "extra": 1.0},
+            {"id": 1, "id_str": "1", "extra": 1.0, "int_str": "789"},
             True,
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
         ),
         (
-            {"id": 1, "id_str": "1", "extra": 1.0},
+            {"id": 1, "id_str": "1", "extra": 1.0, "int_str": 789},
             False,
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
         ),
     ),
 )
@@ -332,12 +335,12 @@ def test_table_from_dict(
     "_in, _expected",
     (
         (
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
-            {"id": 1, "id_str": "1", "extra": 1.0},
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+            {"id": 1, "id_str": "1", "extra": 1.0, "int_str": "789"},
         ),
         (
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
-            {"id": 1, "extra": 1.0},
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+            {"int_str": "789"},
         ),
     ),
 )
@@ -349,18 +352,29 @@ def test_table_dump_asdict(_in: SimpleTableForTest, _expected: dict[str, Any]):
     "_in, _cols, _expected",
     (
         (
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
-            ["id", "id_str", "extra"],
-            (1, "1", 1.0),
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+            ["id", "id_str", "extra", "int_str"],
+            (1, "1", 1.0, "789"),
         ),
         (
-            SimpleTableForTest(id=1, id_str="1", extra=1.0),
-            ["extra"],
-            (1.0,),
+            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+            ["int_str"],
+            ("789",),
         ),
     ),
 )
 def test_table_dump_astuple(
-    _in: SimpleTableForTest, _cols: tuple[str, ...], _expected: tuple[Any, ...]
+    _in: SimpleTableForTest, _cols: list[str], _expected: tuple[Any, ...]
 ):
     assert _in.table_dump_astuple(*_cols) == _expected
+
+
+@pytest.mark.parametrize(
+    "_in, _expected",
+    (
+        (SimpleTableForTestCols(int_str=123), {"int_str": "123"}),
+        (SimpleTableForTestCols(id=456, int_str=789), {"id": 456, "int_str": "789"}),
+    ),
+)
+def test_serializing_mapping(_in: Mapping[str, Any], _expected: Mapping[str, Any]):
+    assert SimpleTableForTest.table_serialize_mapping(_in) == _expected

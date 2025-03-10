@@ -696,7 +696,7 @@ class TableSpec(BaseModel):
         return res
 
     def table_dump_asdict(self, *cols: str, **kwargs) -> dict[str, Any]:
-        """Dump self as a dict, containing all cols or specified cols.
+        """Serialize self as a dict, containing all cols or specified cols, for DB operations.
 
         Under the hook this method calls pydantic model_dump on self.
         The dumped dict can be used to directly insert into the table.
@@ -716,11 +716,25 @@ class TableSpec(BaseModel):
         try:
             _included_cols = set(cols) if cols else None
             return self.model_dump(include=_included_cols, **kwargs)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             raise ValueError(f"failed to dump as dict: {e!r}") from e
 
+    def table_asdict(self, *cols: str) -> dict[str, Any]:
+        """Directly export the self as a dict, without serializing.
+
+        Args:
+            *cols: which cols to export, if not specified, export all cols.
+            exclude_unset (bool, optional): whether include not set field of self.
+                Defaults to False, include unset fields(which will return their default values).
+
+        Returns:
+            A dict of col/values from self.
+        """
+        _cols_to_look = cols if cols else self.table_columns
+        return {k: getattr(self, k) for k in _cols_to_look}
+
     def table_dump_astuple(self, *cols: str, **kwargs) -> tuple[Any, ...]:
-        """Dump self's values as a tuple, containing all cols or specified cols.
+        """Serialize self's value as a tuple, containing all cols or specified cols, for DB operations.
 
         This method is basically the same as table_dump_asdict, but instead return a
             tuple of the dumped values.
@@ -736,8 +750,71 @@ class TableSpec(BaseModel):
         try:
             _included_cols = set(cols) if cols else None
             return tuple(self.model_dump(include=_included_cols, **kwargs).values())
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             raise ValueError(f"failed to dump as tuple: {e!r}") from e
+
+    @classmethod
+    def table_serialize_mapping(cls, _in: Mapping[str, Any]) -> dict[str, Any]:
+        """Serialize input mapping into a dict by this TableSpec, ready for DB operations.
+
+        Values in the input mapping are python types used in application.
+
+        This is a convenient method for when we only need to specify some of the cols, so that
+            we cannot use TableSpec as TableSpec requires all cols to be set.
+
+        NOTE that for APIs provided by simple_sqlite3_orm, when col/value pairs are provided as mapping,
+            the serialization will be done by the APIs, no need to call this method when using ORM.
+        """
+        if not _in:
+            return {}
+        _inst = cls.model_construct(**_in)
+        return _inst.model_dump(exclude_unset=True)
+
+    @classmethod
+    def table_deserialize_asdict_row_factory(
+        cls,
+        _cursor: sqlite3.Cursor,
+        _row: tuple[Any, ...] | Any,
+        *,
+        allow_unknown_cols: bool = True,
+    ) -> dict[str, Any]:
+        """Deserialize raw row from a query into a dict by this TableSpec, ready for application use.
+
+        This is a convenient method when we execute query that only select some cols.
+        For this use case, use thid method as row_factory to deserialize the raw row. This method
+            will deserialize the row from raw into actual field types defined in this TableSpec.
+
+        Args:
+            allow_unknown_cols (bool, optional): If True, unknown cols will be preserved AS IT into the result.
+                Defaults to True.
+
+        Raises:
+            ValueError if `allow_unknown_cols` is False and unknown cols presented, or pydantic validation failed.
+
+        Returns:
+            A dict of deserialized(except unknown cols) col/value pairs.
+        """
+        _fields = [col[0] for col in _cursor.description]
+        _to_be_processed = dict(zip(_fields, _row))
+
+        # See https://github.com/pydantic/pydantic/discussions/7367
+        _assignment_validator = cls.__pydantic_validator__.validate_assignment
+        _empty_inst = cls.model_construct()
+        for k, v in _to_be_processed.items():
+            if k not in cls.table_columns:
+                if not allow_unknown_cols:
+                    raise ValueError(f"unknown col {k}")
+                _empty_inst.__dict__[k] = v
+                continue
+
+            try:
+                _assignment_validator(_empty_inst, k, v)
+            except Exception as e:  # pragma: no cover
+                raise ValueError(
+                    f"failed to deserialize col {k} with value {v}: {e!r}"
+                ) from e
+        # NOTE: model's __dict__ will contain unset fields that have default values.
+        return {k: v for k, v in _empty_inst.__dict__.items() if k in _to_be_processed}
 
 
 TableSpecType = TypeVar("TableSpecType", bound=TableSpec)
