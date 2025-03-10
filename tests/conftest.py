@@ -28,6 +28,8 @@ random.seed(0)
 
 # simple table for test
 
+ID_STR_DEFAULT_VALUE = 9800
+
 
 class SimpleTableForTest(TableSpec):
     id: Annotated[
@@ -37,7 +39,7 @@ class SimpleTableForTest(TableSpec):
 
     id_str: Annotated[
         str,
-        ConstrainRepr("NOT NULL"),
+        ConstrainRepr("NOT NULL", ("DEFAULT", utils.wrap_value(ID_STR_DEFAULT_VALUE))),
     ]
 
     extra: Optional[float] = None
