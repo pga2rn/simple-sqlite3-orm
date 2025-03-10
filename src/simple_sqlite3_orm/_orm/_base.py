@@ -695,9 +695,10 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
         Args:
             set_values (Mapping[str, Any] | TableSpec): values to update.
-            where_cols_value (Mapping[str, Any], optional): cols to matching.
+            where_cols_value (Mapping[str, Any], optional): cols to matching. This method will
+                also generate WHERE statement of matching each cols specified in this mapping.
             where_stmt (str | None, optional): directly provide WHERE statement. If provided,
-                will override the <where_cols_value>.
+                <where_cols_value> will only be used as params.
             or_option (OR_OPTIONS | None, optional): specify the operation if UPDATE failed.
             _stmt (str | None, optional): directly provide the UPDATE query, if provided,
                 <where_cols_value>, <where_stmt> and <or_option> will be ignored.
@@ -718,17 +719,17 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             raise ValueError(f"unexpected {type(set_values)=}")
 
         _serialized_where_col_values = {}
+        if where_cols_value:
+            _serialized_where_col_values = _table_spec.table_preprare_update_where_cols(
+                _table_spec.table_serialize_mapping(where_cols_value)
+            )
+
         if not _stmt:
             _extra_params: dict[str, Any] = {}
             if where_stmt:
                 _extra_params = dict(where_stmt=where_stmt)
             elif where_cols_value:
                 _extra_params = dict(where_cols=tuple(where_cols_value))
-                _serialized_where_col_values = (
-                    _table_spec.table_preprare_update_where_cols(
-                        _table_spec.table_serialize_mapping(where_cols_value)
-                    )
-                )
 
             _stmt = _table_spec.table_update_stmt(
                 or_option=or_option,
