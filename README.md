@@ -171,7 +171,8 @@ orm.orm_update_entries(
     where_cols_value=MyTableCols(entry_id=123),
 )
 
-# alteratively, you can directly provide the WHERE stmt
+# alteratively, you can directly provide the WHERE stmt and `extra_params` for the query execution.
+#   be careful to not use the columns's named-placeholder used by `set_values`.
 orm.orm_update_entries(
     set_values=MyTableCols(entry_token="ccddee123", entry_type="C"),
     where_stmt="WHERE entry_id > :entry_lower_bound AND entry_id < :entry_upper_bound",
