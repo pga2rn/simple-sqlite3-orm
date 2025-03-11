@@ -784,6 +784,9 @@ class TableSpec(BaseModel):
         For this use case, use thid method as row_factory to deserialize the raw row. This method
             will deserialize the row from raw into actual field types defined in this TableSpec.
 
+        NOTE that if `allow_unknow_cols` is True, any unknown field(including cols aliased with other name)
+            will be preserved AS IT without deserializing as this method cannot know which col the alias name maps to.
+
         Args:
             allow_unknown_cols (bool, optional): If True, unknown cols will be preserved AS IT into the result.
                 Defaults to True.
@@ -825,8 +828,8 @@ class TableSpec(BaseModel):
         For this use case, use thid method as row_factory to deserialize the raw row. This method
             will deserialize the row from raw into actual field types defined in this TableSpec.
 
-        NOTE that any unknown field will be preserved as it to ensure that the deserialized tuple
-            matches the selected cols.
+        NOTE that any unknown field(including cols aliased with other name) will be preserved AS IT without
+            deserializing as this method cannot know which col the alias name maps to.
 
         Raises:
             ValueError if pydantic validation failed.
