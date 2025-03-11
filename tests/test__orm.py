@@ -111,6 +111,8 @@ class TestORMBase:
         res = orm_inst.orm_execute(sql_stmt, row_factory=row_factory)
         # NOTE: no row_factory specified, int_str here is not deserialized
         assert res and res[0] == expected
+        res_gen = orm_inst.orm_execute_gen(sql_stmt, row_factory=row_factory)
+        assert next(res_gen) == expected
 
     def test_orm_check_entry_exist(self, orm_inst: SimpleTableORM, prepare_test_entry):
         assert orm_inst.orm_check_entry_exist(
