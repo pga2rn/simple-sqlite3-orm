@@ -314,6 +314,52 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 cur.row_factory = _select_row_factory(self.orm_table_spec, row_factory)  # type: ignore
             return cur.fetchall()
 
+    @overload
+    def orm_execute_gen(
+        self,
+        sql_stmt: str,
+        params: tuple[Any, ...] | dict[str, Any] | None = None,
+        *,
+        row_factory: Callable[[sqlite3.Cursor, Any], RT],
+    ) -> Generator[RT]: ...
+
+    @overload
+    def orm_execute_gen(
+        self,
+        sql_stmt: str,
+        params: tuple[Any, ...] | dict[str, Any] | None = None,
+        *,
+        row_factory: DoNotChangeRowFactory = DO_NOT_CHANGE_ROW_FACTORY,
+    ) -> Generator[TableSpecType]: ...
+
+    @overload
+    def orm_execute_gen(
+        self,
+        sql_stmt: str,
+        params: tuple[Any, ...] | dict[str, Any] | None = None,
+        *,
+        row_factory: None,
+    ) -> Generator[tuple[Any, ...]]: ...
+
+    def orm_execute_gen(
+        self,
+        sql_stmt: str,
+        params: tuple[Any, ...] | dict[str, Any] | None = None,
+        *,
+        row_factory: RowFactorySpecifier
+        | DoNotChangeRowFactory = DO_NOT_CHANGE_ROW_FACTORY,
+    ) -> Generator[Any]:
+        """The same as orm_execute, but as a Generator."""
+        with self._con as con:
+            if params:
+                cur = con.execute(sql_stmt, params)
+            else:
+                cur = con.execute(sql_stmt)
+
+            if row_factory != DO_NOT_CHANGE_ROW_FACTORY:
+                cur.row_factory = _select_row_factory(self.orm_table_spec, row_factory)  # type: ignore
+            yield from cur
+
     def orm_executemany(
         self,
         sql_stmt: str,
