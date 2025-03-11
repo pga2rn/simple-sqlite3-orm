@@ -79,7 +79,7 @@ class TestWithSampleDB:
             select_cols="*",
             function="count",
         )
-        res = self.orm_inst.orm_execute(sql_stmt)
+        res = self.orm_inst.orm_execute(sql_stmt, row_factory=None)
         assert res and res[0][0] == len(setup_test_data)
 
     def test_lookup_entries(self, entries_to_lookup: list[SampleTable]):
@@ -156,5 +156,5 @@ class TestWithSampleDB:
             function="count",
         )
 
-        res = self.orm_inst.orm_execute(sql_stmt)
+        res = self.orm_inst.orm_execute(sql_stmt, row_factory=None)
         assert res and res[0][0] == len(setup_test_data) - len(entries_to_remove)
