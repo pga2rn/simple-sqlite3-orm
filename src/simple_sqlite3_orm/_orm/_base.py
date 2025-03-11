@@ -252,17 +252,54 @@ class ORMBase(ORMCommonBase[TableSpecType]):
     def orm_conn_row_factory(self, _row_factory: RowFactoryType | None) -> None:
         self._con.row_factory = _row_factory
 
+    @overload
     def orm_execute(
-        self, sql_stmt: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+        self,
+        sql_stmt: str,
+        params: tuple[Any, ...] | dict[str, Any] | None = None,
+        *,
+        row_factory: Callable[[sqlite3.Cursor, Any], RT],
+    ) -> list[RT]: ...
+
+    @overload
+    def orm_execute(
+        self,
+        sql_stmt: str,
+        params: tuple[Any, ...] | dict[str, Any] | None = None,
+        *,
+        row_factory: DoNotChangeRowFactory = DO_NOT_CHANGE_ROW_FACTORY,
+    ) -> list[TableSpecType]: ...
+
+    @overload
+    def orm_execute(
+        self,
+        sql_stmt: str,
+        params: tuple[Any, ...] | dict[str, Any] | None = None,
+        *,
+        row_factory: None,
+    ) -> list[tuple[Any, ...]]: ...
+
+    def orm_execute(
+        self,
+        sql_stmt: str,
+        params: tuple[Any, ...] | dict[str, Any] | None = None,
+        *,
+        row_factory: RowFactorySpecifier
+        | DoNotChangeRowFactory = DO_NOT_CHANGE_ROW_FACTORY,
     ) -> list[Any]:
         """Execute one sql statement and get the all the result.
 
+        NOTE that caller needs to serialize the `params` before hands if needed, `orm_execute` will
+            not do any processing over the input `params`, and just use as it for execution.
         The result will be fetched with fetchall API and returned as it.
 
         Args:
             sql_stmt (str): The sqlite statement to be executed.
             params (tuple[Any, ...] | dict[str, Any] | None, optional): The parameters to be bound
                 to the sql statement execution. Defaults to None, not passing any params.
+            row_factory (RowFactorySpecifier | DoNotChangeRowFactory, optional): specify to use
+                different row_factory for the query. Default to not change the current row_factory.
+                NOTE that None value here means unset the row_factory for this query.
 
         Returns:
             list[Any]: A list contains all the result entries.
@@ -272,6 +309,9 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 cur = con.execute(sql_stmt, params)
             else:
                 cur = con.execute(sql_stmt)
+
+            if row_factory != DO_NOT_CHANGE_ROW_FACTORY:
+                cur.row_factory = _select_row_factory(self.orm_table_spec, row_factory)  # type: ignore
             return cur.fetchall()
 
     def orm_executemany(
