@@ -275,14 +275,40 @@ class TestTableSpecWithDB:
     ):
         _stmt = SimpleTableForTest.table_select_stmt(
             select_from=TBL_NAME,
-            select_cols="int_str, count(*) AS count",
+            select_cols="int_str AS str_int, int_str, count(*) AS count",
+            where_cols=("id",),
         )
         with db_conn as conn:
             _cur = conn.execute(_stmt, SimpleTableForTestCols(id=ENTRY_FOR_TEST.id))
             _cur.row_factory = SimpleTableForTest.table_deserialize_asdict_row_factory
 
             _res: SimpleTableForTestCols = _cur.fetchone()
-            assert _res == {"int_str": ENTRY_FOR_TEST.int_str, "count": 1}
+            assert _res == {
+                # NOTE: if alias the selected col, this col's value will not be deserialized.
+                "str_int": str(ENTRY_FOR_TEST.int_str),
+                "int_str": ENTRY_FOR_TEST.int_str,
+                "count": 1,
+            }
+
+    def test_deserialize_astuple_row_factory(
+        self, db_conn: sqlite3.Connection, prepare_test_entry
+    ):
+        _stmt = SimpleTableForTest.table_select_stmt(
+            select_from=TBL_NAME,
+            select_cols="count(*) AS total_entry_num, int_str AS str_int, int_str",
+            where_cols=("id",),
+        )
+        with db_conn as conn:
+            _cur = conn.execute(_stmt, SimpleTableForTestCols(id=ENTRY_FOR_TEST.id))
+            _cur.row_factory = SimpleTableForTest.table_deserialize_astuple_row_factory
+
+            _res: SimpleTableForTestCols = _cur.fetchone()
+            assert _res == (
+                1,
+                # NOTE: if alias the selected col, this col's value will not be deserialized.
+                str(ENTRY_FOR_TEST.int_str),
+                ENTRY_FOR_TEST.int_str,
+            )
 
 
 @pytest.mark.parametrize(

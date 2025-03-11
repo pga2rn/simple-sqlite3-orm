@@ -784,6 +784,9 @@ class TableSpec(BaseModel):
         For this use case, use thid method as row_factory to deserialize the raw row. This method
             will deserialize the row from raw into actual field types defined in this TableSpec.
 
+        NOTE that if `allow_unknow_cols` is True, any unknown field(including cols aliased with other name)
+            will be preserved AS IT without deserializing as this method cannot know which col the alias name maps to.
+
         Args:
             allow_unknown_cols (bool, optional): If True, unknown cols will be preserved AS IT into the result.
                 Defaults to True.
@@ -813,8 +816,44 @@ class TableSpec(BaseModel):
                 raise ValueError(
                     f"failed to deserialize col {k} with value {v}: {e!r}"
                 ) from e
-        # NOTE: model's __dict__ will contain unset fields that have default values.
-        return {k: v for k, v in _empty_inst.__dict__.items() if k in _to_be_processed}
+        return {k: _empty_inst.__dict__[k] for k in _to_be_processed}
+
+    @classmethod
+    def table_deserialize_astuple_row_factory(
+        cls, _cursor: sqlite3.Cursor, _row: tuple[Any, ...] | Any
+    ) -> tuple[Any, ...]:
+        """Deserialize raw row from a query into a tuple by this TableSpec, ready for application use.
+
+        This is a convenient method when we execute query that only select some cols.
+        For this use case, use thid method as row_factory to deserialize the raw row. This method
+            will deserialize the row from raw into actual field types defined in this TableSpec.
+
+        NOTE that any unknown field(including cols aliased with other name) will be preserved AS IT without
+            deserializing as this method cannot know which col the alias name maps to.
+
+        Raises:
+            ValueError if pydantic validation failed.
+
+        Returns:
+            A tuple of deserialized row as tuple.
+        """
+        _fields = [col[0] for col in _cursor.description]
+        _to_be_processed = dict(zip(_fields, _row))
+
+        _assignment_validator = cls.__pydantic_validator__.validate_assignment
+        _empty_inst = cls.model_construct()
+        for k, v in _to_be_processed.items():
+            if k not in cls.table_columns:
+                _empty_inst.__dict__[k] = v
+                continue
+
+            try:
+                _assignment_validator(_empty_inst, k, v)
+            except Exception as e:  # pragma: no cover
+                raise ValueError(
+                    f"failed to deserialize col {k} with value {v}: {e!r}"
+                ) from e
+        return tuple(_empty_inst.__dict__[k] for k in _to_be_processed)
 
 
 TableSpecType = TypeVar("TableSpecType", bound=TableSpec)
