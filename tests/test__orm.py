@@ -82,15 +82,35 @@ class TestORMBase:
         orm_inst.orm_insert_entry(ENTRY_FOR_TEST, or_option="ignore")
         orm_inst.orm_insert_entry(ENTRY_FOR_TEST, or_option="replace")
 
-    def test_orm_execute(self, orm_inst: SimpleTableORM, prepare_test_entry):
+    @pytest.mark.parametrize(
+        "row_factory, expected",
+        (
+            (
+                # NOTE: no row_factory specified, int_str here is not deserialized
+                None,
+                (1, str(ENTRY_FOR_TEST.int_str)),
+            ),
+            (
+                SimpleTableForTest.table_deserialize_asdict_row_factory,
+                {"count": 1, "int_str": ENTRY_FOR_TEST.int_str},
+            ),
+            (
+                SimpleTableForTest.table_deserialize_astuple_row_factory,
+                (1, ENTRY_FOR_TEST.int_str),
+            ),
+        ),
+    )
+    def test_orm_execute(
+        self, row_factory, expected, orm_inst: SimpleTableORM, prepare_test_entry
+    ):
         sql_stmt = orm_inst.orm_table_spec.table_select_stmt(
             select_from=orm_inst.orm_table_name,
-            select_cols="*",
-            function="count",
+            select_cols="count(*) AS count, int_str",
         )
 
-        res = orm_inst.orm_execute(sql_stmt)
-        assert res and res[0][0] > 0
+        res = orm_inst.orm_execute(sql_stmt, row_factory=row_factory)
+        # NOTE: no row_factory specified, int_str here is not deserialized
+        assert res and res[0] == expected
 
     def test_orm_check_entry_exist(self, orm_inst: SimpleTableORM, prepare_test_entry):
         assert orm_inst.orm_check_entry_exist(
