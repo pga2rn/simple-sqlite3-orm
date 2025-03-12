@@ -82,15 +82,50 @@ class TestORMBase:
         orm_inst.orm_insert_entry(ENTRY_FOR_TEST, or_option="ignore")
         orm_inst.orm_insert_entry(ENTRY_FOR_TEST, or_option="replace")
 
-    def test_orm_execute(self, orm_inst: SimpleTableORM, prepare_test_entry):
+    @pytest.mark.parametrize(
+        "row_factory, expected, where_cols, params",
+        (
+            (
+                # NOTE: no row_factory specified, int_str here is not deserialized
+                None,
+                (1, str(ENTRY_FOR_TEST.int_str)),
+                ("id",),
+                SimpleTableForTestCols(id=ENTRY_FOR_TEST.id),
+            ),
+            (
+                SimpleTableForTest.table_deserialize_asdict_row_factory,
+                {"count": 1, "int_str": ENTRY_FOR_TEST.int_str},
+                None,
+                None,
+            ),
+            (
+                SimpleTableForTest.table_deserialize_astuple_row_factory,
+                (1, ENTRY_FOR_TEST.int_str),
+                ("id",),
+                SimpleTableForTestCols(id=ENTRY_FOR_TEST.id),
+            ),
+        ),
+    )
+    def test_orm_execute(
+        self,
+        row_factory,
+        expected,
+        where_cols,
+        params,
+        orm_inst: SimpleTableORM,
+        prepare_test_entry,
+    ):
         sql_stmt = orm_inst.orm_table_spec.table_select_stmt(
             select_from=orm_inst.orm_table_name,
-            select_cols="*",
-            function="count",
+            select_cols="count(*) AS count, int_str",
+            where_cols=where_cols,
         )
 
-        res = orm_inst.orm_execute(sql_stmt)
-        assert res and res[0][0] > 0
+        res = orm_inst.orm_execute(sql_stmt, params, row_factory=row_factory)
+        # NOTE: no row_factory specified, int_str here is not deserialized
+        assert res and res[0] == expected
+        res_gen = orm_inst.orm_execute_gen(sql_stmt, params, row_factory=row_factory)
+        assert next(res_gen) == expected
 
     def test_orm_check_entry_exist(self, orm_inst: SimpleTableORM, prepare_test_entry):
         assert orm_inst.orm_check_entry_exist(
