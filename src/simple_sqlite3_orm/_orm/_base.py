@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import warnings
 from functools import cached_property, partial
-from itertools import chain
+from itertools import chain, repeat, zip_longest
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -833,6 +833,123 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _params.update(_extra_params)
         with self.orm_con as con:
             _cur = con.execute(_stmt, _params)
+            return _cur.rowcount
+
+    def orm_update_entries_many(
+        self,
+        *,
+        set_cols: tuple[str, ...],
+        where_cols: tuple[str, ...] | None = None,
+        where_stmt: str | None = None,
+        set_cols_value: Iterable[Mapping[str, Any]],
+        where_cols_value: Iterable[Mapping[str, Any]] | None = None,
+        or_option: OR_OPTIONS | None = None,
+        _extra_params: Mapping[str, Any] | None = None,
+        _extra_params_iter: Iterable[Mapping[str, Any]] | None = None,
+        _stmt: str | None = None,
+    ) -> int:
+        """executemany version of orm_update_entries.
+
+        Params like `set_cols_value` and `where_cols_value` need to be provided as iterables.
+
+        Args:
+            set_cols (tuple[str, ...]): Cols to be updated.
+            set_cols_value (Iterable[Mapping[str, Any]]): An iterable of values of to-be-updated cols.
+            where_cols (tuple[str, ...] | None, optional): Cols to match. The WHERE stmt will be generated
+                based on this param. Defaults to None.
+            where_cols_value (Iterable[Mapping[str, Any]] | None, optional): An iterable of values of cols to match.
+                Defaults to None.
+            where_stmt (str | None, optional): Directly provide the WHERE stmt. If specified, both `where_cols` and
+                `where_cols_value` will be ignored. Caller needs to feed the params with `_extra_params` or `_extra_params_iter`.
+                Defaults to None.
+            or_option (OR_OPTIONS | None, optional): specify the operation if UPDATE failed. Defaults to None.
+            _extra_params (Mapping[str, Any] | None, optional): A fixed mapping to be injected for each execution. Defaults to None.
+            _extra_params_iter (Iterable[Mapping[str, Any]] | None, optional): An iterable of mappings to be injected for each execution. Defaults to None.
+            _stmt (str | None, optional): Directly provide the UPDATE query, if specified, params except `_extra_params` and `_extra_params_iter`
+                will be ignored. Defaults to None.
+
+        Raises:
+            ValueError: If `where_cols_value` and `where_cols` are not be both None or both specifed.
+            sqlite3 DB error on execution failed.
+
+        Returns:
+            Affected rows count.
+        """
+        _table_spec = self.orm_table_spec
+
+        params = None
+
+        # NOTE: if _stmt is provided, we will ignore `set_cols*` and `where_cols*` params
+        if not _stmt:
+            if bool(where_cols_value) != bool(where_cols):
+                raise ValueError(
+                    "`where_cols_value` and `where_cols` MUST be both None or both specifed"
+                )
+
+            _stmt = _table_spec.table_update_stmt(
+                update_target=self.orm_table_name,
+                set_cols=set_cols,
+                or_option=or_option,
+                where_cols=where_cols,
+                where_stmt=where_stmt,
+            )
+
+            def serialize_set_cols_value():
+                for _entry in set_cols_value:
+                    yield _table_spec.table_serialize_mapping(_entry)
+
+            if where_cols_value and where_cols:
+
+                def serialize_where_cols_value():
+                    for _entry in where_cols_value:
+                        yield _table_spec.table_preprare_update_where_cols(
+                            _table_spec.table_serialize_mapping(_entry)
+                        )
+
+                def params_with_where():
+                    for _entry_l, _entry_r in zip_longest(
+                        serialize_set_cols_value(), serialize_where_cols_value()
+                    ):
+                        if _entry_l is None or _entry_r is None:
+                            raise ValueError("mismatch input iterables size")
+                        yield dict(**_entry_l, **_entry_r)
+
+                params = params_with_where()
+            else:
+                params = serialize_set_cols_value()
+
+        if _extra_params:
+            if params:
+
+                def params_with_fixed_extra_params(_origin_params):
+                    for _param in _origin_params:
+                        yield dict(**_param, **_extra_params)
+
+                params = params_with_fixed_extra_params(params)
+
+            else:
+                params = repeat(_extra_params)
+
+        if _extra_params_iter:
+            if params:
+
+                def params_with_extra_params_iter(_origin_params):
+                    for _entry_l, _entry_r in zip_longest(
+                        _origin_params, _extra_params_iter
+                    ):
+                        if _entry_l is None or _entry_r is None:
+                            raise ValueError("mismatch input iterables size")
+                        yield dict(**_entry_l, **_entry_r)
+
+                params = params_with_extra_params_iter(params)
+            else:
+                params = _extra_params_iter
+
+        # ------ execution ------ #
+        if not params:
+            raise ValueError("no params is provided!")
+        with self.orm_con as con:
+            _cur = con.executemany(_stmt, params)
             return _cur.rowcount
 
     def orm_delete_entries(
