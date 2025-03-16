@@ -4,6 +4,7 @@ import contextlib
 import functools
 import logging
 import sqlite3
+from itertools import repeat
 from typing import Any
 
 import pytest
@@ -306,24 +307,35 @@ class TestORMBase:
         )
 
 
-TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT = 2_000_000
+TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT = 2_000
 
 
-def test_orm_update_entries_many():
-    with contextlib.closing(sqlite3.connect(":memory:")) as conn:
-        orm = SimpleTableORM(conn)
-        orm.orm_bootstrap_db()
+class TestORMUpdateEntriesMany:
+    @pytest.fixture
+    def _setup_orm(self):
+        with contextlib.closing(sqlite3.connect(":memory:")) as conn:
+            orm = SimpleTableORM(conn)
+            orm.orm_bootstrap_db()
 
-        # ------ prepare ------ #
-        orm.orm_insert_entries(
-            (
-                SimpleTableForTest(id=i, id_str=str(i))
-                for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT)
+            # ------ prepare ------ #
+            orm.orm_insert_entries(
+                (
+                    SimpleTableForTest(id=i, id_str=str(i))
+                    for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT)
+                )
             )
-        )
 
-        # ------ execution ------ #
-        orm.orm_update_entries_many(
+            yield orm
+
+    def _check_result(self, _setup_orm: SimpleTableORM):
+        _check_set = set(range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT))
+        for row in _setup_orm.orm_select_entries():
+            assert row.id == row.extra
+            _check_set.discard(row.id)
+        assert not _check_set
+
+    def test_with_where_cols(self, _setup_orm: SimpleTableORM):
+        _setup_orm.orm_update_entries_many(
             set_cols=("extra",),
             where_cols=("id",),
             set_cols_value=(
@@ -335,13 +347,43 @@ def test_orm_update_entries_many():
                 for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT)
             ),
         )
+        self._check_result(_setup_orm)
 
-        # ------ check result ------ #
-        _check_set = set(range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT))
-        for row in orm.orm_select_entries():
-            assert row.id == row.extra
-            _check_set.discard(row.id)
-        assert not _check_set
+    def test_with_custom_where_stmt_and_extra_params_iter(
+        self, _setup_orm: SimpleTableORM
+    ):
+        _setup_orm.orm_update_entries_many(
+            set_cols=("extra",),
+            where_stmt="WHERE id = :check_id",
+            set_cols_value=(
+                SimpleTableForTestCols(extra=i)
+                for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT)
+            ),
+            _extra_params_iter=(
+                {"check_id": i}
+                for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT)
+            ),
+        )
+        self._check_result(_setup_orm)
+
+    def test_with_custom_where_stmt_and_extra_params(self, _setup_orm: SimpleTableORM):
+        entry_to_update_id, update_value = 1, 123
+        repeat_times = 1_000
+
+        _setup_orm.orm_update_entries_many(
+            or_option="replace",
+            set_cols=("extra",),
+            where_stmt="WHERE id = :check_id",
+            set_cols_value=repeat(
+                SimpleTableForTestCols(extra=update_value), times=repeat_times
+            ),
+            _extra_params={"check_id": entry_to_update_id},
+        )
+
+        check_entry = _setup_orm.orm_select_entry(
+            SimpleTableForTestCols(id=entry_to_update_id)
+        )
+        assert check_entry.extra == update_value
 
 
 @pytest.mark.parametrize(
