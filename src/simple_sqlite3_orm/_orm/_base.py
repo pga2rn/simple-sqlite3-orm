@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import warnings
 from functools import cached_property, partial
-from itertools import chain, repeat
+from itertools import chain
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -897,7 +897,9 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 `where_cols_value` will be ignored. Caller needs to feed the params with `_extra_params` or `_extra_params_iter`.
                 Defaults to None.
             or_option (OR_OPTIONS | None, optional): specify the operation if UPDATE failed. Defaults to None.
-            _extra_params (Mapping[str, Any] | None, optional): A fixed mapping to be injected for each execution. Defaults to None.
+            _extra_params (Mapping[str, Any] | None, optional): A fixed mapping to be injected for each execution.
+                NOTE that this param is only allowed when at least one of `where_cols_value`, `set_cols_value` or `_extra_params_iter` is specified.
+                Defaults to None.
             _extra_params_iter (Iterable[Mapping[str, Any]] | None, optional): An iterable of mappings to be injected for each execution. Defaults to None.
             _stmt (str | None, optional): Directly provide the UPDATE query, if specified, params except `_extra_params` and `_extra_params_iter`
                 will be ignored. Defaults to None.
@@ -905,6 +907,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Raises:
             ValueError: If `where_cols_value` and `where_cols` are not be both None or both specifed.
             ValueError: If `_stmt` is not used and `set_cols` and/or `set_cols_value` are not specified.
+            ValueError: If `_extra_params` is specified without any other iterable params provided.
             sqlite3 DB error on execution failed.
 
         Returns:
@@ -955,18 +958,6 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             else:
                 params = serialize_set_cols_value()
 
-        if _extra_params:
-            if params:
-
-                def params_with_fixed_extra_params(_origin_params):
-                    for _param in _origin_params:
-                        yield dict(**_param, **_extra_params)
-
-                params = params_with_fixed_extra_params(params)
-
-            else:
-                params = repeat(_extra_params)
-
         if _extra_params_iter:
             if params:
 
@@ -977,6 +968,20 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 params = params_with_extra_params_iter(params)
             else:
                 params = _extra_params_iter
+
+        if _extra_params:
+            if params:
+
+                def params_with_fixed_extra_params(_origin_params):
+                    for _param in _origin_params:
+                        yield dict(**_param, **_extra_params)
+
+                params = params_with_fixed_extra_params(params)
+
+            else:
+                raise ValueError(
+                    "only specified `_extra_params` without providing other iter params is not allowed"
+                )
 
         # ------ execution ------ #
         if not params:
