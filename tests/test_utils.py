@@ -48,8 +48,8 @@ def test_check_db_integrity():
             )
             conn.execute("INSERT INTO test_table (key) VALUES (?)", ("aaabbbccc",))
 
-        with conn:
-            check_db_integrity(conn)
+        check_db_integrity(conn)
+        check_db_integrity(conn, table_name="test_table")
 
 
 def test_lookup_table():
@@ -108,10 +108,16 @@ FIELD_NAME = "test_field"
         (ChoiceABC, rf'{FIELD_NAME} IN ("A","B","C")'),
         (SomeIntLiteral, f"{FIELD_NAME} IN (123,456,789)"),
         (SomeStrLiteral, rf'{FIELD_NAME} IN ("H","I","J")'),
+        (object(), TypeError()),
+        (type(None), TypeError()),
     ),
 )
 def test_gen_check_constrain(_in, expected):
-    assert gen_check_constrain(_in, FIELD_NAME) == expected
+    if isinstance(expected, Exception):
+        with pytest.raises(type(expected)):
+            gen_check_constrain(_in, FIELD_NAME)
+    else:
+        assert gen_check_constrain(_in, FIELD_NAME) == expected
 
 
 @pytest.mark.parametrize(
