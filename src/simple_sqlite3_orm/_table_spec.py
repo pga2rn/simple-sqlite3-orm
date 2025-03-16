@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Mapping
 from types import MappingProxyType
-from typing import Any, ClassVar, Iterable, Literal, TypedDict, TypeVar
+from typing import Any, ClassVar, Generator, Iterable, Literal, TypedDict, TypeVar
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -769,6 +769,14 @@ class TableSpec(BaseModel):
             return {}
         _inst = cls.model_construct(**_in)
         return _inst.model_dump(exclude_unset=True)
+
+    @classmethod
+    def table_serialize_mappings(
+        cls, _iter: Iterable[Mapping[str, Any]]
+    ) -> Generator[dict[str, Any]]:  # pragma: no cover
+        """Convert an iter of Mappings into an generator of serialized dict."""
+        for _entry in _iter:
+            yield cls.table_serialize_mapping(_entry)
 
     @classmethod
     def table_deserialize_asdict_row_factory(
