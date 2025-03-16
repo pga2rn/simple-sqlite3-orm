@@ -306,6 +306,44 @@ class TestORMBase:
         )
 
 
+TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT = 2_000_000
+
+
+def test_orm_update_entries_many():
+    with contextlib.closing(sqlite3.connect(":memory:")) as conn:
+        orm = SimpleTableORM(conn)
+        orm.orm_bootstrap_db()
+
+        # ------ prepare ------ #
+        orm.orm_insert_entries(
+            (
+                SimpleTableForTest(id=i, id_str=str(i))
+                for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT)
+            )
+        )
+
+        # ------ execution ------ #
+        orm.orm_update_entries_many(
+            set_cols=("extra",),
+            where_cols=("id",),
+            set_cols_value=(
+                SimpleTableForTestCols(extra=i)
+                for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT)
+            ),
+            where_cols_value=(
+                SimpleTableForTestCols(id=i)
+                for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT)
+            ),
+        )
+
+        # ------ check result ------ #
+        _check_set = set(range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT))
+        for row in orm.orm_select_entries():
+            assert row.id == row.extra
+            _check_set.discard(row.id)
+        assert not _check_set
+
+
 @pytest.mark.parametrize(
     "opts",
     (
