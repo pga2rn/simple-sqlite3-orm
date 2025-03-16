@@ -330,16 +330,16 @@ class TestORMUpdateEntriesMany:
     def _check_result(self, _setup_orm: SimpleTableORM):
         _check_set = set(range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT))
         for row in _setup_orm.orm_select_entries():
-            assert row.id == row.extra
+            assert row.id == row.int_str
             _check_set.discard(row.id)
         assert not _check_set
 
     def test_with_where_cols(self, _setup_orm: SimpleTableORM):
         _setup_orm.orm_update_entries_many(
-            set_cols=("extra",),
+            set_cols=("int_str",),
             where_cols=("id",),
             set_cols_value=(
-                SimpleTableForTestCols(extra=i)
+                SimpleTableForTestCols(int_str=i)
                 for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT)
             ),
             where_cols_value=(
@@ -353,10 +353,10 @@ class TestORMUpdateEntriesMany:
         self, _setup_orm: SimpleTableORM
     ):
         _setup_orm.orm_update_entries_many(
-            set_cols=("extra",),
+            set_cols=("int_str",),
             where_stmt="WHERE id = :check_id",
             set_cols_value=(
-                SimpleTableForTestCols(extra=i)
+                SimpleTableForTestCols(int_str=i)
                 for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT)
             ),
             _extra_params_iter=(
@@ -372,10 +372,10 @@ class TestORMUpdateEntriesMany:
 
         _setup_orm.orm_update_entries_many(
             or_option="replace",
-            set_cols=("extra",),
+            set_cols=("int_str",),
             where_stmt="WHERE id = :check_id",
             set_cols_value=repeat(
-                SimpleTableForTestCols(extra=update_value), times=repeat_times
+                SimpleTableForTestCols(int_str=update_value), times=repeat_times
             ),
             _extra_params={"check_id": entry_to_update_id},
         )
@@ -383,7 +383,7 @@ class TestORMUpdateEntriesMany:
         check_entry = _setup_orm.orm_select_entry(
             SimpleTableForTestCols(id=entry_to_update_id)
         )
-        assert check_entry.extra == update_value
+        assert check_entry.int_str == update_value
 
     def test_with_custom_stmt(self, _setup_orm: SimpleTableORM):
         offset = 1000000
@@ -391,7 +391,7 @@ class TestORMUpdateEntriesMany:
         def _preapre_params():
             for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT):
                 yield dict(
-                    **SimpleTableForTestCols(id=i + offset, extra=i + offset),
+                    **SimpleTableForTestCols(id=i + offset, int_str=i + offset),
                     check_id=i,
                 )
 
@@ -399,14 +399,14 @@ class TestORMUpdateEntriesMany:
             _extra_params_iter=_preapre_params(),
             _stmt=_setup_orm.orm_table_spec.table_update_stmt(
                 update_target=_setup_orm.orm_table_name,
-                set_cols=("extra", "id"),
+                set_cols=("int_str", "id"),
                 where_stmt="WHERE id = :check_id",
             ),
         )
 
         _check_set = set(range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT))
         for row in _setup_orm.orm_select_entries():
-            assert row.id == row.extra
+            assert row.id == row.int_str
             _check_set.discard(row.id - offset)
         assert not _check_set
 
