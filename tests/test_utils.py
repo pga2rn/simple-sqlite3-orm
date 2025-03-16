@@ -6,6 +6,7 @@ import sys
 
 import pytest
 
+from simple_sqlite3_orm._utils import gen_sql_stmt
 from simple_sqlite3_orm.utils import (
     batched,
     check_db_integrity,
@@ -156,3 +157,39 @@ def test_concatenate_condition(stmts, with_parenthese, expected):
 )
 def test_wrap_value(value, expected):
     assert wrap_value(value) == expected
+
+
+_not_set = object()
+
+
+@pytest.mark.parametrize(
+    "components, end_with, expected",
+    (
+        (
+            [
+                "        WHERE",
+                "id",
+                "=",
+                ":check_id",
+                "AND",
+                "",
+                "type",
+                "<>",
+                "'A'",
+            ],
+            "\n",
+            # NOTE: \n is stripped
+            "WHERE id = :check_id AND type <> 'A'",
+        ),
+        (
+            ["    SELECT", "count(*)", "FROM", "some_table"],
+            _not_set,
+            "SELECT count(*) FROM some_table;",
+        ),
+    ),
+)
+def test_gen_sql_stmt(components, end_with, expected):
+    if end_with is _not_set:
+        assert gen_sql_stmt(*components) == expected
+    else:
+        assert gen_sql_stmt(*components, end_with=end_with) == expected
