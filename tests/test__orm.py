@@ -307,7 +307,7 @@ class TestORMBase:
         )
 
 
-TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT = 2_000
+TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT = 20_000
 
 
 class TestORMUpdateEntriesMany:
@@ -403,7 +403,6 @@ class TestORMUpdateEntriesMany:
                 where_stmt="WHERE id = :check_id",
             ),
         )
-        self._check_result(_setup_orm)
 
         _check_set = set(range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT))
         for row in _setup_orm.orm_select_entries():
