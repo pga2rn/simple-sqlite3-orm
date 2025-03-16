@@ -894,6 +894,9 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         Params like `set_cols_value` and `where_cols_value` need to be provided as iterables.
         NOTE that the execution will end and return when any of the input iterable exhausted.
 
+        NOTE that `_extra_params` and `_extra_params_iter` will not be serialized. Caller needs to
+            provide the serialized mappings ready for `executemany`.
+
         Args:
             set_cols (tuple[str, ...]): Cols to be updated.
             set_cols_value (Iterable[Mapping[str, Any]]): An iterable of values of to-be-updated cols.
