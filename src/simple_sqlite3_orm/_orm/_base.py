@@ -778,6 +778,9 @@ class ORMBase(ORMCommonBase[TableSpecType]):
     ) -> int:
         """UPDATE specific entries by matching <where_cols_value>.
 
+        NOTE: if you want to using the same query stmt with different set of params(set col/values and/or where col/values),
+            it is highly recommended to use `orm_update_entries_many` API, it will be significantly faster to call `orm_update_entries`
+            in a for loop(in my test with 2000 entries, using `orm_update_entries_many` is around 300 times faster).
         NOTE: currently UPDATE-WITH-LIMIT and RETURNING are not supported by this method.
 
         Args:
