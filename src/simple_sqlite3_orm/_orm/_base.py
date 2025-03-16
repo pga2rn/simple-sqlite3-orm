@@ -85,6 +85,14 @@ def _select_row_factory(
     raise ValueError(f"invalid specifier: {row_factory_specifier}")
 
 
+def _merge_iters(
+    _left: Iterable[Mapping[str, Any]], _right: Iterable[Mapping[str, Any]]
+) -> Generator[dict[str, Any]]:
+    """Merge two iterables of Mappings into one iterable of dict."""
+    for _entry_l, _entry_r in zip(_left, _right):
+        yield dict(**_entry_l, **_entry_r)
+
+
 class ORMCommonBase(Generic[TableSpecType]):
     orm_table_spec: type[TableSpecType]
 
@@ -916,16 +924,15 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         _table_spec = self.orm_table_spec
 
         params = None
-
         if not _stmt:
+            # sanity check here
             if not (set_cols and set_cols_value):
                 raise ValueError(
                     "if `_stmt` is not used, `set_cols` and `set_cols_value` are required"
                 )
-
             if bool(where_cols_value) != bool(where_cols):
                 raise ValueError(
-                    "`where_cols_value` and `where_cols` MUST be both None or both specifed"
+                    "`where_cols_value` and `where_cols` MUST be both omitted or both specifed"
                 )
 
             _stmt = _table_spec.table_update_stmt(
@@ -936,56 +943,33 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 where_stmt=where_stmt,
             )
 
-            def serialize_set_cols_value():
-                for _entry in set_cols_value:
-                    yield _table_spec.table_serialize_mapping(_entry)
-
+            params = _table_spec.table_serialize_mappings(set_cols_value)
             if where_cols_value and where_cols:
-
-                def serialize_where_cols_value():
-                    for _entry in where_cols_value:
-                        yield _table_spec.table_preprare_update_where_cols(
-                            _table_spec.table_serialize_mapping(_entry)
+                params = _merge_iters(
+                    _left=params,
+                    _right=(
+                        _table_spec.table_preprare_update_where_cols(_entry)
+                        for _entry in _table_spec.table_serialize_mappings(
+                            where_cols_value
                         )
-
-                def params_with_where():
-                    for _entry_l, _entry_r in zip(
-                        serialize_set_cols_value(), serialize_where_cols_value()
-                    ):
-                        yield dict(**_entry_l, **_entry_r)
-
-                params = params_with_where()
-            else:
-                params = serialize_set_cols_value()
-
-        if _extra_params_iter:
-            if params:
-
-                def params_with_extra_params_iter(_origin_params):
-                    for _entry_l, _entry_r in zip(_origin_params, _extra_params_iter):
-                        yield dict(**_entry_l, **_entry_r)
-
-                params = params_with_extra_params_iter(params)
-            else:
-                params = _extra_params_iter
-
-        if _extra_params:
-            if params:
-
-                def params_with_fixed_extra_params(_origin_params):
-                    for _param in _origin_params:
-                        yield dict(**_param, **_extra_params)
-
-                params = params_with_fixed_extra_params(params)
-
-            else:
-                raise ValueError(
-                    "only specified `_extra_params` without providing other iter params is not allowed"
+                    ),
                 )
 
-        # ------ execution ------ #
+        if _extra_params_iter:
+            params = (
+                _extra_params_iter
+                if not params
+                else _merge_iters(params, _extra_params_iter)
+            )
+
         if not params:
-            raise ValueError("no param is provided!")
+            raise ValueError(
+                "no param is provided! "
+                "also only specified `_extra_params` without providing other iter params is not allowed"
+            )
+        if _extra_params:  # inject into param namespace for each execution
+            params = (dict(**_param, **_extra_params) for _param in params)
+
         with self.orm_con as con:
             _cur = con.executemany(_stmt, params)
             return _cur.rowcount
