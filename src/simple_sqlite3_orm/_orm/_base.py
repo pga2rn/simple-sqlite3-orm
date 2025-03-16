@@ -85,6 +85,14 @@ def _select_row_factory(
     raise ValueError(f"invalid specifier: {row_factory_specifier}")
 
 
+def _merge_iters(
+    _left: Iterable[Mapping[str, Any]], _right: Iterable[Mapping[str, Any]]
+) -> Generator[dict[str, Any]]:
+    """Merge two iterables of Mappings into one iterable of dict."""
+    for _entry_l, _entry_r in zip(_left, _right):
+        yield dict(**_entry_l, **_entry_r)
+
+
 class ORMCommonBase(Generic[TableSpecType]):
     orm_table_spec: type[TableSpecType]
 
@@ -778,6 +786,9 @@ class ORMBase(ORMCommonBase[TableSpecType]):
     ) -> int:
         """UPDATE specific entries by matching <where_cols_value>.
 
+        NOTE: if you want to using the same query stmt with different set of params(set col/values and/or where col/values),
+            it is highly recommended to use `orm_update_entries_many` API, it will be significantly faster to call `orm_update_entries`
+            in a for loop(in my test with 2000 entries, using `orm_update_entries_many` is around 300 times faster).
         NOTE: currently UPDATE-WITH-LIMIT and RETURNING are not supported by this method.
 
         Args:
@@ -833,6 +844,137 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _params.update(_extra_params)
         with self.orm_con as con:
             _cur = con.execute(_stmt, _params)
+            return _cur.rowcount
+
+    @overload
+    def orm_update_entries_many(
+        self,
+        *,
+        set_cols: tuple[str, ...],
+        where_cols: tuple[str, ...] | None = None,
+        where_stmt: str | None = None,
+        set_cols_value: Iterable[Mapping[str, Any]],
+        where_cols_value: Iterable[Mapping[str, Any]] | None = None,
+        or_option: OR_OPTIONS | None = None,
+        _extra_params: Mapping[str, Any] | None = None,
+        _extra_params_iter: Iterable[Mapping[str, Any]] | None = None,
+        _stmt: None = None,
+    ) -> int: ...
+
+    @overload
+    def orm_update_entries_many(
+        self,
+        *,
+        set_cols: None = None,
+        where_cols: None = None,
+        where_stmt: None = None,
+        set_cols_value: None = None,
+        where_cols_value: None = None,
+        or_option: None = None,
+        _extra_params: Mapping[str, Any] | None = None,
+        _extra_params_iter: Iterable[Mapping[str, Any]] | None = None,
+        _stmt: str,
+    ) -> int: ...
+
+    def orm_update_entries_many(
+        self,
+        *,
+        set_cols: tuple[str, ...] | None = None,
+        where_cols: tuple[str, ...] | None = None,
+        where_stmt: str | None = None,
+        set_cols_value: Iterable[Mapping[str, Any]] | None = None,
+        where_cols_value: Iterable[Mapping[str, Any]] | None = None,
+        or_option: OR_OPTIONS | None = None,
+        _extra_params: Mapping[str, Any] | None = None,
+        _extra_params_iter: Iterable[Mapping[str, Any]] | None = None,
+        _stmt: str | None = None,
+    ) -> int:
+        """executemany version of orm_update_entries.
+
+        Params like `set_cols_value` and `where_cols_value` need to be provided as iterables.
+        NOTE that the execution will end and return when any of the input iterable exhausted.
+
+        NOTE that `_extra_params` and `_extra_params_iter` will not be serialized. Caller needs to
+            provide the serialized mappings ready for `executemany`.
+
+        Args:
+            set_cols (tuple[str, ...]): Cols to be updated.
+            set_cols_value (Iterable[Mapping[str, Any]]): An iterable of values of to-be-updated cols.
+            where_cols (tuple[str, ...] | None, optional): Cols to match. The WHERE stmt will be generated
+                based on this param. Defaults to None.
+            where_cols_value (Iterable[Mapping[str, Any]] | None, optional): An iterable of values of cols to match.
+                Defaults to None.
+            where_stmt (str | None, optional): Directly provide the WHERE stmt. If specified, both `where_cols` and
+                `where_cols_value` will be ignored. Caller needs to feed the params with `_extra_params` or `_extra_params_iter`.
+                Defaults to None.
+            or_option (OR_OPTIONS | None, optional): specify the operation if UPDATE failed. Defaults to None.
+            _extra_params (Mapping[str, Any] | None, optional): A fixed mapping to be injected for each execution.
+                NOTE that this param is only allowed when at least one of `where_cols_value`, `set_cols_value` or `_extra_params_iter` is specified.
+                Defaults to None.
+            _extra_params_iter (Iterable[Mapping[str, Any]] | None, optional): An iterable of mappings to be injected for each execution. Defaults to None.
+            _stmt (str | None, optional): Directly provide the UPDATE query, if specified, params except `_extra_params` and `_extra_params_iter`
+                will be ignored. Defaults to None.
+
+        Raises:
+            ValueError: If `where_cols_value` and `where_cols` are not be both None or both specifed.
+            ValueError: If `_stmt` is not used and `set_cols` and/or `set_cols_value` are not specified.
+            ValueError: If `_extra_params` is specified without any other iterable params provided.
+            sqlite3 DB error on execution failed.
+
+        Returns:
+            Affected rows count.
+        """
+        _table_spec = self.orm_table_spec
+
+        params = None
+        if not _stmt:
+            # sanity check here
+            if not (set_cols and set_cols_value):
+                raise ValueError(
+                    "if `_stmt` is not used, `set_cols` and `set_cols_value` are required"
+                )
+            if bool(where_cols_value) != bool(where_cols):
+                raise ValueError(
+                    "`where_cols_value` and `where_cols` MUST be both omitted or both specifed"
+                )
+
+            _stmt = _table_spec.table_update_stmt(
+                update_target=self.orm_table_name,
+                set_cols=set_cols,
+                or_option=or_option,
+                where_cols=where_cols,
+                where_stmt=where_stmt,
+            )
+
+            params = _table_spec.table_serialize_mappings(set_cols_value)
+            if where_cols_value and where_cols:
+                params = _merge_iters(
+                    _left=params,
+                    _right=(
+                        _table_spec.table_preprare_update_where_cols(_entry)
+                        for _entry in _table_spec.table_serialize_mappings(
+                            where_cols_value
+                        )
+                    ),
+                )
+
+        if _extra_params_iter:
+            params = (
+                _extra_params_iter
+                if not params
+                else _merge_iters(params, _extra_params_iter)
+            )
+
+        if not params:
+            raise ValueError(
+                "no param is provided! "
+                "also only specified `_extra_params` without providing other iter params is not allowed"
+            )
+        if _extra_params:  # inject into param namespace for each execution
+            params = (dict(**_param, **_extra_params) for _param in params)
+
+        with self.orm_con as con:
+            _cur = con.executemany(_stmt, params)
             return _cur.rowcount
 
     def orm_delete_entries(
