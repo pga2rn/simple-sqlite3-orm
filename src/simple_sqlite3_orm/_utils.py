@@ -36,7 +36,7 @@ else:
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias  # noqa: F401
-else:
+else:  # pragma: no cover
     from typing import List
 
     if not TYPE_CHECKING:

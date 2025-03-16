@@ -227,7 +227,7 @@ def check_pragma_compile_time_options(
 if sys.version_info >= (3, 12):
     from itertools import batched
 
-else:
+else:  # pragma: no cover
 
     def batched(
         iterable: Iterable[Any], n: int
