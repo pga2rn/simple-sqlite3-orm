@@ -385,6 +385,32 @@ class TestORMUpdateEntriesMany:
         )
         assert check_entry.extra == update_value
 
+    def test_with_custom_stmt(self, _setup_orm: SimpleTableORM):
+        offset = 1000000
+
+        def _preapre_params():
+            for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT):
+                yield dict(
+                    **SimpleTableForTestCols(id=i + offset, extra=i + offset),
+                    check_id=i,
+                )
+
+        _setup_orm.orm_update_entries_many(
+            _extra_params_iter=_preapre_params(),
+            _stmt=_setup_orm.orm_table_spec.table_update_stmt(
+                update_target=_setup_orm.orm_table_name,
+                set_cols=("extra", "id"),
+                where_stmt="WHERE id = :check_id",
+            ),
+        )
+        self._check_result(_setup_orm)
+
+        _check_set = set(range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT))
+        for row in _setup_orm.orm_select_entries():
+            assert row.id == row.extra
+            _check_set.discard(row.id - offset)
+        assert not _check_set
+
 
 @pytest.mark.parametrize(
     "opts",
