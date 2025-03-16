@@ -160,10 +160,9 @@ for entry in res_gen:
 
 ### Update rows
 
-You can update specific rows as follow:
+You can update specific rows with one set of params as follow:
 
 ```python
-
 # specify rows by matching cols
 #   WHERE stmt will be generated from `where_cols_value`.
 orm.orm_update_entries(
@@ -177,6 +176,22 @@ orm.orm_update_entries(
     set_values=MyTableCols(entry_token="ccddee123", entry_type="C"),
     where_stmt="WHERE entry_id > :entry_lower_bound AND entry_id < :entry_upper_bound",
     _extra_params={"entry_lower_bound": 123, "entry_upper_bound": 456}
+)
+```
+
+Also, there is an `executemany` version of ORM update API, `orm_update_entries_many`, which you can use many sets of params for the same UPDATE query execution.
+
+Using this API is **SIGNIFICANTLY** faster with lower memory usage than calling `orm_update_entries` each time in a for loop.
+
+```python
+set_cols_value_iter: Iterable[MyTableCols]
+where_cols_value_iter: Iterable[Mapping[str, Any]]
+
+updated_rows_count: int = orm.orm_update_entries_many(
+    set_cols=("entry_id", "entry_token", "entry_type"),
+    where_cols=("entry_id",),
+    set_cols_value=set_cols_value_iter,
+    where_cols_value=where_cols_value_iter,
 )
 ```
 
