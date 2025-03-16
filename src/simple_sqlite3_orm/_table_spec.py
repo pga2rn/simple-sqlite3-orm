@@ -773,7 +773,7 @@ class TableSpec(BaseModel):
     @classmethod
     def table_serialize_mappings(
         cls, _iter: Iterable[Mapping[str, Any]]
-    ) -> Generator[dict[str, Any]]:
+    ) -> Generator[dict[str, Any]]:  # pragma: no cover
         """Convert an iter of Mappings into an generator of serialized dict."""
         for _entry in _iter:
             yield cls.table_serialize_mapping(_entry)
