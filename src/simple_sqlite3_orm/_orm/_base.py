@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import warnings
 from functools import cached_property, partial
-from itertools import chain, repeat, zip_longest
+from itertools import chain, repeat
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -838,6 +838,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             _cur = con.execute(_stmt, _params)
             return _cur.rowcount
 
+    @overload
     def orm_update_entries_many(
         self,
         *,
@@ -849,11 +850,41 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         or_option: OR_OPTIONS | None = None,
         _extra_params: Mapping[str, Any] | None = None,
         _extra_params_iter: Iterable[Mapping[str, Any]] | None = None,
+        _stmt: None = None,
+    ) -> int: ...
+
+    @overload
+    def orm_update_entries_many(
+        self,
+        *,
+        set_cols: None = None,
+        where_cols: None = None,
+        where_stmt: None = None,
+        set_cols_value: None = None,
+        where_cols_value: None = None,
+        or_option: None = None,
+        _extra_params: Mapping[str, Any] | None = None,
+        _extra_params_iter: Iterable[Mapping[str, Any]] | None = None,
+        _stmt: str,
+    ) -> int: ...
+
+    def orm_update_entries_many(
+        self,
+        *,
+        set_cols: tuple[str, ...] | None = None,
+        where_cols: tuple[str, ...] | None = None,
+        where_stmt: str | None = None,
+        set_cols_value: Iterable[Mapping[str, Any]] | None = None,
+        where_cols_value: Iterable[Mapping[str, Any]] | None = None,
+        or_option: OR_OPTIONS | None = None,
+        _extra_params: Mapping[str, Any] | None = None,
+        _extra_params_iter: Iterable[Mapping[str, Any]] | None = None,
         _stmt: str | None = None,
     ) -> int:
         """executemany version of orm_update_entries.
 
         Params like `set_cols_value` and `where_cols_value` need to be provided as iterables.
+        NOTE that the execution will end and return when any of the input iterable exhausted.
 
         Args:
             set_cols (tuple[str, ...]): Cols to be updated.
@@ -873,6 +904,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
         Raises:
             ValueError: If `where_cols_value` and `where_cols` are not be both None or both specifed.
+            ValueError: If `_stmt` is not used and `set_cols` and/or `set_cols_value` are not specified.
             sqlite3 DB error on execution failed.
 
         Returns:
@@ -882,8 +914,12 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
         params = None
 
-        # NOTE: if _stmt is provided, we will ignore `set_cols*` and `where_cols*` params
         if not _stmt:
+            if not (set_cols and set_cols_value):
+                raise ValueError(
+                    "if `_stmt` is not used, `set_cols` and `set_cols_value` are required"
+                )
+
             if bool(where_cols_value) != bool(where_cols):
                 raise ValueError(
                     "`where_cols_value` and `where_cols` MUST be both None or both specifed"
@@ -910,11 +946,9 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                         )
 
                 def params_with_where():
-                    for _entry_l, _entry_r in zip_longest(
+                    for _entry_l, _entry_r in zip(
                         serialize_set_cols_value(), serialize_where_cols_value()
                     ):
-                        if _entry_l is None or _entry_r is None:
-                            raise ValueError("mismatch input iterables size")
                         yield dict(**_entry_l, **_entry_r)
 
                 params = params_with_where()
@@ -937,11 +971,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             if params:
 
                 def params_with_extra_params_iter(_origin_params):
-                    for _entry_l, _entry_r in zip_longest(
-                        _origin_params, _extra_params_iter
-                    ):
-                        if _entry_l is None or _entry_r is None:
-                            raise ValueError("mismatch input iterables size")
+                    for _entry_l, _entry_r in zip(_origin_params, _extra_params_iter):
                         yield dict(**_entry_l, **_entry_r)
 
                 params = params_with_extra_params_iter(params)
@@ -950,7 +980,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
         # ------ execution ------ #
         if not params:
-            raise ValueError("no params is provided!")
+            raise ValueError("no param is provided!")
         with self.orm_con as con:
             _cur = con.executemany(_stmt, params)
             return _cur.rowcount
