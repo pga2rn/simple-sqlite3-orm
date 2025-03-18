@@ -175,10 +175,15 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
             else self._orm_table_name
         )
 
-    def _worker_shutdown(self, shutdown_barrier: threading.Barrier):
+    def _worker_shutdown(
+        self, shutdown_barrier: threading.Barrier, shutdown_lock: threading.Lock
+    ):
         shutdown_barrier.wait()  # wait for all work threads get the worker_shutdown
-        if conn := self._thread_id_orms.get(threading.get_native_id()):
-            conn._con.close()
+        with shutdown_lock:
+            if _thread_scope_orm := self._thread_id_orms.pop(
+                threading.get_native_id(), None
+            ):
+                _thread_scope_orm._con.close()
 
     def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
         """Shutdown the ORM connections thread pool.
@@ -196,8 +201,9 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
 
         if close_connections:
             _barrier = threading.Barrier(self._num_of_cons + 1)
+            _lock = threading.Lock()
             for _ in range(self._num_of_cons):
-                self._pool.submit(self._worker_shutdown, _barrier)
+                self._pool.submit(self._worker_shutdown, _barrier, _lock)
             _barrier.wait()
         self._pool.shutdown(wait=wait)
 
