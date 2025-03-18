@@ -206,7 +206,8 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
         """
         self._closed = True
         if self._pool._shutdown:
-            return
+            # NOTE: ThreadPoolExecutor's shutdown method itself can be call multiple times
+            return self._pool.shutdown(wait=wait)
 
         if close_connections:
             _barrier = threading.Barrier(self._num_of_cons + 1)
