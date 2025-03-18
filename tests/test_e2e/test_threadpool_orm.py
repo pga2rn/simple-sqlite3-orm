@@ -155,14 +155,18 @@ class TestORMPoolShutdown:
     def _workload(self, _id: int, event: threading.Event):
         logger.info(f"workload {_id} engaged by thread={threading.get_native_id()}")
         event.wait()
-        time.sleep(random.randint(1, 3))
+        time.sleep(random.random())
+        if random.random() < 0.5:
+            logger.info("raise")
+            raise SystemExit
+
         logger.info(f"workload {_id} finished")
 
     def test_orm_pool_shutdown(self, _orm_pool: SampleDBConnectionPool):
         _event = threading.Event()
 
         # insert random workloads
-        for _id in range(_THREADS * 2):
+        for _id in range(_THREADS * 10):
             _orm_pool._pool.submit(self._workload, _id, _event)
         _event.set()
         logger.info("workloads are all dispatched, now shutdown pool ...")
