@@ -49,6 +49,9 @@ _SENTINEL = object()
 
 def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase, P], RT]):
     def _wrapped(self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs) -> RT:
+        if self._closed:
+            raise RuntimeError("cannot schedule new task on pool shutdown")
+
         def _in_thread() -> RT:
             _orm_base = self._thread_scope_orm
             return func(_orm_base, *args, **kwargs)
@@ -65,6 +68,9 @@ def _wrap_generator_with_thread_ctx(
     def _wrapped(
         self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs
     ) -> Generator[TableSpecType]:
+        if self._closed:
+            raise RuntimeError("cannot schedule new task on pool shutdown")
+
         _queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
         _global_queue_weakset.add(_queue)
 
@@ -137,6 +143,8 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
             thread_name_prefix=thread_name_prefix,
         )
 
+        self._closed = False
+
     __class_getitem__ = classmethod(parameterized_class_getitem)
 
     def __enter__(self) -> Self:
@@ -196,6 +204,7 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
             wait (bool, optional): Wait for threads join. Defaults to True.
             close_connections (bool, optional): Close all the connections. Defaults to True.
         """
+        self._closed = True
         if self._pool._shutdown:
             return
 
