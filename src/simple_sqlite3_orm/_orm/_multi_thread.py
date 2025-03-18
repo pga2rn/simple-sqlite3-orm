@@ -130,6 +130,7 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
         # thread_scope ORMBase instances
         self._thread_id_orms: dict[int, ORMBase] = {}
 
+        self._num_of_cons = number_of_cons
         self._pool = ThreadPoolExecutor(
             max_workers=number_of_cons,
             initializer=partial(self._thread_initializer, con_factory, row_factory),
@@ -174,6 +175,11 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
             else self._orm_table_name
         )
 
+    def _worker_shutdown(self, shutdown_barrier: threading.Barrier):
+        shutdown_barrier.wait()  # wait for all work threads get the worker_shutdown
+        if conn := self._thread_id_orms.get(threading.get_native_id()):
+            conn._con.close()
+
     def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
         """Shutdown the ORM connections thread pool.
 
@@ -185,11 +191,15 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
             wait (bool, optional): Wait for threads join. Defaults to True.
             close_connections (bool, optional): Close all the connections. Defaults to True.
         """
-        self._pool.shutdown(wait=wait)
+        if self._pool._shutdown:
+            return
+
         if close_connections:
-            for orm_base in self._thread_id_orms.values():
-                orm_base._con.close()
-        self._thread_id_orms = {}
+            _barrier = threading.Barrier(self._num_of_cons + 1)
+            for _ in range(self._num_of_cons):
+                self._pool.submit(self._worker_shutdown, _barrier)
+            _barrier.wait()
+        self._pool.shutdown(wait=wait)
 
     orm_execute = _wrap_with_thread_ctx(ORMBase.orm_execute)
     orm_execute_gen = _wrap_generator_with_thread_ctx(ORMBase.orm_execute_gen)
