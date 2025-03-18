@@ -195,7 +195,6 @@ def setup_con_factory(
 
         con = sqlite3.connect(
             db_file,
-            check_same_thread=False,
             timeout=DB_LOCK_WAIT_TIMEOUT,
             factory=_con_factory,
         )
