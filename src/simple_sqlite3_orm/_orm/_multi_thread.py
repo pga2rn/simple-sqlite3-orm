@@ -49,7 +49,7 @@ _SENTINEL = object()
 
 def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase, P], RT]):
     def _wrapped(self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs) -> RT:
-        if self._closed:
+        if self._closed:  # pragma: no cover
             raise RuntimeError("cannot schedule new task on pool shutdown")
 
         def _in_thread() -> RT:
@@ -68,7 +68,7 @@ def _wrap_generator_with_thread_ctx(
     def _wrapped(
         self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs
     ) -> Generator[TableSpecType]:
-        if self._closed:
+        if self._closed:  # pragma: no cover
             raise RuntimeError("cannot schedule new task on pool shutdown")
 
         _queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
@@ -205,7 +205,7 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
             close_connections (bool, optional): Close all the connections. Defaults to True.
         """
         self._closed = True
-        if self._pool._shutdown:
+        if self._pool._shutdown:  # pragma: no cover
             # NOTE: ThreadPoolExecutor's shutdown method itself can be call multiple times
             return self._pool.shutdown(wait=wait)
 
