@@ -8,9 +8,9 @@ from typing import Callable
 import pytest
 
 from simple_sqlite3_orm.utils import batched
-from tests.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
 from tests.sample_db.orm import SampleDBConnectionPool
 from tests.sample_db.table import SampleTable, SampleTableCols
+from tests.test_e2e.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ class TestWithSampleDBAndThreadPool:
 
         # simulating multiple worker threads submitting to database with access serialized.
         with ThreadPoolExecutor(max_workers=WORKER_NUM) as pool:
+            _batch_count = 0
             for _batch_count, entry in enumerate(
                 batched(setup_test_data.values(), TEST_INSERT_BATCH_SIZE),
                 start=1,
@@ -52,6 +53,7 @@ class TestWithSampleDBAndThreadPool:
             )
 
         logger.info("confirm data written")
+        _selected_entry_count = 0
         for _selected_entry_count, _entry in enumerate(
             thread_pool.orm_select_entries(), start=1
         ):

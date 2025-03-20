@@ -10,9 +10,9 @@ import pytest
 import pytest_asyncio
 
 from simple_sqlite3_orm.utils import batched
-from tests.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
 from tests.sample_db.orm import SampleDBAsyncio
 from tests.sample_db.table import SampleTable, SampleTableCols
+from tests.test_e2e.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,7 @@ class TestWithSampleDBWithAsyncIO:
         logger.info("test insert entries...")
 
         _tasks = []
+        _batch_count = 0
         for _batch_count, entry in enumerate(
             batched(setup_test_data.values(), TEST_INSERT_BATCH_SIZE),
             start=1,
@@ -92,11 +93,23 @@ class TestWithSampleDBWithAsyncIO:
             unique=True,
         )
 
-    async def test_lookup_entries(
+    async def test_orm_execute(
         self, async_pool: SampleDBAsyncio, setup_test_data: dict[str, SampleTable]
     ):
+        logger.info("test orm_execute to check inserted entries num")
+        sql_stmt = async_pool.orm_table_spec.table_select_stmt(
+            select_from=async_pool.orm_table_name,
+            function="count",
+        )
+        res = await async_pool.orm_execute(sql_stmt)
+
+        assert res and res[0][0] == len(setup_test_data)
+
+    async def test_lookup_entries(
+        self, async_pool: SampleDBAsyncio, entries_to_lookup: list[SampleTable]
+    ):
         logger.info("test lookup entries")
-        for _entry in setup_test_data.values():
+        for _entry in entries_to_lookup:
             _looked_up = await async_pool.orm_select_entries(
                 SampleTableCols(
                     key_id=_entry.key_id, prim_key_sha256hash=_entry.prim_key_sha256hash
@@ -109,18 +122,6 @@ class TestWithSampleDBWithAsyncIO:
 
             assert len(_looked_up_list) == 1
             assert _looked_up_list[0] == _entry
-
-    async def test_orm_execute(
-        self, async_pool: SampleDBAsyncio, setup_test_data: dict[str, SampleTable]
-    ):
-        logger.info("test orm_execute to check inserted entries num")
-        sql_stmt = async_pool.orm_table_spec.table_select_stmt(
-            select_from=async_pool.orm_table_name,
-            function="count",
-        )
-        res = await async_pool.orm_execute(sql_stmt)
-
-        assert res and res[0][0] == len(setup_test_data)
 
     async def test_delete_entries(
         self, async_pool: SampleDBAsyncio, entries_to_remove: list[SampleTable]

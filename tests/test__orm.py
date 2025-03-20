@@ -17,7 +17,6 @@ from simple_sqlite3_orm import (
 from simple_sqlite3_orm._orm._base import DO_NOT_CHANGE_ROW_FACTORY
 from tests.conftest import (
     ID_STR_DEFAULT_VALUE,
-    SELECT_ALL_BATCH_SIZE,
     SimpleTableForTest,
     SimpleTableForTestCols,
 )
@@ -26,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 TBL_NAME = "test_table"
+SELECT_ALL_BATCH_SIZE = 200
 
 
 class SimpleTableORM(ORMBase[SimpleTableForTest]):

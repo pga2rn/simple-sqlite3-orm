@@ -9,16 +9,13 @@ from typing import Generator
 import pytest
 
 from simple_sqlite3_orm import utils
-from tests.conftest import (
-    INDEX_KEYS,
-    INDEX_NAME,
-    SELECT_ALL_BATCH_SIZE,
-    TEST_INSERT_BATCH_SIZE,
-)
 from tests.sample_db.orm import SampleDB
 from tests.sample_db.table import SampleTable, SampleTableCols
+from tests.test_e2e.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
+
+SELECT_ALL_BATCH_SIZE = 200
 
 
 class TestWithSampleDB:

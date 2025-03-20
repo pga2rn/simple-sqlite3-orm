@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from simple_sqlite3_orm import AsyncORMBase, ORMBase, ORMThreadPoolBase
-from tests.conftest import TABLE_NAME
 from tests.sample_db.table import SampleTable
+
+TABLE_NAME = "test_table"
 
 
 class SampleDB(ORMBase[SampleTable]):
