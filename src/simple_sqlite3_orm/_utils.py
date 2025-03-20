@@ -204,7 +204,7 @@ def gen_sql_stmt(*components: str, end_with: str | None = ";") -> str:
         return buffer.getvalue().strip()
 
 
-class ColsCheckerFactory(tuple[T, ...]):
+class ColsSelectFactory(tuple[T, ...]):
     """A factory type to generate cols name checker.
 
     Usage:

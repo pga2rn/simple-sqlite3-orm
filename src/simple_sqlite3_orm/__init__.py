@@ -32,7 +32,7 @@ from simple_sqlite3_orm._typing import (
     RowFactoryType,
 )
 from simple_sqlite3_orm._utils import (
-    ColsCheckerFactory,
+    ColsSelectFactory,
     ConstrainRepr,
     TypeAffinityRepr,
 )
@@ -71,5 +71,5 @@ __all__ = [
     # typing helper
     "CreateIndexParams",
     "CreateTableParams",
-    "ColsCheckerFactory",
+    "ColsSelectFactory",
 ]
