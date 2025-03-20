@@ -13,6 +13,7 @@ from tests.conftest import (
     SQLITE3_COMPILE_OPTION_FLAGS,
     SimpleTableForTest,
     SimpleTableForTestCols,
+    SimpleTableForTestColsSelect,
 )
 
 TBL_NAME = "test_table"
@@ -121,7 +122,9 @@ class TestTableSpecWithDB:
     def test_lookup_entry(self, db_conn: sqlite3.Connection, prepare_test_entry):
         _to_lookup = self.ENTRY_FOR_TEST
         table_select_stmt = SimpleTableForTest.table_select_stmt(
-            select_from=TBL_NAME, select_cols="rowid, *", where_cols=("id",)
+            select_from=TBL_NAME,
+            select_cols="rowid, *",
+            where_cols=SimpleTableForTestColsSelect("id"),
         )
         with db_conn as _conn:
             _cur = _conn.execute(table_select_stmt, {"id": _to_lookup.id})
@@ -276,7 +279,7 @@ class TestTableSpecWithDB:
         _stmt = SimpleTableForTest.table_select_stmt(
             select_from=TBL_NAME,
             select_cols="int_str AS str_int, int_str, count(*) AS count",
-            where_cols=("id",),
+            where_cols=SimpleTableForTestColsSelect("id"),
         )
         with db_conn as conn:
             _cur = conn.execute(_stmt, SimpleTableForTestCols(id=ENTRY_FOR_TEST.id))
@@ -296,7 +299,7 @@ class TestTableSpecWithDB:
         _stmt = SimpleTableForTest.table_select_stmt(
             select_from=TBL_NAME,
             select_cols="count(*) AS total_entry_num, int_str AS str_int, int_str",
-            where_cols=("id",),
+            where_cols=SimpleTableForTestColsSelect("id"),
         )
         with db_conn as conn:
             _cur = conn.execute(_stmt, SimpleTableForTestCols(id=ENTRY_FOR_TEST.id))
