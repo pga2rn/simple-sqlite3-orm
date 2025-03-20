@@ -7,13 +7,19 @@ import sqlite3
 import string
 import time
 from pathlib import Path
-from typing import Callable, Generator, Optional, TypedDict, get_args
+from typing import Callable, Generator, Literal, Optional, TypedDict, get_args
 
 import pytest
 from pydantic import PlainSerializer, PlainValidator
 from typing_extensions import Annotated
 
-from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr, utils
+from simple_sqlite3_orm import (
+    ColsSelectFactory,
+    ConstrainRepr,
+    TableSpec,
+    TypeAffinityRepr,
+    utils,
+)
 from tests.sample_db.table import (
     Choice123,
     ChoiceABC,
@@ -57,6 +63,10 @@ class SimpleTableForTestCols(TypedDict, total=False):
     extra: Optional[float]
     int_str: int
 
+
+SimpleTableForTestColsSelect = ColsSelectFactory[
+    Literal["id", "id_str", "extra", "int_str"]
+]
 
 # sqlite3 lib features set
 
