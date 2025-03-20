@@ -14,10 +14,14 @@ _parameterized_orm_cache: WeakValueDictionary[
 def parameterized_class_getitem(
     cls, params: Any | type[Any] | type[TableSpecType] | tuple[type[Any], ...]
 ) -> Any:
-    if not isinstance(params, type):
+    if isinstance(params, tuple):
         raise TypeError(
             f"{cls.__name__} only allows to be parameterized with exactly one type, but get {params=}"
         )
+
+    # NOTE: if param is not a type, in most cases it is a TypeVar
+    if not isinstance(params, type):
+        return GenericAlias(cls, params)
 
     key = (cls, params)
     if _cached_type := _parameterized_orm_cache.get(key):
