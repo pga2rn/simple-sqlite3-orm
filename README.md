@@ -76,6 +76,7 @@ class MyTable(TableSpec):
 ### (Recommended) Define typing helpers for your table
 
 It is recommended to define two typing helpers for your table:
+
 1. A `TypedDict` for generating col/value mapping with type check.
 2. A `ColsSelector` for generating a tuple for columns name selection with type check.
 
@@ -206,7 +207,7 @@ orm.orm_update_entries(
 )
 ```
 
-Also, there is an `executemany` version of ORM update API, `orm_update_entries_many`, which you can use many sets of params for the same UPDATE query execution. 
+Also, there is an `executemany` version of ORM update API, `orm_update_entries_many`, which you can use many sets of params for the same UPDATE query execution.
 Using this API is **SIGNIFICANTLY** faster with lower memory usage than calling `orm_update_entries` each time in a for loop.
 
 ```python
