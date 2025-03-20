@@ -10,6 +10,7 @@ import pytest
 import pytest_asyncio
 
 from simple_sqlite3_orm.utils import batched
+from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
 from tests.sample_db.orm import SampleDBAsyncio
 from tests.sample_db.table import SampleTable, SampleTableCols
 from tests.test_e2e.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
@@ -127,7 +128,7 @@ class TestWithSampleDBWithAsyncIO:
         self, async_pool: SampleDBAsyncio, entries_to_remove: list[SampleTable]
     ):
         logger.info("test remove and confirm the removed entries")
-        if sqlite3.sqlite_version_info < (3, 35, 0):
+        if SQLITE3_COMPILE_OPTION_FLAGS.RETURNING_AVAILABLE:
             logger.warning(
                 (
                     "Current runtime sqlite3 lib version doesn't support RETURNING statement:"
