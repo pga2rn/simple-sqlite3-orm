@@ -69,14 +69,12 @@ def _wrap_generator_with_async_ctx(
             _async_queue.put_nowait(_entry)
 
         def _in_thread():
-            global _global_shutdown
             _thread_scope_orm = _orm_threadpool._thread_scope_orm
-
             try:
                 for entry in func(_thread_scope_orm, *args, **kwargs):
                     while not _global_shutdown:
                         if _se.acquire(timeout=1):
-                            self._loop.call_soon_threadsafe(_put_entry_with_se, entry)
+                            _bound_callsoon_threadsafe(_put_entry_with_se, entry)
                             break
                     else:  # global shutdown, directly exit
                         return
