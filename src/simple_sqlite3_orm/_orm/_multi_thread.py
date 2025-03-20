@@ -64,20 +64,6 @@ def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase, P], RT]):
 #
 
 
-def _caller_gen(_queue: queue.Queue[RT]) -> Generator[RT]:
-    while not _global_shutdown:
-        entry = _queue.get()
-        if entry is _SENTINEL:
-            return
-
-        if isinstance(entry, Exception):
-            try:
-                raise entry
-            finally:
-                entry = None
-        yield entry
-
-
 def _wrap_generator_with_thread_ctx(
     func: Callable[Concatenate[ORMBase, P], Generator[RT]],
 ):
@@ -101,7 +87,7 @@ def _wrap_generator_with_thread_ctx(
                 _queue.put(_SENTINEL)
 
         self._pool.submit(_in_thread)
-        return _caller_gen(_queue)
+        return self._caller_gen(_queue)
 
     _wrapped.__doc__ = func.__doc__
     return _wrapped
@@ -165,6 +151,20 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
     def _thread_scope_orm(self) -> ORMBase[TableSpecType]:
         """Get thread scope ORMBase instance."""
         return self._thread_id_orms[threading.get_native_id()]
+
+    @staticmethod
+    def _caller_gen(_queue: queue.Queue[RT]) -> Generator[RT]:
+        while not _global_shutdown:
+            entry = _queue.get()
+            if entry is _SENTINEL:
+                return
+
+            if isinstance(entry, Exception):
+                try:
+                    raise entry
+                finally:
+                    entry = None
+            yield entry
 
     @cached_property
     def orm_table_name(self) -> str:

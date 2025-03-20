@@ -55,7 +55,7 @@ def _wrap_with_async_ctx(
 
 
 def _wrap_generator_with_async_ctx(
-    func: Callable[Concatenate[ORMBase, P], Generator[TableSpecType]],
+    func: Callable[Concatenate[ORMBase, P], Generator[RT]],
 ):
     async def _wrapped(self: AsyncORMBase, *args: P.args, **kwargs: P.kwargs):
         _orm_threadpool = self._orm_threadpool
@@ -83,21 +83,7 @@ def _wrap_generator_with_async_ctx(
                 _put_queue_cb(_SENTINEL)
 
         _orm_threadpool._pool.submit(_in_thread)
-
-        async def _gen() -> AsyncGenerator[TableSpecType]:
-            while not _global_shutdown:
-                entry = await _async_queue.get()
-                if entry is _SENTINEL:
-                    return
-
-                if isinstance(entry, Exception):
-                    try:
-                        raise entry
-                    finally:
-                        entry = None
-                yield entry
-
-        return _gen()
+        return self._async_caller_gen(_async_queue)
 
     _wrapped.__doc__ = func.__doc__
     return _wrapped
@@ -152,6 +138,20 @@ class AsyncORMBase(ORMCommonBase[TableSpecType]):
     def __exit__(self, exec_type, exc_val, exc_tb):
         self.orm_pool_shutdown(wait=True, close_connections=True)
         return False
+
+    @staticmethod
+    async def _async_caller_gen(_async_queue: asyncio.Queue[RT]) -> AsyncGenerator[RT]:
+        while not _global_shutdown:
+            entry = await _async_queue.get()
+            if entry is _SENTINEL:
+                return
+
+            if isinstance(entry, Exception):
+                try:
+                    raise entry
+                finally:
+                    entry = None
+            yield entry
 
     @cached_property
     def orm_table_name(self) -> str:
