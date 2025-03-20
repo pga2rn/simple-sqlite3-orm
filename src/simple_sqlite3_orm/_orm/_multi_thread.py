@@ -59,12 +59,31 @@ def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase, P], RT]):
     return _wrapped
 
 
+#
+# ------------ generator thread ctx ------------ #
+#
+
+
+def _caller_gen(_queue: queue.Queue[RT]) -> Generator[RT]:
+    while not _global_shutdown:
+        entry = _queue.get()
+        if entry is _SENTINEL:
+            return
+
+        if isinstance(entry, Exception):
+            try:
+                raise entry
+            finally:
+                entry = None
+        yield entry
+
+
 def _wrap_generator_with_thread_ctx(
-    func: Callable[Concatenate[ORMBase, P], Generator[TableSpecType]],
+    func: Callable[Concatenate[ORMBase, P], Generator[RT]],
 ):
     def _wrapped(
         self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs
-    ) -> Generator[TableSpecType]:
+    ) -> Generator[RT]:
         _queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
         _global_queue_weakset.add(_queue)
 
@@ -82,21 +101,7 @@ def _wrap_generator_with_thread_ctx(
                 _queue.put(_SENTINEL)
 
         self._pool.submit(_in_thread)
-
-        def _gen():
-            while not _global_shutdown:
-                entry = _queue.get()
-                if entry is _SENTINEL:
-                    return
-
-                if isinstance(entry, Exception):
-                    try:
-                        raise entry
-                    finally:
-                        entry = None
-                yield entry
-
-        return _gen()
+        return _caller_gen(_queue)
 
     _wrapped.__doc__ = func.__doc__
     return _wrapped
