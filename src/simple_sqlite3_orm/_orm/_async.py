@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 import atexit
 import logging
-import time
+import threading
 from collections.abc import AsyncGenerator, Callable, Generator
-from functools import cached_property, partial
+from functools import cached_property
 from typing import TypeVar
 
 from typing_extensions import Concatenate, ParamSpec, Self
@@ -59,11 +59,14 @@ def _wrap_generator_with_async_ctx(
 ):
     async def _wrapped(self: AsyncORMBase, *args: P.args, **kwargs: P.kwargs):
         _orm_threadpool = self._orm_threadpool
-        _async_queue = asyncio.Queue()
+        _bound_callsoon_threadsafe = self._loop.call_soon_threadsafe
 
-        _put_queue_cb = partial(
-            self._loop.call_soon_threadsafe, _async_queue.put_nowait
-        )
+        _async_queue = asyncio.Queue()
+        _se = threading.Semaphore(MAX_QUEUE_SIZE)
+
+        def _put_entry_with_se(_entry):
+            _se.release()
+            _async_queue.put_nowait(_entry)
 
         def _in_thread():
             global _global_shutdown
@@ -72,15 +75,15 @@ def _wrap_generator_with_async_ctx(
             try:
                 for entry in func(_thread_scope_orm, *args, **kwargs):
                     while not _global_shutdown:
-                        if _async_queue.qsize() > MAX_QUEUE_SIZE:
-                            time.sleep(0.1)
-                            continue
-                        _put_queue_cb(entry)
-                        break
+                        if _se.acquire(timeout=1):
+                            self._loop.call_soon_threadsafe(_put_entry_with_se, entry)
+                            break
+                    else:  # global shutdown, directly exit
+                        return
             except Exception as e:
-                _put_queue_cb(e)
+                _bound_callsoon_threadsafe(_async_queue.put_nowait, e)
             finally:
-                _put_queue_cb(_SENTINEL)
+                _bound_callsoon_threadsafe(_async_queue.put_nowait, _SENTINEL)
 
         _orm_threadpool._pool.submit(_in_thread)
         return self._async_caller_gen(_async_queue)
