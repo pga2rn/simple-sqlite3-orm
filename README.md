@@ -52,10 +52,10 @@ This chapter only shows very basic(thus simple) usage of CRUD operations, there 
 
 `TableSpec` subclasses pydantic's `BaseModel`, so you can follow your experience of using pydantic to define your table as code.
 
-Also, it is recommended to define a `TypedDict` for your table. All CRUD ORM APIs support taking mappings as params, you can utilize the TypedDict for using these APIS with type hint.
+For a more complicated example, see [sample_db](tests/sample_db).
 
 ```python
-from typing import TypedDict, Literal
+from typing import Literal
 from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr
 
 # ------ Table definition ------ #
@@ -71,9 +71,24 @@ class MyTable(TableSpec):
     # A custom type that defines serializer/deserializer in pydantic way,
     #   this custom type is serialized into bytes and stored as BLOB in database.
     special_attrs: Annotated[SpecialAttrsType, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL")]
+```
 
-# ------ Helper TypedDict for MyTable ------ #
+### (Recommended) Define typing helpers for your table
 
+It is recommended to define two typing helpers for your table:
+1. A `TypedDict` for generating col/value mapping with type check.
+2. A `ColsSelector` for generating a tuple for columns name selection with type check.
+
+`simple_sqlite3_orm` APIs take mappings as params, and take tuples for columns selections.
+You can utilize the defined typing helpers to enable static type check over column names when using APIs, preventing column name typos or unsynced updates to column names.
+
+```python
+from typing import TypedDict
+from simple_sqlite3_orm import ColsSelectFactory
+
+# ------------ TypedDict ------------ #
+
+# NOTE: `total` param below allows only specifying some col/value pairs
 class MyTableCols(TypedDict, total=False):
     # no need to copy and paste the full type annotations from the actual TableSpec,
     #   only the actual type is needed.
@@ -81,9 +96,22 @@ class MyTableCols(TypedDict, total=False):
     entry_type: Literal["A", "B", "C"]
     entry_token: bytes
     special_attrs: SpecialAttrsType
-```
 
-For a more complicated example, see[sample_db](tests/sample_db).
+# examples:
+
+good_rows = MyTableCols(entry_id=123)
+bad_rows_type_invalid = MyTableCols(entry_id="not_a_int") # type check error
+bad_rows_unknown_col = MyTableCols(unknown="unknown") # type check error
+
+# ------------ ColsSelector ------------ #
+
+MyTableColsSelector = ColsSelectFactory[Literal["entry_id", "entry_type", "entry_token", "special_attrs"]]
+
+# examples:
+
+good_cols_selection = MyTableColsSelector("entry_id", "special_attrs")
+bad_cols_selection = MyTableColsSelector("entyr_di") # type check error
+```
 
 ### Define your database as code
 
@@ -100,7 +128,7 @@ class MyORM(ORMBase[MyTable]):
     orm_bootstrap_table_name = "my_table"
     orm_bootstrap_create_table_params = CreateTableParams(without_rowid=True)
     orm_bootstrap_indexes_params = [
-        CreateIndexParams(index_name="entry_token_index", index_cols=("entry_token",))
+        CreateIndexParams(index_name="entry_token_index", index_cols=MyTableColsSelector("entry_token"))
     ]
 ```
 
@@ -136,7 +164,7 @@ orm.orm_insert_entry(entry_to_insert)
 orm.orm_insert_mapping(mapping_to_insert)
 ```
 
-Or you can insert a a bunch of entries by an Iterable that yields entries:
+Or you can insert a bunch of entries by an iterable of entries:
 
 ```python
 entries_to_insert: Iterable[MyTable]
@@ -153,9 +181,8 @@ You can select entries by matching column(s) from database:
 ```python
 res_gen: Generator[MyTable] = orm.orm_select_entries(MyTableCols(entry_type="A", entry_token=b"abcdef"))
 
-for entry in res_gen:
-    # do something to each fetched entry here
-    ...
+# process each selected entry here
+for entry in res_gen: ...
 ```
 
 ### Update rows
@@ -179,8 +206,7 @@ orm.orm_update_entries(
 )
 ```
 
-Also, there is an `executemany` version of ORM update API, `orm_update_entries_many`, which you can use many sets of params for the same UPDATE query execution.
-
+Also, there is an `executemany` version of ORM update API, `orm_update_entries_many`, which you can use many sets of params for the same UPDATE query execution. 
 Using this API is **SIGNIFICANTLY** faster with lower memory usage than calling `orm_update_entries` each time in a for loop.
 
 ```python
@@ -188,8 +214,8 @@ set_cols_value_iter: Iterable[MyTableCols]
 where_cols_value_iter: Iterable[Mapping[str, Any]]
 
 updated_rows_count: int = orm.orm_update_entries_many(
-    set_cols=("entry_id", "entry_token", "entry_type"),
-    where_cols=("entry_id",),
+    set_cols=MyTableColsSelector("entry_id", "entry_token", "entry_type"),
+    where_cols=MyTableColsSelector("entry_id"),
     set_cols_value=set_cols_value_iter,
     where_cols_value=where_cols_value_iter,
 )
@@ -200,9 +226,6 @@ updated_rows_count: int = orm.orm_update_entries_many(
 Like select operation, you can detele entries by matching column(s):
 
 ```python
-affected_row_counts: int = orm.orm_delete_entries(entry_type="C")
-
-# or using the defined TypedDict:
 affected_row_counts: int = orm.orm_delete_entries(MyTableCols(entry_type="C"))
 ```
 
