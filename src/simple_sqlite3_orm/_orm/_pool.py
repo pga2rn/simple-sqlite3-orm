@@ -299,9 +299,6 @@ class AsyncORMBase(ORMThreadPoolBase[TableSpecType]):
     NOTE: the supoprt for async ORM is experimental! The APIs might be changed a lot
         in the following releases.
 
-    NOTE: AsyncORMBase is implemented with using ORMThreadPoolBase, but it is NOT a
-        subclass of ORMThreadPoolBase!
-
     For the row_factory arg, please see ORMBase.__init__ for more details.
     """
 
