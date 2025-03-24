@@ -4,13 +4,19 @@ import contextlib
 import random
 import sqlite3
 from pathlib import Path
-from typing import Callable, Generator, Optional, TypedDict
+from typing import Callable, Generator, Literal, Optional, TypedDict
 
 import pytest
 from pydantic import PlainSerializer, PlainValidator
 from typing_extensions import Annotated
 
-from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr, utils
+from simple_sqlite3_orm import (
+    ColsSelectFactory,
+    ConstrainRepr,
+    TableSpec,
+    TypeAffinityRepr,
+    utils,
+)
 
 # for reproducible test
 random.seed(0)
@@ -46,6 +52,10 @@ class SimpleTableForTestCols(TypedDict, total=False):
     extra: Optional[float]
     int_str: int
 
+
+SimpleTableForTestColsSelect = ColsSelectFactory[
+    Literal["id", "id_str", "extra", "int_str"]
+]
 
 # sqlite3 lib features set
 
@@ -115,7 +125,6 @@ def setup_con_factory(
 
         con = sqlite3.connect(
             db_file,
-            check_same_thread=False,
             timeout=DB_LOCK_WAIT_TIMEOUT,
             factory=_con_factory,
         )

@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import logging
+import random
 import sqlite3
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from pathlib import Path
 from typing import Callable
 
 import pytest
@@ -135,3 +140,37 @@ class TestWithSampleDBAndThreadPool:
 
                 assert len(_res_list) == 1
                 assert _res_list[0] == entry
+
+
+_THREADS = 6
+
+
+class TestORMPoolShutdown:
+    @pytest.fixture
+    def _orm_pool(self, tmp_path: Path):
+        return SampleDBConnectionPool(
+            con_factory=partial(sqlite3.connect, tmp_path / "test.sqlite3"),
+            number_of_cons=_THREADS,
+        )
+
+    def _workload(self, _id: int, event: threading.Event):
+        logger.info(f"workload {_id} engaged by thread={threading.get_native_id()}")
+        event.wait()
+        time.sleep(random.random())
+        if random.random() < 0.5:
+            logger.info("raise")
+            raise SystemExit
+
+        logger.info(f"workload {_id} finished")
+
+    def test_orm_pool_shutdown(self, _orm_pool: SampleDBConnectionPool):
+        _event = threading.Event()
+
+        # insert random workloads
+        for _id in range(_THREADS * 10):
+            _orm_pool._pool.submit(self._workload, _id, _event)
+        _event.set()
+        logger.info("workloads are all dispatched, now shutdown pool ...")
+
+        _orm_pool.orm_pool_shutdown(wait=True, close_connections=True)
+        assert not _orm_pool._thread_id_orms

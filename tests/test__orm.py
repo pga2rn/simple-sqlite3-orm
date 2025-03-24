@@ -19,6 +19,7 @@ from tests.conftest import (
     ID_STR_DEFAULT_VALUE,
     SimpleTableForTest,
     SimpleTableForTestCols,
+    SimpleTableForTestColsSelect,
 )
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ class TestORMBase:
     def test_create_index(self, orm_inst: SimpleTableORM):
         orm_inst.orm_create_index(
             index_name="id_str_index",
-            index_keys=("id_str",),
+            index_keys=SimpleTableForTestColsSelect("id_str"),
             allow_existed=True,
             unique=True,
         )
@@ -71,7 +72,7 @@ class TestORMBase:
         with pytest.raises(sqlite3.DatabaseError):
             orm_inst.orm_create_index(
                 index_name="id_str_index",
-                index_keys=("id_str",),
+                index_keys=SimpleTableForTestColsSelect("id_str"),
                 allow_existed=False,
             )
 
@@ -90,7 +91,7 @@ class TestORMBase:
                 # NOTE: no row_factory specified, int_str here is not deserialized
                 None,
                 (1, str(ENTRY_FOR_TEST.int_str)),
-                ("id",),
+                SimpleTableForTestColsSelect("id"),
                 SimpleTableForTestCols(id=ENTRY_FOR_TEST.id),
             ),
             (
@@ -102,7 +103,7 @@ class TestORMBase:
             (
                 SimpleTableForTest.table_deserialize_astuple_row_factory,
                 (1, ENTRY_FOR_TEST.int_str),
-                ("id",),
+                SimpleTableForTestColsSelect("id"),
                 SimpleTableForTestCols(id=ENTRY_FOR_TEST.id),
             ),
         ),
@@ -336,8 +337,8 @@ class TestORMUpdateEntriesMany:
 
     def test_with_where_cols(self, _setup_orm: SimpleTableORM):
         _setup_orm.orm_update_entries_many(
-            set_cols=("int_str",),
-            where_cols=("id",),
+            set_cols=SimpleTableForTestColsSelect("int_str"),
+            where_cols=SimpleTableForTestColsSelect("id"),
             set_cols_value=(
                 SimpleTableForTestCols(int_str=i)
                 for i in range(TEST_ORM_UPDAT_ENTRIES_MANY_ENTRIES_COUNT)
@@ -353,7 +354,7 @@ class TestORMUpdateEntriesMany:
         self, _setup_orm: SimpleTableORM
     ):
         _setup_orm.orm_update_entries_many(
-            set_cols=("int_str",),
+            set_cols=SimpleTableForTestColsSelect("int_str"),
             where_stmt="WHERE id = :check_id",
             set_cols_value=(
                 SimpleTableForTestCols(int_str=i)
@@ -372,7 +373,7 @@ class TestORMUpdateEntriesMany:
 
         _setup_orm.orm_update_entries_many(
             or_option="replace",
-            set_cols=("int_str",),
+            set_cols=SimpleTableForTestColsSelect("int_str"),
             where_stmt="WHERE id = :check_id",
             set_cols_value=repeat(
                 SimpleTableForTestCols(int_str=update_value), times=repeat_times
@@ -399,7 +400,7 @@ class TestORMUpdateEntriesMany:
             _extra_params_iter=_preapre_params(),
             _stmt=_setup_orm.orm_table_spec.table_update_stmt(
                 update_target=_setup_orm.orm_table_name,
-                set_cols=("int_str", "id"),
+                set_cols=SimpleTableForTestColsSelect("int_str", "id"),
                 where_stmt="WHERE id = :check_id",
             ),
         )
@@ -445,13 +446,13 @@ def test_create_table(opts):
             [
                 CreateIndexParams(
                     index_name="test_index",
-                    index_cols=("id_str",),
+                    index_cols=SimpleTableForTestColsSelect("id_str"),
                     if_not_exists=True,
                     unique=True,
                 ),
                 CreateIndexParams(
                     index_name="test_index2",
-                    index_cols=("int_str",),
+                    index_cols=SimpleTableForTestColsSelect("int_str"),
                 ),
             ],
         ),
