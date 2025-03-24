@@ -87,7 +87,7 @@ TEST_ENTRY_NUM = 120_000
 SELECT_ALL_BATCH_SIZE = 200
 TEST_REMOVE_ENTRIES_NUM = 500
 TEST_LOOKUP_ENTRIES_NUM = 5000
-TEST_INSERT_BATCH_SIZE = 256
+TEST_INSERT_BATCH_SIZE = 10_000
 PRIM_KEY_LEN = 128
 TABLE_NAME = "test_table"
 INDEX_NAME = "key_id_prim_key_hash_idx"
@@ -205,7 +205,6 @@ def setup_con_factory(
 
         con = sqlite3.connect(
             db_file,
-            check_same_thread=False,
             timeout=DB_LOCK_WAIT_TIMEOUT,
             factory=_con_factory,
         )

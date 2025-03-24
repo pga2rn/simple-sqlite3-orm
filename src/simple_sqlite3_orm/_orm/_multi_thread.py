@@ -49,6 +49,9 @@ _SENTINEL = object()
 
 def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase, P], RT]):
     def _wrapped(self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs) -> RT:
+        if self._closed:  # pragma: no cover
+            raise RuntimeError("cannot schedule new task on pool shutdown")
+
         def _in_thread() -> RT:
             _orm_base = self._thread_scope_orm
             return func(_orm_base, *args, **kwargs)
@@ -65,6 +68,9 @@ def _wrap_generator_with_thread_ctx(
     def _wrapped(
         self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs
     ) -> Generator[TableSpecType]:
+        if self._closed:  # pragma: no cover
+            raise RuntimeError("cannot schedule new task on pool shutdown")
+
         _queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
         _global_queue_weakset.add(_queue)
 
@@ -130,11 +136,14 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
         # thread_scope ORMBase instances
         self._thread_id_orms: dict[int, ORMBase] = {}
 
+        self._num_of_cons = number_of_cons
         self._pool = ThreadPoolExecutor(
             max_workers=number_of_cons,
             initializer=partial(self._thread_initializer, con_factory, row_factory),
             thread_name_prefix=thread_name_prefix,
         )
+
+        self._closed = False
 
     __class_getitem__ = classmethod(parameterized_class_getitem)
 
@@ -174,6 +183,16 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
             else self._orm_table_name
         )
 
+    def _worker_shutdown(
+        self, shutdown_barrier: threading.Barrier, shutdown_lock: threading.Lock
+    ):
+        shutdown_barrier.wait()  # wait for all work threads get the worker_shutdown
+        with shutdown_lock:
+            if _thread_scope_orm := self._thread_id_orms.pop(
+                threading.get_native_id(), None
+            ):
+                _thread_scope_orm._con.close()
+
     def orm_pool_shutdown(self, *, wait=True, close_connections=True) -> None:
         """Shutdown the ORM connections thread pool.
 
@@ -185,11 +204,18 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
             wait (bool, optional): Wait for threads join. Defaults to True.
             close_connections (bool, optional): Close all the connections. Defaults to True.
         """
-        self._pool.shutdown(wait=wait)
+        self._closed = True
+        if self._pool._shutdown:  # pragma: no cover
+            # NOTE: ThreadPoolExecutor's shutdown method itself can be call multiple times
+            return self._pool.shutdown(wait=wait)
+
         if close_connections:
-            for orm_base in self._thread_id_orms.values():
-                orm_base._con.close()
-        self._thread_id_orms = {}
+            _barrier = threading.Barrier(self._num_of_cons + 1)
+            _lock = threading.Lock()
+            for _ in range(self._num_of_cons):
+                self._pool.submit(self._worker_shutdown, _barrier, _lock)
+            _barrier.wait()
+        self._pool.shutdown(wait=wait)
 
     orm_execute = _wrap_with_thread_ctx(ORMBase.orm_execute)
     orm_execute_gen = _wrap_generator_with_thread_ctx(ORMBase.orm_execute_gen)
