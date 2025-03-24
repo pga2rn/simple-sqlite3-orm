@@ -78,10 +78,10 @@ class MyTable(TableSpec):
 It is recommended to define two typing helpers for your table:
 
 1. A `TypedDict` for generating col/value mapping with type check.
-2. A `ColsSelector` for generating a tuple for columns name selection with type check.
+2. A `ColsSelector` for generating a tuple for columns name selection with type check and completion suggestions.
 
 `simple_sqlite3_orm` APIs take mappings as params, and take tuples for columns selections.
-You can utilize the defined typing helpers to enable static type check over column names when using APIs, preventing column name typos or unsynced updates to column names.
+You can utilize the defined typing helpers to enable static type chec with completion suggestions over column names when using APIs, preventing column name typos or unsynced updates to column names.
 
 ```python
 from typing import TypedDict
