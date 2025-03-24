@@ -116,7 +116,7 @@ class TestWithSampleDB:
             logger.warning(
                 (
                     "Current runtime sqlite3 lib version doesn't support RETURNING statement:"
-                    f"{sqlite3.version_info=}, needs 3.35 and above. "
+                    f"{sqlite3.sqlite_version_info=}, needs 3.35 and above. "
                     "The test of RETURNING statement will be skipped here."
                 )
             )
