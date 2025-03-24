@@ -25,6 +25,8 @@ _global_shutdown = False
 _global_queue_weakset: WeakSet[queue.Queue] = WeakSet()
 MAX_QUEUE_SIZE = 128
 
+_ERR_MSG_SUBMIT_ON_SHUTDOWN = "cannot schedule new task on pool shutdown"
+
 
 def _python_exit():  # pragma: no cover
     global _global_shutdown
@@ -51,7 +53,7 @@ _SENTINEL = object()
 def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase, P], RT]):
     def _wrapped(self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs) -> RT:
         if self._closed:  # pragma: no cover
-            raise RuntimeError("cannot schedule new task on pool shutdown")
+            raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
         def _in_thread() -> RT:
             _orm_base = self._thread_scope_orm
@@ -68,7 +70,7 @@ def _wrap_with_async_ctx(
 ):
     async def _wrapped(self: AsyncORMBase, *args: P.args, **kwargs: P.kwargs) -> RT:
         if self._closed:  # pragma: no cover
-            raise RuntimeError("cannot schedule new task on pool shutdown")
+            raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
         def _in_thread() -> RT:
             _orm_base = self._thread_scope_orm
@@ -87,7 +89,7 @@ def _wrap_generator_with_thread_ctx(
         self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs
     ) -> Generator[RT]:
         if self._closed:  # pragma: no cover
-            raise RuntimeError("cannot schedule new task on pool shutdown")
+            raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
         _queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
         _global_queue_weakset.add(_queue)
@@ -117,7 +119,7 @@ def _wrap_generator_with_async_ctx(
 ):
     async def _wrapped(self: AsyncORMBase, *args: P.args, **kwargs: P.kwargs):
         if self._closed:  # pragma: no cover
-            raise RuntimeError("cannot schedule new task on pool shutdown")
+            raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
         _queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
         _global_queue_weakset.add(_queue)
