@@ -98,12 +98,11 @@ def _wrap_generator_with_thread_ctx(
             _orm_base = self._thread_scope_orm
             try:
                 for entry in func(_orm_base, *args, **kwargs):
-                    if _global_shutdown:
+                    if _global_shutdown:  # pragma: no cover
                         return
                     _queue.put(entry)
             except Exception as e:
                 _queue.put(e)
-                raise
             finally:
                 _queue.put(_SENTINEL)
 
@@ -130,14 +129,13 @@ def _wrap_generator_with_async_ctx(
             _bound_cb = self._loop.call_soon_threadsafe
             try:
                 for entry in func(_orm_base, *args, **kwargs):
-                    if _global_shutdown:
+                    if _global_shutdown:  # pragma: no cover
                         return
                     _queue.put(entry)
                     _bound_cb(_se.release)
             except Exception as e:
                 _queue.put(e)
                 _bound_cb(_se.release)
-                raise
             finally:
                 _queue.put(_SENTINEL)
                 _bound_cb(_se.release)
