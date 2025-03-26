@@ -352,6 +352,7 @@ class AsyncORMBase(ORMThreadPoolBase[TableSpecType]):
                     _queue.get_nowait()
             _caller_exit.set()
 
+    orm_bootstrap_db = _wrap_with_async_ctx(ORMBase.orm_bootstrap_db)
     orm_execute = _wrap_with_async_ctx(ORMBase.orm_execute)
     orm_execute_gen = _wrap_generator_with_async_ctx(ORMBase.orm_execute_gen)
     orm_executemany = _wrap_with_async_ctx(ORMBase.orm_executemany)
@@ -361,7 +362,11 @@ class AsyncORMBase(ORMThreadPoolBase[TableSpecType]):
     orm_select_entries = _wrap_generator_with_async_ctx(ORMBase.orm_select_entries)
     orm_select_entry = _wrap_with_async_ctx(ORMBase.orm_select_entry)
     orm_insert_entries = _wrap_with_async_ctx(ORMBase.orm_insert_entries)
+    orm_insert_mappings = _wrap_with_async_ctx(ORMBase.orm_insert_mappings)
+    orm_insert_mapping = _wrap_with_async_ctx(ORMBase.orm_insert_mapping)
     orm_insert_entry = _wrap_with_async_ctx(ORMBase.orm_insert_entry)
+    orm_update_entries = _wrap_with_async_ctx(ORMBase.orm_update_entries)
+    orm_update_entries_many = _wrap_with_async_ctx(ORMBase.orm_update_entries_many)
     orm_delete_entries = _wrap_with_async_ctx(ORMBase.orm_delete_entries)
     orm_delete_entries_with_returning = _wrap_generator_with_async_ctx(
         ORMBase.orm_delete_entries_with_returning
@@ -370,8 +375,6 @@ class AsyncORMBase(ORMThreadPoolBase[TableSpecType]):
         ORMBase.orm_select_all_with_pagination
     )
     orm_check_entry_exist = _wrap_with_async_ctx(ORMBase.orm_check_entry_exist)
-    orm_bootstrap_db = _wrap_with_async_ctx(ORMBase.orm_bootstrap_db)
-    orm_update_entries = _wrap_with_async_ctx(ORMBase.orm_update_entries)
 
 
 AsyncORMBaseType = TypeVar("AsyncORMBaseType", bound=AsyncORMBase)
