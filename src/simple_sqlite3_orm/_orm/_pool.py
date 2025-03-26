@@ -102,7 +102,7 @@ def _wrap_generator_with_thread_ctx(
                     if _global_shutdown or self._closed or _caller_exit.is_set():
                         return
                     _queue.put(entry)
-            except Exception as e:
+            except BaseException as e:
                 _queue.put(e)
             finally:
                 _queue.put(_SENTINEL)
@@ -135,7 +135,7 @@ def _wrap_generator_with_async_ctx(
                         return
                     _queue.put(entry)
                     _bound_cb(_se.release)
-            except Exception as e:
+            except BaseException as e:
                 _queue.put(e)
                 _bound_cb(_se.release)
             finally:
