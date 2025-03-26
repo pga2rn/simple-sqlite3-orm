@@ -122,6 +122,7 @@ def _wrap_generator_with_async_ctx(
             raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
         _queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
+        _caller_exit = threading.Event()
         _global_queue_weakset.add(_queue)
         _se = asyncio.Semaphore()
 
@@ -130,7 +131,7 @@ def _wrap_generator_with_async_ctx(
             _bound_cb = self._loop.call_soon_threadsafe
             try:
                 for entry in func(_orm_base, *args, **kwargs):
-                    if _global_shutdown:
+                    if _global_shutdown or self._closed or _caller_exit.is_set():
                         return
                     _queue.put(entry)
                     _bound_cb(_se.release)
@@ -142,7 +143,7 @@ def _wrap_generator_with_async_ctx(
                 _bound_cb(_se.release)
 
         self._pool.submit(_in_thread)
-        return self._async_caller_gen(_queue, _se)
+        return self._async_caller_gen(_queue, _se, _caller_exit)
 
     _wrapped.__doc__ = func.__doc__
     return _wrapped
@@ -318,21 +319,27 @@ class AsyncORMBase(ORMThreadPoolBase[TableSpecType]):
             self._loop = asyncio.get_running_loop()
 
     async def _async_caller_gen(
-        self, _queue: queue.Queue[RT], _se: asyncio.Semaphore
+        self,
+        _queue: queue.Queue[RT],
+        _se: asyncio.Semaphore,
+        _caller_exit: threading.Event,
     ) -> AsyncGenerator[RT]:
-        while not _global_shutdown and not self._closed:
-            await _se.acquire()
-            entry = _queue.get()
+        try:
+            while not _global_shutdown and not self._closed:
+                await _se.acquire()
+                entry = _queue.get()
 
-            if entry is _SENTINEL:
-                return
+                if entry is _SENTINEL:
+                    return
 
-            if isinstance(entry, Exception):
-                try:
-                    raise entry
-                finally:
-                    entry = None
-            yield entry
+                if isinstance(entry, Exception):
+                    try:
+                        raise entry
+                    finally:
+                        entry = None
+                yield entry
+        finally:
+            _caller_exit.set()
 
     orm_execute = _wrap_with_async_ctx(ORMBase.orm_execute)
     orm_execute_gen = _wrap_generator_with_async_ctx(ORMBase.orm_execute_gen)
