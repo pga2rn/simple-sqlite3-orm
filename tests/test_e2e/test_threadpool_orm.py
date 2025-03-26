@@ -12,9 +12,10 @@ from typing import Callable
 
 import pytest
 
+from simple_sqlite3_orm._orm._pool import _wrap_generator_with_thread_ctx
 from simple_sqlite3_orm.utils import batched
 from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
-from tests.sample_db.orm import SampleDBConnectionPool
+from tests.sample_db.orm import SampleDB, SampleDBConnectionPool
 from tests.sample_db.table import SampleTable, SampleTableCols
 from tests.test_e2e.conftest import (
     INDEX_KEYS,
@@ -109,7 +110,7 @@ class TestWithSampleDBAndThreadPool:
             assert len(_looked_up) == 1
             assert _looked_up[0] == _entry
 
-    def test_lookup_entries_sqlite3_execution_breakout(
+    def test_caller_exits_when_lookup_entries(
         self, thread_pool: SampleDBConnectionPool
     ):
         class _StopAt(Exception): ...
@@ -129,6 +130,29 @@ class TestWithSampleDBAndThreadPool:
             for _ in _wrapper():
                 ...
         logger.info("do breakout!")
+
+    def test_in_thread_raise_exceptions_when_lookup_entries(
+        self, thread_pool: SampleDBConnectionPool
+    ):
+        _origin_lookup_entries = SampleDB.orm_select_entries
+        _stop_at = random.randrange(TEST_ENTRY_NUM // 2, TEST_ENTRY_NUM)
+
+        class _StopAt(Exception): ...
+
+        def _mocked_select_entries(*args, **kwargs):
+            for _count, _entry in enumerate(_origin_lookup_entries(*args, **kwargs)):
+                if _count >= _stop_at:
+                    raise _StopAt("stop as expected")
+                yield _entry
+
+        # NOTE: bound the wrapped to thread_pool
+        _wrapped_mocked_select_entries = _wrap_generator_with_thread_ctx(
+            _mocked_select_entries
+        ).__get__(thread_pool)
+
+        with pytest.raises(_StopAt):
+            for _ in _wrapped_mocked_select_entries():
+                ...
 
     def test_delete_entries(
         self, thread_pool: SampleDBConnectionPool, entries_to_remove: list[SampleTable]
