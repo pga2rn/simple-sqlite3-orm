@@ -92,13 +92,14 @@ def _wrap_generator_with_thread_ctx(
             raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
         _queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
+        _caller_exit = threading.Event()
         _global_queue_weakset.add(_queue)
 
         def _in_thread():
             _orm_base = self._thread_scope_orm
             try:
                 for entry in func(_orm_base, *args, **kwargs):
-                    if _global_shutdown:  # pragma: no cover
+                    if _global_shutdown or self._closed or _caller_exit.is_set():
                         return
                     _queue.put(entry)
             except Exception as e:
@@ -107,7 +108,7 @@ def _wrap_generator_with_thread_ctx(
                 _queue.put(_SENTINEL)
 
         self._pool.submit(_in_thread)
-        return self._caller_gen(_queue)
+        return self._caller_gen(_queue, _caller_exit)
 
     _wrapped.__doc__ = func.__doc__
     return _wrapped
@@ -129,7 +130,7 @@ def _wrap_generator_with_async_ctx(
             _bound_cb = self._loop.call_soon_threadsafe
             try:
                 for entry in func(_orm_base, *args, **kwargs):
-                    if _global_shutdown:  # pragma: no cover
+                    if _global_shutdown:
                         return
                     _queue.put(entry)
                     _bound_cb(_se.release)
@@ -209,18 +210,23 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
         """Get thread scope ORMBase instance."""
         return self._thread_id_orms[threading.get_native_id()]
 
-    def _caller_gen(self, _queue: queue.Queue[RT]) -> Generator[RT]:
-        while not _global_shutdown and not self._closed:
-            entry = _queue.get()
-            if entry is _SENTINEL:
-                return
+    def _caller_gen(
+        self, _queue: queue.Queue[RT], _caller_exit: threading.Event
+    ) -> Generator[RT]:
+        try:
+            while not _global_shutdown and not self._closed:
+                entry = _queue.get()
+                if entry is _SENTINEL:
+                    return
 
-            if isinstance(entry, Exception):
-                try:
-                    raise entry
-                finally:
-                    entry = None
-            yield entry
+                if isinstance(entry, Exception):
+                    try:
+                        raise entry
+                    finally:
+                        entry = None
+                yield entry
+        finally:
+            _caller_exit.set()
 
     @cached_property
     def orm_table_name(self) -> str:
