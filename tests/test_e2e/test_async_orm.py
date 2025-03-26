@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import sqlite3
 import time
 from typing import Callable
@@ -13,7 +14,12 @@ from simple_sqlite3_orm.utils import batched
 from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
 from tests.sample_db.orm import SampleDBAsyncio
 from tests.sample_db.table import SampleTable, SampleTableCols
-from tests.test_e2e.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
+from tests.test_e2e.conftest import (
+    INDEX_KEYS,
+    INDEX_NAME,
+    TEST_ENTRY_NUM,
+    TEST_INSERT_BATCH_SIZE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +129,25 @@ class TestWithSampleDBWithAsyncIO:
 
             assert len(_looked_up_list) == 1
             assert _looked_up_list[0] == _entry
+
+    async def test_lookup_entries_sqlite3_execution_breakout(
+        self, async_pool: SampleDBAsyncio
+    ):
+        class _StopAt(Exception): ...
+
+        async def _wrapper():
+            _stop_at = random.randrange(TEST_ENTRY_NUM // 2, TEST_ENTRY_NUM)
+
+            _count = 0
+            async for _entry in await async_pool.orm_select_entries():
+                _count += 1
+                if _count >= _stop_at:
+                    raise _StopAt("stop as expected")
+                yield _entry
+
+        with pytest.raises(_StopAt):
+            async for _ in _wrapper():
+                ...
 
     async def test_delete_entries(
         self, async_pool: SampleDBAsyncio, entries_to_remove: list[SampleTable]

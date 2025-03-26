@@ -16,7 +16,12 @@ from simple_sqlite3_orm.utils import batched
 from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
 from tests.sample_db.orm import SampleDBConnectionPool
 from tests.sample_db.table import SampleTable, SampleTableCols
-from tests.test_e2e.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
+from tests.test_e2e.conftest import (
+    INDEX_KEYS,
+    INDEX_NAME,
+    TEST_ENTRY_NUM,
+    TEST_INSERT_BATCH_SIZE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +108,27 @@ class TestWithSampleDBAndThreadPool:
             _looked_up = list(_looked_up)
             assert len(_looked_up) == 1
             assert _looked_up[0] == _entry
+
+    def test_lookup_entries_sqlite3_execution_breakout(
+        self, thread_pool: SampleDBConnectionPool
+    ):
+        class _StopAt(Exception): ...
+
+        def _wrapper():
+            _stop_at = random.randrange(TEST_ENTRY_NUM // 2, TEST_ENTRY_NUM)
+
+            _count = 0
+            for _entry in thread_pool.orm_select_entries():
+                _count += 1
+                if _count >= _stop_at:
+                    logger.info("break here!")
+                    raise _StopAt("stop as expected")
+                yield _entry
+
+        with pytest.raises(_StopAt):
+            for _ in _wrapper():
+                ...
+        logger.info("do breakout!")
 
     def test_delete_entries(
         self, thread_pool: SampleDBConnectionPool, entries_to_remove: list[SampleTable]
