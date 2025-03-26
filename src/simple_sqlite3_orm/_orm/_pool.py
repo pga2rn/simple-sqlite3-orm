@@ -227,6 +227,10 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
                         entry = None
                 yield entry
         finally:
+            # on shutdown, drain the _queue to unblock in_thread
+            with contextlib.suppress(queue.Empty):
+                while True:
+                    _queue.get_nowait()
             _caller_exit.set()
 
     @cached_property
@@ -339,6 +343,10 @@ class AsyncORMBase(ORMThreadPoolBase[TableSpecType]):
                         entry = None
                 yield entry
         finally:
+            # on shutdown, drain the _queue to unblock in_thread
+            with contextlib.suppress(queue.Empty):
+                while True:
+                    _queue.get_nowait()
             _caller_exit.set()
 
     orm_execute = _wrap_with_async_ctx(ORMBase.orm_execute)
