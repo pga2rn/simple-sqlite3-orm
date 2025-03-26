@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import atexit
 import contextlib
 import queue
@@ -7,7 +8,7 @@ import threading
 from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property, partial
-from typing import TypeVar
+from typing import TYPE_CHECKING, AsyncGenerator, TypeVar
 from weakref import WeakSet
 
 from typing_extensions import Concatenate, ParamSpec, Self
@@ -22,7 +23,9 @@ RT = TypeVar("RT")
 
 _global_shutdown = False
 _global_queue_weakset: WeakSet[queue.Queue] = WeakSet()
-MAX_QUEUE_SIZE = 64
+MAX_QUEUE_SIZE = 128
+
+_ERR_MSG_SUBMIT_ON_SHUTDOWN = "cannot schedule new task on pool shutdown"
 
 
 def _python_exit():  # pragma: no cover
@@ -50,7 +53,7 @@ _SENTINEL = object()
 def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase, P], RT]):
     def _wrapped(self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs) -> RT:
         if self._closed:  # pragma: no cover
-            raise RuntimeError("cannot schedule new task on pool shutdown")
+            raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
         def _in_thread() -> RT:
             _orm_base = self._thread_scope_orm
@@ -62,47 +65,85 @@ def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase, P], RT]):
     return _wrapped
 
 
+def _wrap_with_async_ctx(
+    func: Callable[Concatenate[ORMBase, P], RT],
+):
+    async def _wrapped(self: AsyncORMBase, *args: P.args, **kwargs: P.kwargs) -> RT:
+        if self._closed:  # pragma: no cover
+            raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
+
+        def _in_thread() -> RT:
+            _orm_base = self._thread_scope_orm
+            return func(_orm_base, *args, **kwargs)
+
+        return await asyncio.wrap_future(self._pool.submit(_in_thread), loop=self._loop)
+
+    _wrapped.__doc__ = func.__doc__
+    return _wrapped
+
+
 def _wrap_generator_with_thread_ctx(
-    func: Callable[Concatenate[ORMBase, P], Generator[TableSpecType]],
+    func: Callable[Concatenate[ORMBase, P], Generator[RT]],
 ):
     def _wrapped(
         self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs
-    ) -> Generator[TableSpecType]:
+    ) -> Generator[RT]:
         if self._closed:  # pragma: no cover
-            raise RuntimeError("cannot schedule new task on pool shutdown")
+            raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
         _queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
+        _caller_exit = threading.Event()
         _global_queue_weakset.add(_queue)
 
         def _in_thread():
             _orm_base = self._thread_scope_orm
-            global _global_shutdown
             try:
                 for entry in func(_orm_base, *args, **kwargs):
-                    if _global_shutdown:
+                    if _global_shutdown or self._closed or _caller_exit.is_set():
                         return
                     _queue.put(entry)
-            except Exception as e:
+            except BaseException as e:
                 _queue.put(e)
             finally:
                 _queue.put(_SENTINEL)
 
         self._pool.submit(_in_thread)
+        return self._caller_gen(_queue, _caller_exit)
 
-        def _gen():
-            while not _global_shutdown:
-                entry = _queue.get()
-                if entry is _SENTINEL:
-                    return
+    _wrapped.__doc__ = func.__doc__
+    return _wrapped
 
-                if isinstance(entry, Exception):
-                    try:
-                        raise entry
-                    finally:
-                        entry = None
-                yield entry
 
-        return _gen()
+def _wrap_generator_with_async_ctx(
+    func: Callable[Concatenate[ORMBase, P], Generator[RT]],
+):
+    async def _wrapped(self: AsyncORMBase, *args: P.args, **kwargs: P.kwargs):
+        if self._closed:  # pragma: no cover
+            raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
+
+        _queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
+        _caller_exit = threading.Event()
+        _global_queue_weakset.add(_queue)
+        _se = asyncio.Semaphore()
+
+        def _in_thread():
+            _orm_base = self._thread_scope_orm
+            _bound_cb = self._loop.call_soon_threadsafe
+            try:
+                for entry in func(_orm_base, *args, **kwargs):
+                    if _global_shutdown or self._closed or _caller_exit.is_set():
+                        return
+                    _queue.put(entry)
+                    _bound_cb(_se.release)
+            except BaseException as e:
+                _queue.put(e)
+                _bound_cb(_se.release)
+            finally:
+                _queue.put(_SENTINEL)
+                _bound_cb(_se.release)
+
+        self._pool.submit(_in_thread)
+        return self._async_caller_gen(_queue, _se, _caller_exit)
 
     _wrapped.__doc__ = func.__doc__
     return _wrapped
@@ -169,6 +210,28 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
     def _thread_scope_orm(self) -> ORMBase[TableSpecType]:
         """Get thread scope ORMBase instance."""
         return self._thread_id_orms[threading.get_native_id()]
+
+    def _caller_gen(
+        self, _queue: queue.Queue[RT], _caller_exit: threading.Event
+    ) -> Generator[RT]:
+        try:
+            while not _global_shutdown and not self._closed:
+                entry = _queue.get()
+                if entry is _SENTINEL:
+                    return
+
+                if isinstance(entry, Exception):
+                    try:
+                        raise entry
+                    finally:
+                        entry = None
+                yield entry
+        finally:
+            # on shutdown, drain the _queue to unblock in_thread
+            with contextlib.suppress(queue.Empty):
+                while True:
+                    _queue.get_nowait()
+            _caller_exit.set()
 
     @cached_property
     def orm_table_name(self) -> str:
@@ -240,3 +303,72 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
 
 
 ORMThreadPoolBaseType = TypeVar("ORMThreadPoolBaseType", bound=ORMThreadPoolBase)
+
+
+class AsyncORMBase(ORMThreadPoolBase[TableSpecType]):
+    """
+    NOTE: the supoprt for async ORM is experimental! The APIs might be changed a lot
+        in the following releases.
+
+    For the row_factory arg, please see ORMBase.__init__ for more details.
+    """
+
+    _loop: asyncio.AbstractEventLoop
+    """Bound event loop when instanitiate this pool."""
+
+    if not TYPE_CHECKING:
+
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(*args, **kwargs)
+            self._loop = asyncio.get_running_loop()
+
+    async def _async_caller_gen(
+        self,
+        _queue: queue.Queue[RT],
+        _se: asyncio.Semaphore,
+        _caller_exit: threading.Event,
+    ) -> AsyncGenerator[RT]:
+        try:
+            while not _global_shutdown and not self._closed:
+                await _se.acquire()
+                entry = _queue.get()
+
+                if entry is _SENTINEL:
+                    return
+
+                if isinstance(entry, Exception):
+                    try:
+                        raise entry
+                    finally:
+                        entry = None
+                yield entry
+        finally:
+            # on shutdown, drain the _queue to unblock in_thread
+            with contextlib.suppress(queue.Empty):
+                while True:
+                    _queue.get_nowait()
+            _caller_exit.set()
+
+    orm_execute = _wrap_with_async_ctx(ORMBase.orm_execute)
+    orm_execute_gen = _wrap_generator_with_async_ctx(ORMBase.orm_execute_gen)
+    orm_executemany = _wrap_with_async_ctx(ORMBase.orm_executemany)
+    orm_executescript = _wrap_with_async_ctx(ORMBase.orm_executescript)
+    orm_create_table = _wrap_with_async_ctx(ORMBase.orm_create_table)
+    orm_create_index = _wrap_with_async_ctx(ORMBase.orm_create_index)
+    orm_select_entries = _wrap_generator_with_async_ctx(ORMBase.orm_select_entries)
+    orm_select_entry = _wrap_with_async_ctx(ORMBase.orm_select_entry)
+    orm_insert_entries = _wrap_with_async_ctx(ORMBase.orm_insert_entries)
+    orm_insert_entry = _wrap_with_async_ctx(ORMBase.orm_insert_entry)
+    orm_delete_entries = _wrap_with_async_ctx(ORMBase.orm_delete_entries)
+    orm_delete_entries_with_returning = _wrap_generator_with_async_ctx(
+        ORMBase.orm_delete_entries_with_returning
+    )
+    orm_select_all_with_pagination = _wrap_generator_with_async_ctx(
+        ORMBase.orm_select_all_with_pagination
+    )
+    orm_check_entry_exist = _wrap_with_async_ctx(ORMBase.orm_check_entry_exist)
+    orm_bootstrap_db = _wrap_with_async_ctx(ORMBase.orm_bootstrap_db)
+    orm_update_entries = _wrap_with_async_ctx(ORMBase.orm_update_entries)
+
+
+AsyncORMBaseType = TypeVar("AsyncORMBaseType", bound=AsyncORMBase)
