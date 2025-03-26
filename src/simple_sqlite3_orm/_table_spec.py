@@ -509,63 +509,6 @@ class TableSpec(BaseModel):
 
     @classmethod
     @lru_cache
-    def table_select_all_stmt(
-        cls,
-        *,
-        select_from: str,
-        batch_idx: int | None = None,
-        batch_size: int | None = None,
-        order_by: tuple[str | tuple[str, ORDER_DIRECTION], ...] | None = None,
-        order_by_stmt: str | None = None,
-        distinct: bool = False,
-    ) -> str:
-        """Select all entries, optionally with pagination LIMIT and OFFSET.
-
-        Check https://www.sqlite.org/lang_select.html for more details.
-
-        Args:
-            select_from (str): The table name for the generated statement.
-            batch_idx (int | None, optional): If specified, the batch index of current page. Defaults to None.
-            batch_size (int | None, optional): If specified, the batch size of each page. Defaults to None.
-            order_by (tuple[str | tuple[str, ORDER_DIRECTION], ...] | None, optional):
-                A list of cols for ordering result. Defaults to None.
-            order_by_stmt (str | None, optional): The order_by statement string, this
-                precedes the <order_by> param if set. Defaults to None.
-            distinct (bool, optional): Whether filters the duplicated entries. Defaults to False.
-
-        Raises:
-            ValueError: If batch_idx or bach_size are not both None or not None, or the values are invalid.
-
-        Returns:
-            str: The generated select statement.
-        """
-        if (batch_idx is not None and batch_size is None) or (
-            batch_idx is None and batch_size is not None
-        ):
-            raise ValueError(
-                "batch_idx and batch_size must be None or not None together"
-            )
-
-        gen_select_stmt = f"SELECT {'DISTINCT ' if distinct else ''}"
-        gen_select_from_stmt = f"* from {select_from}"
-        gen_order_by_stmt = cls._generate_order_by_stmt(order_by, order_by_stmt)
-
-        gen_pagination = ""
-        if batch_idx is not None and batch_size is not None:
-            if batch_size <= 0 or batch_idx < 0:
-                raise ValueError(f"invalid {batch_idx=} or {batch_size}")
-            gen_pagination = f"LIMIT {batch_size} OFFSET {batch_idx * batch_size}"
-
-        res = gen_sql_stmt(
-            gen_select_stmt,
-            gen_select_from_stmt,
-            gen_order_by_stmt,
-            gen_pagination,
-        )
-        return res
-
-    @classmethod
-    @lru_cache
     def table_select_stmt(
         cls,
         *,
