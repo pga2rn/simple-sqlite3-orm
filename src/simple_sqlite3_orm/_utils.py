@@ -204,23 +204,53 @@ def gen_sql_stmt(*components: str, end_with: str | None = ";") -> str:
         return buffer.getvalue().strip()
 
 
-class ColsSelectFactory(tuple[T, ...]):
-    """A factory type to generate cols name checker.
+if sys.version_info >= (3, 9):
 
-    Usage:
+    class ColsSelectFactory(tuple[T, ...]):
+        """A factory type to generate cols name checker.
 
-    ```python
-    MyTableCols = Literal["entry_id", "entry_context", "entry_type"]
-    MyTableColsChecker = ColsCheckerFactory[MyTableCols]
+        Usage:
 
-    # now you can use `MyTableColsChecker` to specify a tuple of cols name as follow:
-    cols_to_select = MyTableColsChecker("unknown", "invalid_col")  # type checker err
-    cols_to_select = MyTableColsChecker("entry_id", "entry_type")  # valid
+        ```python
+        MyTableCols = Literal["entry_id", "entry_context", "entry_type"]
+        MyTableColsChecker = ColsCheckerFactory[MyTableCols]
 
-    # at runtime, `cols_to_select` is a regular `tuple` object.
-    ```
+        # now you can use `MyTableColsChecker` to specify a tuple of cols name as follow:
+        cols_to_select = MyTableColsChecker(
+            "unknown", "invalid_col"
+        )  # type checker err
+        cols_to_select = MyTableColsChecker("entry_id", "entry_type")  # valid
 
-    """
+        # at runtime, `cols_to_select` is a regular `tuple` object.
+        ```
 
-    def __new__(cls, *cols: T) -> tuple[T, ...]:
-        return tuple(cols)
+        """
+
+        def __new__(cls, *cols: T) -> tuple[T, ...]:
+            return tuple(cols)
+
+else:
+    from typing import Tuple
+
+    class ColsSelectFactory(Tuple[T, ...]):
+        """A factory type to generate cols name checker.
+
+        Usage:
+
+        ```python
+        MyTableCols = Literal["entry_id", "entry_context", "entry_type"]
+        MyTableColsChecker = ColsCheckerFactory[MyTableCols]
+
+        # now you can use `MyTableColsChecker` to specify a tuple of cols name as follow:
+        cols_to_select = MyTableColsChecker(
+            "unknown", "invalid_col"
+        )  # type checker err
+        cols_to_select = MyTableColsChecker("entry_id", "entry_type")  # valid
+
+        # at runtime, `cols_to_select` is a regular `tuple` object.
+        ```
+
+        """
+
+        def __new__(cls, *cols: T) -> tuple[T, ...]:
+            return tuple(cols)
