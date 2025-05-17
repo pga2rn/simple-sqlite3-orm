@@ -4,8 +4,8 @@ from typing import Optional
 
 import pytest
 
-from simple_sqlite3_orm import ConstrainRepr, TypeAffinityRepr
 from simple_sqlite3_orm._sqlite_spec import SQLiteTypeAffinity
+from simple_sqlite3_orm._utils import ConstrainRepr, TypeAffinityRepr
 from tests.sample_db._types import Choice123, ChoiceABC, SomeIntLiteral, SomeStrLiteral
 
 
