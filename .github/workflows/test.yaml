@@ -98,7 +98,7 @@ jobs:
       - name: Install python from apt source
         run: |
           sudo apt update
-          sudo apt install -y --no-install-recommends python
+          sudo apt install -y --no-install-recommends python-is-python3
 
       - name: Execute pytest
         # NOTE: use the system default python
