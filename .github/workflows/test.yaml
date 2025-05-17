@@ -45,6 +45,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python_version }}
+          enable-cache: true
 
       - name: Execute pytest via coverage by uv
         run: |
@@ -94,6 +95,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Install python from apt source
         run: |
@@ -102,4 +105,4 @@ jobs:
 
       - name: Execute pytest
         # NOTE: use the system default python
-        run: uv run --no-managed-python pytest
+        run: uv run --python ${{ matrix.python_version }} --no-managed-python pytest
