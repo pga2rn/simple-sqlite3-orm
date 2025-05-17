@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import sys
 from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Any, ClassVar, Generator, Iterable, Literal, TypedDict, TypeVar
@@ -39,11 +40,19 @@ class CreateIndexParams(TypedDict):
 class TableSpec(BaseModel):
     """Define table as pydantic model, with specific APIs."""
 
-    table_columns: ClassVar[MappingProxyType[str, FieldInfo]]
-    """A view of TableSpec's model_fields."""
+    if sys.version_info >= (3, 9):
+        table_columns: ClassVar[MappingProxyType[str, FieldInfo]]
+        """A view of TableSpec's model_fields."""
 
-    table_columns_by_index: ClassVar[tuple[str, ...]]
-    """Ordered tuple of column names, matching exactly with table schema."""
+        table_columns_by_index: ClassVar[tuple[str, ...]]
+        """Ordered tuple of column names, matching exactly with table schema."""
+
+    else:
+        table_columns: ClassVar[MappingProxyType]
+        """A view of TableSpec's model_fields."""
+
+        table_columns_by_index: ClassVar[tuple]
+        """Ordered tuple of column names, matching exactly with table schema."""
 
     @classmethod
     def __pydantic_init_subclass__(cls, **_) -> None:
