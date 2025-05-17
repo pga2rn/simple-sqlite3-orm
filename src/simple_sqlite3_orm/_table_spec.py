@@ -40,14 +40,14 @@ class CreateIndexParams(TypedDict):
 class TableSpec(BaseModel):
     """Define table as pydantic model, with specific APIs."""
 
-    if sys.version_info >= (3, 9):
+    if sys.version_info >= (3, 9):  # pragma: no cover
         table_columns: ClassVar[MappingProxyType[str, FieldInfo]]
         """A view of TableSpec's model_fields."""
 
         table_columns_by_index: ClassVar[tuple[str, ...]]
         """Ordered tuple of column names, matching exactly with table schema."""
 
-    else:
+    else:  # pragma: no cover
         table_columns: ClassVar[MappingProxyType]
         """A view of TableSpec's model_fields."""
 

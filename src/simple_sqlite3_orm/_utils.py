@@ -204,7 +204,7 @@ def gen_sql_stmt(*components: str, end_with: str | None = ";") -> str:
         return buffer.getvalue().strip()
 
 
-if sys.version_info >= (3, 9):
+if sys.version_info >= (3, 9):  # pragma: no cover
 
     class ColsSelectFactory(tuple[T, ...]):
         """A factory type to generate cols name checker.
@@ -229,7 +229,7 @@ if sys.version_info >= (3, 9):
         def __new__(cls, *cols: T) -> tuple[T, ...]:
             return tuple(cols)
 
-else:
+else:  # pragma: no cover
     from typing import Tuple
 
     class ColsSelectFactory(Tuple[T, ...]):
