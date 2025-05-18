@@ -30,6 +30,34 @@ CONDITION_OPERATORS = Literal[
 ]
 """Ref https://www.sqlite.org/lang_expr.html"""
 
+ConstrainLiteral = Literal[
+    "PRIMARY KEY",
+    "NOT NULL",
+    "UNIQUE",
+    "CHECK",
+    "DEFAULT",
+    "COLLATE",
+    "REFERENCES",
+    "GENERATED ALWAYS AS",
+    "AS",
+]
+"""Ref: https://www.sqlite.org/lang_createtable.html"""
+
+DDL_STMT = Union[
+    Literal[
+        "CREATE",
+        "TABLE",
+        "INDEX",
+        "VIEW",
+        "TRIGGER",
+        "TEMP",
+        "TEMPORARY",
+        "IF",
+        "EXISTS",
+    ],
+    ConstrainLiteral,
+]
+
 CRUD_STMT = Literal[
     "INSERT",
     "SELECT",
@@ -61,8 +89,8 @@ JOIN_STMT = Literal[
     "UNION",
 ]
 
-SQL_KEYWORD = Union[
-    ORDER_DIRECTION, OR_OPTIONS, CONDITION_OPERATORS, CRUD_STMT, JOIN_STMT
+SQL_KEYWORDS = Union[
+    ORDER_DIRECTION, OR_OPTIONS, CONDITION_OPERATORS, CRUD_STMT, JOIN_STMT, DDL_STMT
 ]
 
 #
@@ -92,23 +120,6 @@ class SQLiteTypeAffinity(str, Enum):
 
 
 SQLiteTypeAffinityLiteral = Literal["TEXT", "NUMERIC", "INTEGER", "REAL", "BLOB"]
-
-#
-# ------ contrain keywords ------ #
-#
-ConstrainLiteral = Literal[
-    "PRIMARY KEY",
-    "NOT NULL",
-    "UNIQUE",
-    "CHECK",
-    "DEFAULT",
-    "COLLATE",
-    "REFERENCES",
-    "GENERATED ALWAYS AS",
-    "AS",
-]
-"""Ref: https://www.sqlite.org/lang_createtable.html"""
-
 
 #
 # ------ built-in functions ------ #
