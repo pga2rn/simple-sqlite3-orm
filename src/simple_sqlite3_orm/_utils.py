@@ -16,6 +16,7 @@ from typing import (
 from typing_extensions import ParamSpec
 
 from simple_sqlite3_orm._sqlite_spec import (
+    SQL_KEYWORDS,
     ConstrainLiteral,
     SQLiteTypeAffinity,
     SQLiteTypeAffinityLiteral,
@@ -191,7 +192,7 @@ class ConstrainRepr:
         return hash(self.constraints)
 
 
-def gen_sql_stmt(*components: str, end_with: str | None = ";") -> str:
+def gen_sql_stmt(*components: str | SQL_KEYWORDS, end_with: str | None = ";") -> str:
     """Combine each components into a single sql stmt."""
     with StringIO() as buffer:
         for comp in components:
