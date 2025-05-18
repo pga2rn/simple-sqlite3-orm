@@ -6,6 +6,66 @@ from enum import Enum
 from typing import Literal, Union
 
 #
+# ------ sqlite3 keywords ------ #
+#
+
+ORDER_DIRECTION = Literal["ASC", "DESC"]
+OR_OPTIONS = Literal["abort", "fail", "ignore", "replace", "rollback"]
+
+CONDITION_OPERATORS = Literal[
+    "AND",
+    "OR",
+    "IS",
+    "NULL",
+    "IS NULL",
+    "IS NOT NULL",
+    "NOT",
+    "MATCH",
+    "LIKE",
+    "BETWEEN",
+    "REGEXP",
+    "GLOB",
+    "IS DISTINCT FROM",
+    "IS NOT DISTINCT FROM",
+]
+"""Ref https://www.sqlite.org/lang_expr.html"""
+
+CRUD_STMT = Literal[
+    "INSERT",
+    "SELECT",
+    "UPDATE",
+    "DELETE",
+    "VALUES",
+    "INTO",
+    "SET",
+    "FROM",
+    "WHERE",
+    "GROUP",
+    "ORDER",
+    "BY",
+    "LIMIT",
+    "OFFSET",
+    "RETURNING",
+]
+
+JOIN_STMT = Literal[
+    "JOIN",
+    "LEFT",
+    "RIGHT",
+    "FULL",
+    "OUTER",
+    "INNER",
+    "CROSS",
+    "USING",
+    "ON",
+    "UNION",
+]
+
+SQL_KEYWORD = Union[
+    ORDER_DIRECTION, OR_OPTIONS, CONDITION_OPERATORS, CRUD_STMT, JOIN_STMT
+]
+
+#
 # ------ sqlite3 datatypes ------ #
 #
 # ref: https://www.sqlite.org/datatype3.html
@@ -207,30 +267,8 @@ SQLiteBuiltInFuncs = Union[
     SQLiteBuiltInScalarFuncs,
 ]
 
-
 #
-# ------ other helper literals ------ #
+# ------ others ------ #
 #
-
-OR_OPTIONS = Literal["abort", "fail", "ignore", "replace", "rollback"]
-ORDER_DIRECTION = Literal["ASC", "DESC"]
-
-CONDITION_OPERATORS = Literal[
-    "AND",
-    "OR",
-    "IS",
-    "NULL",
-    "IS NULL",
-    "IS NOT NULL",
-    "NOT",
-    "MATCH",
-    "LIKE",
-    "BETWEEN",
-    "REGEXP",
-    "GLOB",
-    "IS DISTINCT FROM",
-    "IS NOT DISTINCT FROM",
-]
-"""Ref https://www.sqlite.org/lang_expr.html"""
 
 COMPARE_OPERATORS = Literal["=", "==", "!=", "<>", ">=", "<="]
