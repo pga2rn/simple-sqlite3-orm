@@ -65,3 +65,8 @@ exclude_also = [
 show_missing = true
 skip_covered = true
 skip_empty = true
+
+[tool.pyright]
+exclude = [ "**/__pycache__", ".ruff_cache", ".venv", "venv", ".test_scripts" ]
+typeCheckingMode = "standard"
+pythonVersion = "3.12"
