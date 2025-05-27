@@ -1,5 +1,5 @@
 
-target-version = "py38"
+target-version = "py312"
 include = ["tests/**/*.py", "src/**/*.py", "pyproject.toml"]
 
 [lint]
@@ -25,6 +25,9 @@ ignore = [
   "Q002",
   "Q003",
 ]
+
+[lint.pydocstyle]
+convention = "google"
 
 [format]
 docstring-code-format = true
