@@ -1,10 +1,7 @@
 x-common: &_common
   network_mode: bridge
-  environment:
-    OUTPUT_DIR: /test_result
   volumes:
-    - ../..:/src:ro
-    - ../../.test_result:/test_result:rw
+    - ../..:/src
 
 services:
   tester-ubuntu-18.04:
