@@ -77,32 +77,18 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os:
-          # - ubuntu-20.04
+        ubuntu_base:
+          - ubuntu-18.04
+          - ubuntu-20.04
           - ubuntu-22.04
           - ubuntu-24.04
-        include:
-          # - os: ubuntu-20.04
-          #   python_version: "3.8"
-          - os: ubuntu-22.04
-            python_version: "3.10"
-          - os: ubuntu-24.04
-            python_version: "3.12"
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout commit
         uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-
-      - name: Install python from apt source
+      - name: Run test under test base container
+        working-directory: ./tests/container
         run: |
-          sudo apt update
-          sudo apt install -y --no-install-recommends python-is-python3
+          docker compose -f ./docker-compose.yml run --rm tester-${{ matrix.ubuntu_base }}
 
-      - name: Execute pytest
-        # NOTE: use the system default python
-        run: uv run --python ${{ matrix.python_version }} --no-managed-python pytest
