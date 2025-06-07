@@ -91,4 +91,3 @@ jobs:
         working-directory: ./tests/container
         run: |
           docker compose -f ./docker-compose.yml run --rm tester-${{ matrix.ubuntu_base }}
-
