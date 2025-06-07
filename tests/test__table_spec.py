@@ -10,7 +10,7 @@ import pytest
 from simple_sqlite3_orm import CreateTableParams
 from tests.conftest import (
     ID_STR_DEFAULT_VALUE,
-    SQLITE3_COMPILE_OPTION_FLAGS,
+    SQLITE3_FEATURE_FLAGS,
     SimpleTableForTest,
     SimpleTableForTestCols,
     SimpleTableForTestColsSelect,
@@ -171,7 +171,7 @@ class TestTableSpecWithDB:
         ),
     ]
 
-    if SQLITE3_COMPILE_OPTION_FLAGS.SQLITE_ENABLE_UPDATE_DELETE_LIMIT:
+    if SQLITE3_FEATURE_FLAGS.SQLITE_ENABLE_UPDATE_DELETE_LIMIT:
         UPDATE_API_TEST_CASES.extend(
             [
                 (
@@ -206,7 +206,7 @@ class TestTableSpecWithDB:
             ]
         )
 
-        if SQLITE3_COMPILE_OPTION_FLAGS.RETURNING_AVAILABLE:
+        if SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE:
             UPDATE_API_TEST_CASES.append(
                 (
                     _set_values := SimpleTableForTestCols(
@@ -226,7 +226,7 @@ class TestTableSpecWithDB:
                 )
             )
 
-    if SQLITE3_COMPILE_OPTION_FLAGS.RETURNING_AVAILABLE:
+    if SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE:
         UPDATE_API_TEST_CASES.append(
             (
                 _set_values := SimpleTableForTestCols(id_str="2.3456", extra=2.3456),

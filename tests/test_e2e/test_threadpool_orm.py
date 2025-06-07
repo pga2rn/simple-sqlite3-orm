@@ -14,7 +14,7 @@ import pytest
 
 from simple_sqlite3_orm._orm._pool import _wrap_generator_with_thread_ctx
 from simple_sqlite3_orm.utils import batched
-from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
+from tests.conftest import SQLITE3_FEATURE_FLAGS
 from tests.sample_db.orm import SampleDB, SampleDBConnectionPool
 from tests.sample_db.table import SampleTable, SampleTableCols
 from tests.test_e2e.conftest import (
@@ -158,7 +158,7 @@ class TestWithSampleDBAndThreadPool:
         self, thread_pool: SampleDBConnectionPool, entries_to_remove: list[SampleTable]
     ):
         logger.info("test remove and confirm the removed entries")
-        if SQLITE3_COMPILE_OPTION_FLAGS.RETURNING_AVAILABLE:
+        if SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE:
             logger.warning(
                 (
                     "Current runtime sqlite3 lib version doesn't support RETURNING statement:"
