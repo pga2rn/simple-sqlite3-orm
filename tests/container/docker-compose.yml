@@ -1,7 +1,8 @@
 x-common: &_common
   network_mode: bridge
   volumes:
-    - ../..:/src
+    - ../..:/src:ro
+    - ../../.test_result:/test_result:rw
 
 services:
   tester-ubuntu-18.04:
