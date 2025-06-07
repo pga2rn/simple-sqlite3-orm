@@ -10,9 +10,9 @@ COPY --chmod=755 ./entrypoint.sh /entrypoint.sh
 # bootstrapping the python environment
 RUN set -eux; \
     apt-get update; \
-    PYTHON_PACKAGE="python3"; \
+    PYTHON_PACKAGE="python3 python3-distutils"; \
     if [ "${UBUNTU_BASE}" = "ubuntu:18.04" ]; then \
-        PYTHON_PACKAGE="python3.8"; \
+        PYTHON_PACKAGE="python3.8 python3-distutils"; \
     fi; \
     apt-get install -y -qq --no-install-recommends \
         curl \
