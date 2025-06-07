@@ -5,7 +5,7 @@ source = "vcs"
 version-file = "src/simple_sqlite3_orm/_version.py"
 
 [build.targets.sdist]
-exclude = ["/.github", "/docs"]
+exclude = ["/.github", "/docs", "sonar-project.properties"]
 
 [build.targets.wheel]
 only-include = ["src"]
