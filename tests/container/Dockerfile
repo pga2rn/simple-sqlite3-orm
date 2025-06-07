@@ -3,7 +3,7 @@ ARG UBUNTU_BASE
 FROM ${UBUNTU_BASE}
 
 # copy and setup the entry_point.sh
-COPY ./docker/test_base/entry_point.sh /entry_point.sh
+COPY --chmod=755 ./entrypoint.sh /entrypoint.sh
 
 # bootstrapping the python environment
 RUN set -eux; \
@@ -25,3 +25,4 @@ RUN set -eux; \
         /var/tmp/*
 
 ENV PATH="/root/.local/bin:${PATH}"
+ENTRYPOINT [ "/entrypoint.sh" ]
