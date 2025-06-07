@@ -112,7 +112,7 @@ class TestWithSampleDB:
         entries_to_remove: list[SampleTable],
     ):
         logger.info("test remove and confirm the removed entries")
-        if SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE:
+        if not SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE:
             logger.warning(
                 (
                     "Current runtime sqlite3 lib version doesn't support RETURNING statement:"
