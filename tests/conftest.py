@@ -60,9 +60,10 @@ SimpleTableForTestColsSelect = ColsSelectFactory[
 # sqlite3 lib features set
 
 
-class SQLITE3_COMPILE_OPTION_FLAGS:
+class SQLITE3_FEATURE_FLAGS:
     with contextlib.closing(sqlite3.connect(":memory:")) as conn:
         RETURNING_AVAILABLE = sqlite3.sqlite_version_info >= (3, 35, 0)
+        STRICT_AVAILABLE = sqlite3.sqlite_version_info >= (3, 37, 0)
         SQLITE_ENABLE_UPDATE_DELETE_LIMIT = bool(
             utils.check_pragma_compile_time_options(
                 conn, "SQLITE_ENABLE_UPDATE_DELETE_LIMIT"
