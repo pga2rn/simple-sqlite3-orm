@@ -2,8 +2,8 @@
 set -eu
 
 TEST_ROOT=/test_root
-SRC=/
-OUTPUT_DIR="${OUTPUT_DIR:-/.test_result}"
+SRC=/src
+OUTPUT_DIR="${OUTPUT_DIR:-/test_result}"
 
 # copy the source code as source is read-only
 cp -R "${SRC}" "${TEST_ROOT}"
