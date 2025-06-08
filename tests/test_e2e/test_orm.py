@@ -106,7 +106,10 @@ class TestWithSampleDB:
         assert len(_looked_up) == len(setup_test_data)
         assert all(_entry in _looked_up for _entry in setup_test_data.values())
 
-    @pytest.mark.skipif(not SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE)
+    @pytest.mark.skipif(
+        SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
+        reason="test delete with returning when possible",
+    )
     def test_delete_entries(
         self,
         setup_test_data: dict[str, SampleTable],
@@ -126,7 +129,7 @@ class TestWithSampleDB:
             assert _res == 1
 
     @pytest.mark.skipif(
-        SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
+        not SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
         reason="Current runtime sqlite3 lib version doesn't support RETURNING statement:"
         f"{sqlite3.sqlite_version_info=}, needs 3.35 and above. "
         "The test of RETURNING statement will be skipped here.",

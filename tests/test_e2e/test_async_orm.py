@@ -171,7 +171,10 @@ class TestWithSampleDBWithAsyncIO:
             async for _ in await _wrapped_mocked_select_entries():
                 ...
 
-    @pytest.mark.skipif(not SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE)
+    @pytest.mark.skipif(
+        SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
+        reason="test delete with returning when possible",
+    )
     async def test_delete_entries(
         self, async_pool: SampleDBAsyncio, entries_to_remove: list[SampleTable]
     ):
@@ -193,7 +196,7 @@ class TestWithSampleDBWithAsyncIO:
             assert _deleted_entry_list[0] == entry
 
     @pytest.mark.skipif(
-        SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
+        not SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
         reason="Current runtime sqlite3 lib version doesn't support RETURNING statement:"
         f"{sqlite3.sqlite_version_info=}, needs 3.35 and above. "
         "The test of RETURNING statement will be skipped here.",
