@@ -165,3 +165,7 @@ src/simple_sqlite3_orm/_version.py
 
 # vscode config
 .vscode
+
+.test_scripts
+.ruff_cache
+.test_result

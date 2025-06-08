@@ -40,18 +40,14 @@ jobs:
           # sonarcloud needs main branch's ref
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      # also see https://docs.astral.sh/uv/guides/integration/github/#multiple-python-versions
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python_version }}
-          cache: "pip"
+          enable-cache: true
 
-      - name: Install package
-        run: |
-          python -m pip install -q -U pip
-          pip install -U uv
-
-      - name: Execute pytest with coverage
+      - name: Execute pytest via coverage by uv
         run: |
           uv run coverage run -m pytest --junit-xml=test_result/junit.xml
           uv run coverage xml -o test_result/coverage.xml
@@ -78,35 +74,30 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   pytest_on_supported_os_version:
+    permissions:
+      contents: read
+      packages: read
     strategy:
       fail-fast: true
       matrix:
-        os:
+        ubuntu_base:
+          - ubuntu-18.04
           - ubuntu-20.04
           - ubuntu-22.04
           - ubuntu-24.04
-        include:
-          - os: ubuntu-20.04
-            python_version: "3.8"
-          - os: ubuntu-22.04
-            python_version: "3.10"
-          - os: ubuntu-24.04
-            python_version: "3.12"
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout commit
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python_version }}
-        uses: actions/setup-python@v5
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
         with:
-          python-version: ${{ matrix.python_version }}
-          cache: "pip"
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup test environment
+      - name: Run test under test base container
+        working-directory: ./tests/container
         run: |
-          python -m pip install -q -U pip
-          pip install -U uv
-
-      - name: Execute pytest
-        run: uv run pytest
+          docker compose -f ./docker-compose.yml run --rm tester-${{ matrix.ubuntu_base }}

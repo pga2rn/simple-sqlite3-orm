@@ -9,7 +9,7 @@ from typing import Generator
 import pytest
 
 from simple_sqlite3_orm import utils
-from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
+from tests.conftest import SQLITE3_FEATURE_FLAGS
 from tests.sample_db.orm import SampleDB
 from tests.sample_db.table import SampleTable, SampleTableCols
 from tests.test_e2e.conftest import INDEX_KEYS, INDEX_NAME, TEST_INSERT_BATCH_SIZE
@@ -106,47 +106,54 @@ class TestWithSampleDB:
         assert len(_looked_up) == len(setup_test_data)
         assert all(_entry in _looked_up for _entry in setup_test_data.values())
 
+    @pytest.mark.skipif(
+        SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
+        reason="test delete with returning when possible",
+    )
     def test_delete_entries(
         self,
         setup_test_data: dict[str, SampleTable],
         entries_to_remove: list[SampleTable],
     ):
         logger.info("test remove and confirm the removed entries")
-        if SQLITE3_COMPILE_OPTION_FLAGS.RETURNING_AVAILABLE:
-            logger.warning(
-                (
-                    "Current runtime sqlite3 lib version doesn't support RETURNING statement:"
-                    f"{sqlite3.sqlite_version_info=}, needs 3.35 and above. "
-                    "The test of RETURNING statement will be skipped here."
-                )
+        for entry in entries_to_remove:
+            _res = self.orm_inst.orm_delete_entries(
+                SampleTableCols(
+                    key_id=entry.key_id,
+                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                ),
+                # NOTE(20241230): limit on update/delete requires compile flag SQLITE_ENABLE_UPDATE_DELETE_LIMIT enabled,
+                #   which is not set to be enabled by default. See https://www.sqlite.org/compile.html for more details.
+                # _limit=1,
             )
+            assert _res == 1
 
-            for entry in entries_to_remove:
-                _res = self.orm_inst.orm_delete_entries(
-                    SampleTableCols(
-                        key_id=entry.key_id,
-                        prim_key_sha256hash=entry.prim_key_sha256hash,
-                    ),
-                    # NOTE(20241230): limit on update/delete requires compile flag SQLITE_ENABLE_UPDATE_DELETE_LIMIT enabled,
-                    #   which is not set to be enabled by default. See https://www.sqlite.org/compile.html for more details.
-                    # _limit=1,
-                )
-                assert _res == 1
-        else:
-            for entry in entries_to_remove:
-                _res = self.orm_inst.orm_delete_entries_with_returning(
-                    SampleTableCols(
-                        key_id=entry.key_id,
-                        prim_key_sha256hash=entry.prim_key_sha256hash,
-                    ),
-                    _returning_cols="*",
-                    # _limit=1,
-                )
-                assert isinstance(_res, Generator)
+    @pytest.mark.skipif(
+        not SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
+        reason="Current runtime sqlite3 lib version doesn't support RETURNING statement:"
+        f"{sqlite3.sqlite_version_info=}, needs 3.35 and above. "
+        "The test of RETURNING statement will be skipped here.",
+    )
+    def test_delete_entries_with_returning(
+        self,
+        setup_test_data: dict[str, SampleTable],
+        entries_to_remove: list[SampleTable],
+    ):
+        logger.info("test remove and confirm the removed entries")
+        for entry in entries_to_remove:
+            _res = self.orm_inst.orm_delete_entries_with_returning(
+                SampleTableCols(
+                    key_id=entry.key_id,
+                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                ),
+                _returning_cols="*",
+                # _limit=1,
+            )
+            assert isinstance(_res, Generator)
 
-                _res = list(_res)
-                assert len(_res) == 1
-                assert _res[0] == entry
+            _res = list(_res)
+            assert len(_res) == 1
+            assert _res[0] == entry
 
         logger.info("confirm the remove")
         sql_stmt = self.orm_inst.orm_table_spec.table_select_stmt(

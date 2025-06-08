@@ -1,0 +1,26 @@
+x-common: &_common
+  network_mode: bridge
+  volumes:
+    - ../..:/src:ro
+    - ../../.test_result:/test_result:rw
+
+services:
+  tester-ubuntu-18.04:
+    image: ghcr.io/pga2rn/pga2rn/simple-sqlite3-orm/test_base:ubuntu_18.04
+    container_name: tester-ubuntu-18.04
+    <<: *_common
+
+  tester-ubuntu-20.04:
+    image: ghcr.io/pga2rn/pga2rn/simple-sqlite3-orm/test_base:ubuntu_20.04
+    container_name: tester-ubuntu-20.04
+    <<: *_common
+
+  tester-ubuntu-22.04:
+    image: ghcr.io/pga2rn/pga2rn/simple-sqlite3-orm/test_base:ubuntu_22.04
+    container_name: tester-ubuntu-22.04
+    <<: *_common
+
+  tester-ubuntu-24.04:
+    image: ghcr.io/pga2rn/pga2rn/simple-sqlite3-orm/test_base:ubuntu_24.04
+    container_name: tester-ubuntu-24.04
+    <<: *_common

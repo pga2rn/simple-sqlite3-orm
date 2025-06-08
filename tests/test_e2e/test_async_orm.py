@@ -12,7 +12,7 @@ import pytest_asyncio
 
 from simple_sqlite3_orm._orm._pool import _wrap_generator_with_async_ctx
 from simple_sqlite3_orm.utils import batched
-from tests.conftest import SQLITE3_COMPILE_OPTION_FLAGS
+from tests.conftest import SQLITE3_FEATURE_FLAGS
 from tests.sample_db.orm import SampleDB, SampleDBAsyncio
 from tests.sample_db.table import SampleTable, SampleTableCols
 from tests.test_e2e.conftest import (
@@ -171,45 +171,48 @@ class TestWithSampleDBWithAsyncIO:
             async for _ in await _wrapped_mocked_select_entries():
                 ...
 
+    @pytest.mark.skipif(
+        SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
+        reason="test delete with returning when possible",
+    )
     async def test_delete_entries(
         self, async_pool: SampleDBAsyncio, entries_to_remove: list[SampleTable]
     ):
         logger.info("test remove and confirm the removed entries")
-        if SQLITE3_COMPILE_OPTION_FLAGS.RETURNING_AVAILABLE:
-            logger.warning(
-                (
-                    "Current runtime sqlite3 lib version doesn't support RETURNING statement:"
-                    f"{sqlite3.sqlite_version_info=}, needs 3.35 and above. "
-                    "The test of RETURNING statement will be skipped here."
-                )
+        for entry in entries_to_remove:
+            _res = await async_pool.orm_delete_entries(
+                SampleTableCols(
+                    key_id=entry.key_id,
+                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                ),
+            )
+            assert _res == 1
+
+    @pytest.mark.skipif(
+        not SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
+        reason="Current runtime sqlite3 lib version doesn't support RETURNING statement:"
+        f"{sqlite3.sqlite_version_info=}, needs 3.35 and above. "
+        "The test of RETURNING statement will be skipped here.",
+    )
+    async def test_delete_entries_with_returning(
+        self, async_pool: SampleDBAsyncio, entries_to_remove: list[SampleTable]
+    ):
+        logger.info("test remove and confirm the removed entries")
+        for entry in entries_to_remove:
+            _res = await async_pool.orm_delete_entries_with_returning(
+                SampleTableCols(
+                    key_id=entry.key_id,
+                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                ),
+                _returning_cols="*",
             )
 
-            for entry in entries_to_remove:
-                _res = await async_pool.orm_delete_entries(
-                    SampleTableCols(
-                        key_id=entry.key_id,
-                        prim_key_sha256hash=entry.prim_key_sha256hash,
-                    ),
-                    # _limit=1,
-                )
-                assert _res == 1
-        else:
-            for entry in entries_to_remove:
-                _res = await async_pool.orm_delete_entries_with_returning(
-                    SampleTableCols(
-                        key_id=entry.key_id,
-                        prim_key_sha256hash=entry.prim_key_sha256hash,
-                    ),
-                    _returning_cols="*",
-                    # _limit=1,
-                )
+            _deleted_entry_list = []
+            async for _item in _res:
+                _deleted_entry_list.append(_item)
 
-                _deleted_entry_list = []
-                async for _item in _res:
-                    _deleted_entry_list.append(_item)
-
-                assert len(_deleted_entry_list) == 1
-                assert _deleted_entry_list[0] == entry
+            assert len(_deleted_entry_list) == 1
+            assert _deleted_entry_list[0] == entry
 
     async def test_check_timer(
         self, start_timer: tuple[asyncio.Task[None], asyncio.Event]
