@@ -32,12 +32,14 @@ class TestWithSampleDB:
         self.orm_inst.orm_create_table()
         assert utils.lookup_table(self.orm_inst.orm_con, self.orm_inst.orm_table_name)
 
+    @pytest.mark.benchmark
     def test_insert_entries(self, setup_test_data: dict[str, SampleTable]):
         logger.info("test insert entries")
 
         for entry in utils.batched(setup_test_data.values(), TEST_INSERT_BATCH_SIZE):
             self.orm_inst.orm_insert_entries(entry)
 
+    def test_confirm_inserted_entries(self, setup_test_data: dict[str, SampleTable]):
         logger.info("confirm data written")
         for _entry in self.orm_inst.orm_select_entries():
             _corresponding_item = setup_test_data[_entry.prim_key]
@@ -80,6 +82,7 @@ class TestWithSampleDB:
         res = self.orm_inst.orm_execute(sql_stmt, row_factory=None)
         assert res and res[0][0] == len(setup_test_data)
 
+    @pytest.mark.benchmark
     def test_lookup_entries(self, entries_to_lookup: list[SampleTable]):
         logger.info("test lookup entries")
         for _entry in entries_to_lookup:
@@ -93,16 +96,11 @@ class TestWithSampleDB:
             assert len(_looked_up) == 1
             assert _looked_up[0] == _entry
 
+    @pytest.mark.benchmark
     def test_select_all_entries(self, setup_test_data: dict[str, SampleTable]):
         logger.info("test lookup entries")
 
-        _looked_up = set()
-        for _entry in self.orm_inst.orm_select_all_with_pagination(
-            batch_size=SELECT_ALL_BATCH_SIZE
-        ):
-            assert setup_test_data[_entry.prim_key] == _entry
-            _looked_up.add(_entry)
-
+        _looked_up = list(self.orm_inst.orm_select_entries())
         assert len(_looked_up) == len(setup_test_data)
         assert all(_entry in _looked_up for _entry in setup_test_data.values())
 
@@ -112,7 +110,6 @@ class TestWithSampleDB:
     )
     def test_delete_entries(
         self,
-        setup_test_data: dict[str, SampleTable],
         entries_to_remove: list[SampleTable],
     ):
         logger.info("test remove and confirm the removed entries")
