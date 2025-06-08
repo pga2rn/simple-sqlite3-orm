@@ -154,42 +154,47 @@ class TestWithSampleDBAndThreadPool:
             for _ in _wrapped_mocked_select_entries():
                 ...
 
+    @pytest.mark.skipif(
+        SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
+        reason="test delete with returning when possible",
+    )
     def test_delete_entries(
         self, thread_pool: SampleDBConnectionPool, entries_to_remove: list[SampleTable]
     ):
         logger.info("test remove and confirm the removed entries")
-        if SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE:
-            logger.warning(
-                (
-                    "Current runtime sqlite3 lib version doesn't support RETURNING statement:"
-                    f"{sqlite3.sqlite_version_info=}, needs 3.35 and above. "
-                    "The test of RETURNING statement will be skipped here."
-                )
+        for entry in entries_to_remove:
+            _res = thread_pool.orm_delete_entries(
+                SampleTableCols(
+                    key_id=entry.key_id,
+                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                ),
+                # _limit=1,
             )
+            assert _res == 1
 
-            for entry in entries_to_remove:
-                _res = thread_pool.orm_delete_entries(
-                    SampleTableCols(
-                        key_id=entry.key_id,
-                        prim_key_sha256hash=entry.prim_key_sha256hash,
-                    ),
-                    # _limit=1,
-                )
-                assert _res == 1
-        else:
-            for entry in entries_to_remove:
-                _res = thread_pool.orm_delete_entries_with_returning(
-                    SampleTableCols(
-                        key_id=entry.key_id,
-                        prim_key_sha256hash=entry.prim_key_sha256hash,
-                    ),
-                    _returning_cols="*",
-                    # _limit=1,
-                )
-                _res_list = list(_res)
+    @pytest.mark.skipif(
+        not SQLITE3_FEATURE_FLAGS.RETURNING_AVAILABLE,
+        reason="Current runtime sqlite3 lib version doesn't support RETURNING statement:"
+        f"{sqlite3.sqlite_version_info=}, needs 3.35 and above. "
+        "The test of RETURNING statement will be skipped here.",
+    )
+    def test_delete_entries_with_returning(
+        self, thread_pool: SampleDBConnectionPool, entries_to_remove: list[SampleTable]
+    ):
+        logger.info("test remove and confirm the removed entries")
+        for entry in entries_to_remove:
+            _res = thread_pool.orm_delete_entries_with_returning(
+                SampleTableCols(
+                    key_id=entry.key_id,
+                    prim_key_sha256hash=entry.prim_key_sha256hash,
+                ),
+                _returning_cols="*",
+                # _limit=1,
+            )
+            _res_list = list(_res)
 
-                assert len(_res_list) == 1
-                assert _res_list[0] == entry
+            assert len(_res_list) == 1
+            assert _res_list[0] == entry
 
 
 _THREADS = 6

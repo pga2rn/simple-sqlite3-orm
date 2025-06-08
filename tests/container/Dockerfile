@@ -13,6 +13,8 @@ RUN set -eux; \
     PYTHON_PACKAGE="python3 python3-distutils"; \
     if [ "${UBUNTU_BASE}" = "ubuntu:18.04" ]; then \
         PYTHON_PACKAGE="python3.8 python3-distutils"; \
+    elif [ "${UBUNTU_BASE}" = "ubuntu:24.04" ]; then \
+        PYTHON_PACKAGE="python3"; \
     fi; \
     apt-get install -y -qq --no-install-recommends \
         curl \

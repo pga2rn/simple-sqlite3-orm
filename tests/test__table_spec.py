@@ -24,13 +24,24 @@ ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123, int_str=9
     "table_create_params",
     (
         (CreateTableParams(if_not_exists=True)),
-        (CreateTableParams(strict=True)),
+        pytest.param(
+            CreateTableParams(strict=True),
+            marks=pytest.mark.skipif(
+                not SQLITE3_FEATURE_FLAGS.STRICT_AVAILABLE,
+                reason="STRICT table option is not available for this sqlite3 lib version",
+            ),
+        ),
         (CreateTableParams(temporary=True)),
         (CreateTableParams(without_rowid=True)),
-        (
+        (CreateTableParams(if_not_exists=True, temporary=True, without_rowid=True)),
+        pytest.param(
             CreateTableParams(
                 if_not_exists=True, strict=True, temporary=True, without_rowid=True
-            )
+            ),
+            marks=pytest.mark.skipif(
+                not SQLITE3_FEATURE_FLAGS.STRICT_AVAILABLE,
+                reason="STRICT table option is not available for this sqlite3 lib version",
+            ),
         ),
     ),
 )
