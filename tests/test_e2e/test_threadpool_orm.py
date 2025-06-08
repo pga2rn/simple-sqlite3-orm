@@ -44,6 +44,7 @@ class TestWithSampleDBAndThreadPool:
         logger.info("test create table")
         thread_pool.orm_create_table(without_rowid=True)
 
+    @pytest.mark.benchmark
     def test_insert_entries_with_pool(
         self,
         thread_pool: SampleDBConnectionPool,
@@ -64,6 +65,11 @@ class TestWithSampleDBAndThreadPool:
                 f"all insert tasks are dispatched: {_batch_count} batches with {TEST_INSERT_BATCH_SIZE=}"
             )
 
+    def test_confirm_inserted_entries(
+        self,
+        thread_pool: SampleDBConnectionPool,
+        setup_test_data: dict[str, SampleTable],
+    ):
         logger.info("confirm data written")
         _selected_entry_count = 0
         for _selected_entry_count, _entry in enumerate(
@@ -95,6 +101,7 @@ class TestWithSampleDBAndThreadPool:
 
         assert res and res[0][0] == len(setup_test_data)
 
+    @pytest.mark.benchmark
     def test_lookup_entries(
         self, thread_pool: SampleDBConnectionPool, entries_to_lookup: list[SampleTable]
     ):
@@ -109,6 +116,17 @@ class TestWithSampleDBAndThreadPool:
             _looked_up = list(_looked_up)
             assert len(_looked_up) == 1
             assert _looked_up[0] == _entry
+
+    @pytest.mark.benchmark
+    def test_lookup_all_entries(
+        self,
+        thread_pool: SampleDBConnectionPool,
+        setup_test_data: dict[str, SampleTable],
+    ):
+        logger.info("test lookup all entries")
+        _looked_up = list(thread_pool.orm_select_entries())
+        assert len(_looked_up) == len(setup_test_data)
+        assert all(_entry in _looked_up for _entry in setup_test_data.values())
 
     def test_caller_exits_when_lookup_entries(
         self, thread_pool: SampleDBConnectionPool
