@@ -44,11 +44,41 @@ source = "vcs"
 version-file = "src/simple_sqlite3_orm/_version.py"
 
 [tool.hatch.build.targets.sdist]
-exclude = ["/.github", "/docs", "sonar-project.properties"]
+exclude = [ "/.github", "/docs", "sonar-project.properties" ]
 
 [tool.hatch.build.targets.wheel]
-only-include = ["src"]
-sources = ["src"]
+only-include = [ "src" ]
+sources = [ "src" ]
+
+[tool.ruff]
+target-version = "py38"
+include = [ "pyproject.toml", "src/**/*.py", "tests/**/*.py" ]
+
+format.line-ending = "lf"
+format.docstring-code-format = true
+lint.select = [
+  "A",   # flake8-builtins
+  "B",   # flake8-bugbear
+  "E4",
+  "E7",
+  "E9",
+  "F",   # pyflakes
+  "I",   # isort
+  "ICN", # flake8-import-conventions
+  "Q",   # flake8-quotes
+]
+lint.ignore = [
+  "E203", # (white space before ':'): this error conflicts with black linting
+  "E266", # (too many leading '#'): sometimes we use multiple # for separting sections
+  "E701", # (multiple statements on one line)
+  # recommended by ruff to avoid conflicts with ruff formatter
+  "Q000",
+  "Q001",
+  "Q002",
+  "Q003",
+  "S101", # (use of assert): mostly we use assert for typing
+]
+lint.pydocstyle.convention = "google"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -83,38 +113,3 @@ skip_empty = true
 exclude = [ "**/__pycache__", ".ruff_cache", ".venv", "venv", ".test_scripts" ]
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
-
-[tool.ruff]
-target-version = "py38"
-include = ["tests/**/*.py", "src/**/*.py", "pyproject.toml"]
-
-[tool.ruff.lint]
-select = [
-  "E4",
-  "E7",
-  "E9",
-  "F",   # pyflakes
-  "Q",   # flake8-quotes
-  "I",   # isort
-  "B",   # flake8-bugbear
-  "A",   # flake8-builtins
-  "ICN", # flake8-import-conventions
-]
-ignore = [
-  "E266", # (too many leading '#'): sometimes we use multiple # for separting sections
-  "E203", # (white space before ':'): this error conflicts with black linting
-  "E701", # (multiple statements on one line)
-  "S101", # (use of assert): mostly we use assert for typing
-  # recommended by ruff to avoid conflicts with ruff formatter
-  "Q000",
-  "Q001",
-  "Q002",
-  "Q003",
-]
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
-
-[tool.ruff.format]
-docstring-code-format = true
-line-ending = "lf"
