@@ -37,6 +37,19 @@ dev = [
   "ruff>=0.6,<0.12",
 ]
 
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/simple_sqlite3_orm/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/.github", "/docs", "sonar-project.properties"]
+
+[tool.hatch.build.targets.wheel]
+only-include = ["src"]
+sources = ["src"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "class"
