@@ -52,7 +52,7 @@ jobs:
 
     steps:
       - name: download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: build-and-upload-artifacts
           path: dist
@@ -74,7 +74,7 @@ jobs:
 
     steps:
       - name: download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: build-and-upload-artifacts
           path: dist
