@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import partialmethod
 from io import StringIO
-from typing import Generic, Iterable, Literal, TypeVar
+from typing import Generic, Iterable, Literal, Mapping, TypeVar
 
 from typing_extensions import ParamSpec, Self
 
@@ -233,10 +233,21 @@ class _DeleteQueryBuilder(
 delete = _DeleteQueryBuilder
 
 
-class _UpdateQueryBuilder(_BuilderBase):
-    def __init__(self) -> None:
+class _UpdateQueryBuilder(
+    _LimitStmtMixin,
+    _OrderByStmtMixin,
+    _ReturningStmtMixin,
+    _WhereStmtMixin,
+    _BuilderBase,
+):
+    def __init__(self, or_option: OR_OPTIONS | None = None) -> None:
         super().__init__()
         self._write("UPDATE")
+        if or_option:
+            self._write("OR", or_option)
+
+    def set(self, named_placeholders: Mapping[str, str]) -> Self:
+        return self._write("SET", ",".join(f"{k}=:{v}" for k, v in named_placeholders))
 
 
 update = _UpdateQueryBuilder
