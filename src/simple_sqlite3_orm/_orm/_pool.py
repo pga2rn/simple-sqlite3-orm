@@ -123,7 +123,7 @@ def _wrap_generator_with_async_ctx(
 ):
     async def _wrapped(
         self: AsyncORMBase[TableSpecType], *args: P.args, **kwargs: P.kwargs
-    ):
+    ) -> AsyncGenerator[RT]:
         if self._closed:  # pragma: no cover
             raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
