@@ -2,23 +2,36 @@ from __future__ import annotations
 
 from functools import partial
 from io import StringIO
-from typing import Literal
+from typing import Generic, Literal, TypeVar
 
 from typing_extensions import Self
 
-from simple_sqlite3_orm._sqlite_spec import (
-    OR_OPTIONS,
-)
+from simple_sqlite3_orm._sqlite_spec import OR_OPTIONS, ORDER_DIRECTION
+
+DefinedCols = TypeVar("DefinedCols", bound=str)
 
 
-class SimpleQueryComposer:
-    """
-    NOTE: this composer is NOT a strict and full implementation of sqlite3 syntax flow!
-          NO checks are implemented during the composing of the query!
-    """
+class ColumnSelector(Generic[DefinedCols]):
+    @staticmethod
+    def check(_col: DefinedCols) -> DefinedCols:
+        return _col
 
-    def __init__(self) -> None:
-        self._buffer = StringIO()
+    @staticmethod
+    def get_cols_stmt(*_cols: DefinedCols, with_parenthesis: bool = False) -> str:
+        if len(_cols) == 1:
+            res = _cols[0]
+        else:
+            res = ",".join(_cols)
+
+        if with_parenthesis:
+            return f"({res})"
+        return res
+
+
+class _BuilderBase:
+    def __init__(self, _initial: str = "") -> None:
+        self._buffer = StringIO(_initial)
+        self._res = None
 
     def _write(self, _in: str, end_with: str = " ") -> Self:
         self._buffer.write(f"{_in}{end_with}")
@@ -44,56 +57,99 @@ class SimpleQueryComposer:
         self._write(expr)
         return self._write(kw)
 
-    def _operators(self, _left: str, _right: str, *, kw: str) -> Self:
-        return self._write(f"{_left} {kw} {_right}")
+    def _operators(self, _col: str, *, op: str) -> Self:
+        return self._write(f"{_col} {op} :{_col}")
 
-    select = partial(_follow_multiple_exprs, kw="SELECT")
-    from_ = partial(_follow_single_expr, kw="FROM")
+    def finish_up_composing(self, end_with: str) -> str:
+        try:
+            self._write("", end_with=end_with)
+            self._res = res = self._buffer.getvalue()
+            return res
+        finally:
+            self._buffer.close()
 
-    insert = partial(_follow_single_expr, expr="", kw="INSERT")
+    def getvalue(self) -> str:
+        if self._res:
+            return self._res
+        return self._buffer.getvalue()
 
-    def or_options(self, or_options: OR_OPTIONS) -> Self:
-        return self._write(f"OR {or_options}")
 
-    into = partial(_follow_single_expr, kw="INTO")
+class WhereStmtBuilder(_BuilderBase):
+    def __init__(self) -> None:
+        super().__init__("WHERE")
 
-    def join(
+    is_null = partial(_BuilderBase._append_single_expr, kw="IS NULL")
+    is_not_null = partial(_BuilderBase._append_single_expr, kw="IS NOT NULL")
+    and_ = partial(_BuilderBase._follow_single_expr, kw="AND")
+    or_ = partial(_BuilderBase._follow_single_expr, kw="OR")
+
+    equal = partial(_BuilderBase._operators, op="=")
+    not_equal = partial(_BuilderBase._operators, op="!=")
+    greater = partial(_BuilderBase._operators, op=">")
+    greater_equal = partial(_BuilderBase._operators, op=">=")
+    less = partial(_BuilderBase._operators, op="<")
+    less_equal = partial(_BuilderBase._operators, op="<=")
+
+
+class JoinStmtBuilder(_BuilderBase):
+    def __init__(
         self,
-        join_target: str,
         join_type: Literal[
-            "INNER JOIN",
             "JOIN",
+            "INNER JOIN",
             "LEFT JOIN",
             "RIGHT JOIN",
             "FULL JOIN",
             "CROSS JOIN",
         ] = "JOIN",
-    ) -> Self:
-        self._write(join_type)
-        return self._write(join_target)
+    ):
+        super().__init__(join_type)
 
-    on = partial(_follow_single_expr, kw="ON")
-    using = partial(_follow_multiple_exprs, kw="USING", wrap_with_parentheses=True)
+    on = partial(_BuilderBase._follow_single_expr, kw="ON")
+    using = partial(
+        _BuilderBase._follow_multiple_exprs, kw="USING", wrap_with_parentheses=True
+    )
 
-    where = partial(_follow_single_expr, kw="WHERE")
-    is_null = partial(_append_single_expr, kw="IS NULL")
-    is_not_null = partial(_append_single_expr, kw="IS NOT NULL")
-    and_ = partial(_follow_single_expr, kw="AND")
-    or_ = partial(_follow_single_expr, kw="OR")
-    equal = partial(_operators, kw="=")
-    not_equal = partial(_operators, kw="!=")
-    greater = partial(_operators, kw=">")
-    greater_equal = partial(_operators, kw=">=")
-    less = partial(_operators, kw="<")
-    less_equal = partial(_operators, kw="<=")
 
-    order_by = partial(_follow_multiple_exprs, kw="ORDER BY")
-    limit = partial(_follow_single_expr, kw="LIMIT")
-    returning = partial(_follow_multiple_exprs, kw="RETURNING")
+class SimpleQueryBuilder(_BuilderBase):
+    """
+    NOTE: this composer is NOT a strict and full implementation of sqlite3 syntax flow!
+          NO checks are implemented during the composing of the query!
+    """
 
-    def finish_up_composing(self) -> str:
-        try:
-            self._write("", end_with=";")
-            return self._buffer.getvalue()
-        finally:
-            self._buffer.close()
+    @classmethod
+    def _init(cls, *, kw: str) -> Self:
+        return cls(kw)
+
+    #
+    # --- entry points --- #
+    #
+    # fmt: off
+    insert = partial(_init, kw="INSERT")
+    def or_options(self, or_options: OR_OPTIONS) -> Self:
+        return self._write(f"OR {or_options}")
+    into = partial(_BuilderBase._follow_single_expr, kw="INTO")
+    # fmt: on
+
+    select = partial(_init, kw="SELECT")
+    update = partial(_init, kw="UPDATE")
+    delete = partial(_init, kw="DELETE")
+
+    # -------------------- #
+
+    from_ = partial(_BuilderBase._follow_single_expr, kw="FROM")
+
+    def join(self, _join_builder: JoinStmtBuilder) -> Self:
+        return self._write(_join_builder.getvalue())
+
+    def where(self, _where_builder: WhereStmtBuilder) -> Self:
+        return self._write(_where_builder.getvalue())
+
+    def order_by(self, *expr: str | tuple[str, ORDER_DIRECTION]):
+        return self._follow_multiple_exprs(
+            *(_elem if isinstance(_elem, str) else " ".join(_elem) for _elem in expr),
+            kw="ORDER BY",
+        )
+
+    limit = partial(_BuilderBase._follow_single_expr, kw="LIMIT")
+    returning = partial(_BuilderBase._follow_multiple_exprs, kw="RETURNING")
