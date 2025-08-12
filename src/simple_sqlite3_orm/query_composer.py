@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from functools import partialmethod
 from io import StringIO
-from typing import Generic, Literal, TypeVar
+from typing import Generic, Iterable, Literal, TypeVar
 
 from typing_extensions import ParamSpec, Self
 
-from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
+from simple_sqlite3_orm._sqlite_spec import OR_OPTIONS, ORDER_DIRECTION
 
 RT = TypeVar("RT")
 P = ParamSpec("P")
@@ -17,6 +17,9 @@ __all__ = [
     "WhereStmtBuilder",
     "JoinStmtBuilder",
     "select",
+    "insert",
+    "update",
+    "delete",
 ]
 
 
@@ -174,6 +177,26 @@ class _LimitStmtMixin(_BuilderBase):
         return self
 
 
+class _InsertQueryBuilder(_ReturningStmtMixin, _BuilderBase):
+    def __init__(self) -> None:
+        super().__init__()
+        self._write("INSERT")
+
+    def or_(self, or_option: OR_OPTIONS) -> Self:
+        return self._write("OR", or_option)
+
+    default_value = partialmethod[Self](_BuilderBase._no_value_op, kw="DEFAULT VALUES")
+
+    def into(self, table_name: str, _cols: Iterable[str]) -> Self:
+        return self._write("INTO", table_name, "(", ",".join(_cols), ")")
+
+    def values(self, placeholders: Iterable[str]) -> Self:
+        return self._write("VALUES", "(", ",".join(placeholders), ")")
+
+
+insert = _InsertQueryBuilder
+
+
 class _SelectQueryBuilder(
     _LimitStmtMixin,
     _GroupByStmtMixin,
@@ -191,16 +214,32 @@ class _SelectQueryBuilder(
         return self._write("DISTINCT")
 
 
-def select(*_cols: str) -> _SelectQueryBuilder:
-    return _SelectQueryBuilder(*_cols)
+select = _SelectQueryBuilder
 
 
 class _DeleteQueryBuilder(
-    _LimitStmtMixin, _OrderByStmtMixin, _WhereStmtMixin, _FromStmtMixin, _BuilderBase
+    _LimitStmtMixin,
+    _OrderByStmtMixin,
+    _ReturningStmtMixin,
+    _WhereStmtMixin,
+    _FromStmtMixin,
+    _BuilderBase,
 ):
     def __init__(self) -> None:
         super().__init__()
         self._write("DELETE")
+
+
+delete = _DeleteQueryBuilder
+
+
+class _UpdateQueryBuilder(_BuilderBase):
+    def __init__(self) -> None:
+        super().__init__()
+        self._write("UPDATE")
+
+
+update = _UpdateQueryBuilder
 
 
 # fmt: off
