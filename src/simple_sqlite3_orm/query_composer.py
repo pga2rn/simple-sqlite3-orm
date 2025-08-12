@@ -12,6 +12,13 @@ RT = TypeVar("RT")
 P = ParamSpec("P")
 DefinedCols = TypeVar("DefinedCols", bound=str)
 
+__all__ = [
+    "ColumnSelector",
+    "WhereStmtBuilder",
+    "JoinStmtBuilder",
+    "select",
+]
+
 
 class ColumnSelector(Generic[DefinedCols]):
     @staticmethod
@@ -51,20 +58,29 @@ class _BuilderBase:
     def _follow_single_expr(self, expr: str, *, kw: str) -> Self:
         return self._write(kw, expr)
 
+    def add_raw_stmt(self, expr: str) -> Self:
+        return self._write(expr)
+
     def finish_build(self, end_with: str = "") -> str:
+        if self._query:
+            return self._query
+
         try:
-            self._write("", end_with=end_with)
-            self._query = res = self._buffer.getvalue()
+            self._write(end_with)
+            self._query = res = self._buffer.getvalue().strip()
             return res
         finally:
             self._buffer.close()
 
     def getvalue(self) -> str:
+        """Get the contents from the buffer without finish the build."""
         if self._query:
             return self._query
         return self._buffer.getvalue()
 
-    query = property(getvalue)
+    @property
+    def query(self) -> str:
+        return self.finish_build()
 
 
 class _FromStmtMixin(_BuilderBase):
@@ -75,7 +91,7 @@ class _FromStmtMixin(_BuilderBase):
 class _WhereStmtMixin(_BuilderBase):
     def where(self, where_stmt: str | WhereStmtBuilder) -> Self:
         if isinstance(where_stmt, WhereStmtBuilder):
-            where_stmt = where_stmt.getvalue()
+            where_stmt = where_stmt.query
         return self._write(where_stmt)
 
 
@@ -97,28 +113,6 @@ class WhereStmtBuilder(_BuilderBase):
     greater_equal = partialmethod[Self](_BuilderBase._operators, op=">=")
     less = partialmethod[Self](_BuilderBase._operators, op="<")
     less_equal = partialmethod[Self](_BuilderBase._operators, op="<=")
-
-
-class _OrderByStmtMixin(_BuilderBase):
-    def order_by(self, exprs: list[str | tuple[str, ORDER_DIRECTION]]) -> Self:
-        return self._write(
-            "ORDER BY",
-            *(_elem if isinstance(_elem, str) else " ".join(_elem) for _elem in exprs),
-            end_with="",
-        )
-
-
-class _GroupByStmtMixin(_BuilderBase):
-    def group_by(self, _cols: list[str]) -> Self:
-        return self._write("GROUP BY", ",".join(_cols), end_with="")
-
-
-class _LimitStmtMixin(_BuilderBase):
-    def limit(self, limit: int, offset_stmt: str | None = None) -> Self:
-        self._write("LIMIT", str(limit), end_with="")
-        if offset_stmt:
-            self._write(" ", offset_stmt, end_with="")
-        return self
 
 
 class JoinStmtBuilder(_BuilderBase):
@@ -150,8 +144,34 @@ class JoinStmtBuilder(_BuilderBase):
 class _JoinStmtMixin(_BuilderBase):
     def join(self, join_stmt: str | JoinStmtBuilder) -> Self:
         if isinstance(join_stmt, JoinStmtBuilder):
-            join_stmt = join_stmt.getvalue()
-        return self._write(join_stmt, end_with="")
+            join_stmt = join_stmt.query
+        return self._write(join_stmt)
+
+
+class _ReturningStmtMixin(_BuilderBase):
+    def returning(self, _cols: list[str] | Literal["*"]) -> Self:
+        return self._write("RETURNING", ",".join(_cols))
+
+
+class _OrderByStmtMixin(_BuilderBase):
+    def order_by(self, exprs: list[str | tuple[str, ORDER_DIRECTION]]) -> Self:
+        return self._write(
+            "ORDER BY",
+            *(_elem if isinstance(_elem, str) else " ".join(_elem) for _elem in exprs),
+        )
+
+
+class _GroupByStmtMixin(_BuilderBase):
+    def group_by(self, _cols: list[str]) -> Self:
+        return self._write("GROUP BY", ",".join(_cols))
+
+
+class _LimitStmtMixin(_BuilderBase):
+    def limit(self, limit: int, offset_stmt: str | None = None) -> Self:
+        self._write("LIMIT", str(limit))
+        if offset_stmt:
+            self._write(" ", offset_stmt)
+        return self
 
 
 class _SelectQueryBuilder(
@@ -163,7 +183,7 @@ class _SelectQueryBuilder(
     _FromStmtMixin,
     _BuilderBase,
 ):
-    def __init__(self, *_cols: str) -> None:
+    def __init__(self, *_cols: str | Literal["*"]) -> None:
         super().__init__()
         self._write("SELECT", ",".join(_cols))
 
@@ -173,6 +193,14 @@ class _SelectQueryBuilder(
 
 def select(*_cols: str) -> _SelectQueryBuilder:
     return _SelectQueryBuilder(*_cols)
+
+
+class _DeleteQueryBuilder(
+    _LimitStmtMixin, _OrderByStmtMixin, _WhereStmtMixin, _FromStmtMixin, _BuilderBase
+):
+    def __init__(self) -> None:
+        super().__init__()
+        self._write("DELETE")
 
 
 # fmt: off
