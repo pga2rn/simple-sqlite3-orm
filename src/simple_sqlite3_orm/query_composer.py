@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from functools import partialmethod
 from io import StringIO
-from typing import Any, Callable, Generic, Literal, TypeVar
+from typing import Generic, Literal, TypeVar
 
-from typing_extensions import Concatenate, ParamSpec, Self
+from typing_extensions import ParamSpec, Self
 
-from simple_sqlite3_orm._sqlite_spec import OR_OPTIONS, ORDER_DIRECTION
+from simple_sqlite3_orm._sqlite_spec import ORDER_DIRECTION
 
 RT = TypeVar("RT")
 P = ParamSpec("P")
@@ -30,27 +30,20 @@ class ColumnSelector(Generic[DefinedCols]):
         return res
 
 
-def _partialmethod(_func: Callable[Concatenate[Any, P], RT]):
-    def _inner(self, *args: P.args, **kwargs: P.kwargs) -> RT:
-        return _func(self, *args, **kwargs)
-
-    return _inner
-
-
 class _BuilderBase:
-    def __init__(self, _initial: str = "") -> None:
-        self._buffer = StringIO(_initial)
+    def __init__(self) -> None:
+        self._buffer = StringIO()
         self._query = None
 
-    def _write(self, *_in: str, end_with: str = " ") -> Self:
-        self._buffer.write(f"{' '.join(_in)}{end_with}")
+    def _write(self, *_in: str, sep: str = " ", end_with: str = " ") -> Self:
+        self._buffer.write(f"{sep.join(_in)}{end_with}")
         return self
 
     def _no_value_op(self, *, kw: str) -> Self:
         return self._write(kw)
 
     def _operators(self, _left: str, _right: str, *, op: str) -> Self:
-        return self._write(_left, op, _right)
+        return self._write(_left, op, _right, sep="")
 
     def _append_single_expr(self, expr: str, *, kw: str) -> Self:
         return self._write(expr, kw)
@@ -88,7 +81,8 @@ class _WhereStmtMixin(_BuilderBase):
 
 class WhereStmtBuilder(_BuilderBase):
     def __init__(self) -> None:
-        super().__init__("WHERE")
+        super().__init__()
+        self._write("WHERE")
 
     is_null = partialmethod[Self](_BuilderBase._append_single_expr, kw="IS NULL")
     is_not_null = partialmethod[Self](
@@ -110,19 +104,20 @@ class _OrderByStmtMixin(_BuilderBase):
         return self._write(
             "ORDER BY",
             *(_elem if isinstance(_elem, str) else " ".join(_elem) for _elem in exprs),
+            end_with="",
         )
 
 
 class _GroupByStmtMixin(_BuilderBase):
     def group_by(self, _cols: list[str]) -> Self:
-        return self._write("GROUP BY", ",".join(_cols))
+        return self._write("GROUP BY", ",".join(_cols), end_with="")
 
 
 class _LimitStmtMixin(_BuilderBase):
     def limit(self, limit: int, offset_stmt: str | None = None) -> Self:
-        self._write("LIMIT", str(limit))
+        self._write("LIMIT", str(limit), end_with="")
         if offset_stmt:
-            self._write(offset_stmt)
+            self._write(" ", offset_stmt, end_with="")
         return self
 
 
@@ -139,24 +134,24 @@ class JoinStmtBuilder(_BuilderBase):
             "CROSS JOIN",
         ] = "JOIN",
     ):
-        super().__init__(join_type)
-        self._write(join_target)
+        super().__init__()
+        self._write(join_type, join_target)
 
     def as_(self, alias: str) -> Self:
         return self._write("AS", alias)
 
-    def on(self, expr: str) -> Self:
-        return self._write("ON", expr)
+    def on(self, ref_col: str, target_col: str) -> Self:
+        return self._write("ON", f"{ref_col}={target_col}")
 
     def using(self, *_cols: str) -> Self:
-        return self._write("USING", f"({','.join(_cols)})")
+        return self._write("USING", f"({','.join(_cols)})", sep="")
 
 
 class _JoinStmtMixin(_BuilderBase):
     def join(self, join_stmt: str | JoinStmtBuilder) -> Self:
         if isinstance(join_stmt, JoinStmtBuilder):
             join_stmt = join_stmt.getvalue()
-        return self._write(join_stmt)
+        return self._write(join_stmt, end_with="")
 
 
 class _SelectQueryBuilder(
@@ -169,8 +164,8 @@ class _SelectQueryBuilder(
     _BuilderBase,
 ):
     def __init__(self, *_cols: str) -> None:
-        super().__init__("SELECT")
-        self._write(",".join(_cols))
+        super().__init__()
+        self._write("SELECT", ",".join(_cols))
 
     def distinct(self) -> Self:
         return self._write("DISTINCT")
@@ -187,10 +182,11 @@ query = select("base.ft_regular.path", "base.ft_resource.digest").distinct().\
     join(
         JoinStmtBuilder("ft_resource")
         .as_("target_rs")
-        .on("base.ft_resource.digest = target_rs.digest")
+        .on("base.ft_resource.digest","target_rs.digest")
     ).\
     where(
         WhereStmtBuilder().not_equal("base.ft_resource.size", "0").and_().is_null("target_rs.contents")
     )
 # fmt: on
 query.finish_build()
+print(query.query)
