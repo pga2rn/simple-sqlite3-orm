@@ -50,8 +50,10 @@ atexit.register(_python_exit)
 _SENTINEL = object()
 
 
-def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase, P], RT]):
-    def _wrapped(self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs) -> RT:
+def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase[TableSpecType], P], RT]):
+    def _wrapped(
+        self: ORMThreadPoolBase[TableSpecType], *args: P.args, **kwargs: P.kwargs
+    ) -> RT:
         if self._closed:  # pragma: no cover
             raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
@@ -66,9 +68,11 @@ def _wrap_with_thread_ctx(func: Callable[Concatenate[ORMBase, P], RT]):
 
 
 def _wrap_with_async_ctx(
-    func: Callable[Concatenate[ORMBase, P], RT],
+    func: Callable[Concatenate[ORMBase[TableSpecType], P], RT],
 ):
-    async def _wrapped(self: AsyncORMBase, *args: P.args, **kwargs: P.kwargs) -> RT:
+    async def _wrapped(
+        self: AsyncORMBase[TableSpecType], *args: P.args, **kwargs: P.kwargs
+    ) -> RT:
         if self._closed:  # pragma: no cover
             raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
@@ -83,10 +87,10 @@ def _wrap_with_async_ctx(
 
 
 def _wrap_generator_with_thread_ctx(
-    func: Callable[Concatenate[ORMBase, P], Generator[RT]],
+    func: Callable[Concatenate[ORMBase[TableSpecType], P], Generator[RT]],
 ):
     def _wrapped(
-        self: ORMThreadPoolBase, *args: P.args, **kwargs: P.kwargs
+        self: ORMThreadPoolBase[TableSpecType], *args: P.args, **kwargs: P.kwargs
     ) -> Generator[RT]:
         if self._closed:  # pragma: no cover
             raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
@@ -115,9 +119,11 @@ def _wrap_generator_with_thread_ctx(
 
 
 def _wrap_generator_with_async_ctx(
-    func: Callable[Concatenate[ORMBase, P], Generator[RT]],
+    func: Callable[Concatenate[ORMBase[TableSpecType], P], Generator[RT]],
 ):
-    async def _wrapped(self: AsyncORMBase, *args: P.args, **kwargs: P.kwargs):
+    async def _wrapped(
+        self: AsyncORMBase[TableSpecType], *args: P.args, **kwargs: P.kwargs
+    ):
         if self._closed:  # pragma: no cover
             raise RuntimeError(_ERR_MSG_SUBMIT_ON_SHUTDOWN)
 
@@ -280,29 +286,47 @@ class ORMThreadPoolBase(ORMCommonBase[TableSpecType]):
             _barrier.wait()
         self._pool.shutdown(wait=wait)
 
-    orm_bootstrap_db = _wrap_with_thread_ctx(ORMBase.orm_bootstrap_db)
-    orm_execute = _wrap_with_thread_ctx(ORMBase.orm_execute)
-    orm_execute_gen = _wrap_generator_with_thread_ctx(ORMBase.orm_execute_gen)
-    orm_executemany = _wrap_with_thread_ctx(ORMBase.orm_executemany)
-    orm_executescript = _wrap_with_thread_ctx(ORMBase.orm_executescript)
-    orm_create_table = _wrap_with_thread_ctx(ORMBase.orm_create_table)
-    orm_create_index = _wrap_with_thread_ctx(ORMBase.orm_create_index)
-    orm_select_entries = _wrap_generator_with_thread_ctx(ORMBase.orm_select_entries)
-    orm_select_entry = _wrap_with_thread_ctx(ORMBase.orm_select_entry)
-    orm_insert_entries = _wrap_with_thread_ctx(ORMBase.orm_insert_entries)
-    orm_insert_mappings = _wrap_with_thread_ctx(ORMBase.orm_insert_mappings)
-    orm_insert_mapping = _wrap_with_thread_ctx(ORMBase.orm_insert_mapping)
-    orm_insert_entry = _wrap_with_thread_ctx(ORMBase.orm_insert_entry)
-    orm_update_entries = _wrap_with_thread_ctx(ORMBase.orm_update_entries)
-    orm_update_entries_many = _wrap_with_thread_ctx(ORMBase.orm_update_entries_many)
-    orm_delete_entries = _wrap_with_thread_ctx(ORMBase.orm_delete_entries)
+    orm_bootstrap_db = _wrap_with_thread_ctx(ORMBase[TableSpecType].orm_bootstrap_db)
+    orm_execute = _wrap_with_thread_ctx(ORMBase[TableSpecType].orm_execute)
+    orm_execute_gen = _wrap_generator_with_thread_ctx(
+        ORMBase[TableSpecType].orm_execute_gen
+    )
+    orm_executemany = _wrap_with_thread_ctx(ORMBase[TableSpecType].orm_executemany)
+    orm_executescript = _wrap_with_thread_ctx(ORMBase[TableSpecType].orm_executescript)
+    orm_create_table = _wrap_with_thread_ctx(ORMBase[TableSpecType].orm_create_table)
+    orm_create_index = _wrap_with_thread_ctx(ORMBase[TableSpecType].orm_create_index)
+    orm_select_entries = _wrap_generator_with_thread_ctx(
+        ORMBase[TableSpecType].orm_select_entries
+    )
+    orm_select_entry = _wrap_with_thread_ctx(ORMBase[TableSpecType].orm_select_entry)
+    orm_insert_entries = _wrap_with_thread_ctx(
+        ORMBase[TableSpecType].orm_insert_entries
+    )
+    orm_insert_mappings = _wrap_with_thread_ctx(
+        ORMBase[TableSpecType].orm_insert_mappings
+    )
+    orm_insert_mapping = _wrap_with_thread_ctx(
+        ORMBase[TableSpecType].orm_insert_mapping
+    )
+    orm_insert_entry = _wrap_with_thread_ctx(ORMBase[TableSpecType].orm_insert_entry)
+    orm_update_entries = _wrap_with_thread_ctx(
+        ORMBase[TableSpecType].orm_update_entries
+    )
+    orm_update_entries_many = _wrap_with_thread_ctx(
+        ORMBase[TableSpecType].orm_update_entries_many
+    )
+    orm_delete_entries = _wrap_with_thread_ctx(
+        ORMBase[TableSpecType].orm_delete_entries
+    )
     orm_delete_entries_with_returning = _wrap_generator_with_thread_ctx(
-        ORMBase.orm_delete_entries_with_returning
+        ORMBase[TableSpecType].orm_delete_entries_with_returning
     )
     orm_select_all_with_pagination = _wrap_generator_with_thread_ctx(
-        ORMBase.orm_select_all_with_pagination
+        ORMBase[TableSpecType].orm_select_all_with_pagination
     )
-    orm_check_entry_exist = _wrap_with_thread_ctx(ORMBase.orm_check_entry_exist)
+    orm_check_entry_exist = _wrap_with_thread_ctx(
+        ORMBase[TableSpecType].orm_check_entry_exist
+    )
 
 
 ORMThreadPoolBaseType = TypeVar("ORMThreadPoolBaseType", bound=ORMThreadPoolBase)
@@ -310,8 +334,7 @@ ORMThreadPoolBaseType = TypeVar("ORMThreadPoolBaseType", bound=ORMThreadPoolBase
 
 class AsyncORMBase(ORMThreadPoolBase[TableSpecType]):
     """
-    NOTE: the supoprt for async ORM is experimental! The APIs might be changed a lot
-        in the following releases.
+    NOTE: the supoprt for async ORM is experimental! The APIs might be changed in the future releases.
 
     For the row_factory arg, please see ORMBase.__init__ for more details.
     """
@@ -352,29 +375,39 @@ class AsyncORMBase(ORMThreadPoolBase[TableSpecType]):
                     _queue.get_nowait()
             _caller_exit.set()
 
-    orm_bootstrap_db = _wrap_with_async_ctx(ORMBase.orm_bootstrap_db)
-    orm_execute = _wrap_with_async_ctx(ORMBase.orm_execute)
-    orm_execute_gen = _wrap_generator_with_async_ctx(ORMBase.orm_execute_gen)
-    orm_executemany = _wrap_with_async_ctx(ORMBase.orm_executemany)
-    orm_executescript = _wrap_with_async_ctx(ORMBase.orm_executescript)
-    orm_create_table = _wrap_with_async_ctx(ORMBase.orm_create_table)
-    orm_create_index = _wrap_with_async_ctx(ORMBase.orm_create_index)
-    orm_select_entries = _wrap_generator_with_async_ctx(ORMBase.orm_select_entries)
-    orm_select_entry = _wrap_with_async_ctx(ORMBase.orm_select_entry)
-    orm_insert_entries = _wrap_with_async_ctx(ORMBase.orm_insert_entries)
-    orm_insert_mappings = _wrap_with_async_ctx(ORMBase.orm_insert_mappings)
-    orm_insert_mapping = _wrap_with_async_ctx(ORMBase.orm_insert_mapping)
-    orm_insert_entry = _wrap_with_async_ctx(ORMBase.orm_insert_entry)
-    orm_update_entries = _wrap_with_async_ctx(ORMBase.orm_update_entries)
-    orm_update_entries_many = _wrap_with_async_ctx(ORMBase.orm_update_entries_many)
-    orm_delete_entries = _wrap_with_async_ctx(ORMBase.orm_delete_entries)
+    orm_bootstrap_db = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_bootstrap_db)
+    orm_execute = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_execute)
+    orm_execute_gen = _wrap_generator_with_async_ctx(
+        ORMBase[TableSpecType].orm_execute_gen
+    )
+    orm_executemany = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_executemany)
+    orm_executescript = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_executescript)
+    orm_create_table = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_create_table)
+    orm_create_index = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_create_index)
+    orm_select_entries = _wrap_generator_with_async_ctx(
+        ORMBase[TableSpecType].orm_select_entries
+    )
+    orm_select_entry = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_select_entry)
+    orm_insert_entries = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_insert_entries)
+    orm_insert_mappings = _wrap_with_async_ctx(
+        ORMBase[TableSpecType].orm_insert_mappings
+    )
+    orm_insert_mapping = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_insert_mapping)
+    orm_insert_entry = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_insert_entry)
+    orm_update_entries = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_update_entries)
+    orm_update_entries_many = _wrap_with_async_ctx(
+        ORMBase[TableSpecType].orm_update_entries_many
+    )
+    orm_delete_entries = _wrap_with_async_ctx(ORMBase[TableSpecType].orm_delete_entries)
     orm_delete_entries_with_returning = _wrap_generator_with_async_ctx(
-        ORMBase.orm_delete_entries_with_returning
+        ORMBase[TableSpecType].orm_delete_entries_with_returning
     )
     orm_select_all_with_pagination = _wrap_generator_with_async_ctx(
-        ORMBase.orm_select_all_with_pagination
+        ORMBase[TableSpecType].orm_select_all_with_pagination
     )
-    orm_check_entry_exist = _wrap_with_async_ctx(ORMBase.orm_check_entry_exist)
+    orm_check_entry_exist = _wrap_with_async_ctx(
+        ORMBase[TableSpecType].orm_check_entry_exist
+    )
 
 
 AsyncORMBaseType = TypeVar("AsyncORMBaseType", bound=AsyncORMBase)
