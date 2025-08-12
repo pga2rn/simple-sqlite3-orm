@@ -91,8 +91,7 @@ class TestWithSampleDBAndThreadPool:
             select_from=thread_pool.orm_table_name,
             function="count",
         )
-        res: list[tuple[int]] = thread_pool.orm_execute(sql_stmt)
-
+        res = thread_pool.orm_execute(sql_stmt, row_factory=sqlite3.Row)
         assert res and res[0][0] == len(setup_test_data)
 
     def test_lookup_entries(
