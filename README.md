@@ -7,7 +7,6 @@
 [![Supported Python version](https://img.shields.io/pypi/pyversions/simple-sqlite3-orm.svg)](https://pypi.org/project/simple-sqlite3-orm/)
 [![PyPI version](https://badge.fury.io/py/simple-sqlite3-orm.svg)](https://pypi.org/project/simple-sqlite3-orm/)
 
-
 A simple yet powerful SQLite3 ORM based on Python's sqlite3 DB engine, powered by pydantic.
 
 It targets basic CRUD operations and does it well, while also opened to complicated use cases.
