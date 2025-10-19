@@ -4,10 +4,15 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: write
+
 jobs:
   build-and-upload-artifacts:
     name: build release packages and push gh artifacts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: checkout
         uses: actions/checkout@v5
@@ -69,8 +74,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     needs: build-and-upload-artifacts
-    permissions:
-      contents: write
 
     steps:
       - name: download build artifacts
