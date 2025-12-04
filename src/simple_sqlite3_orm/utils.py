@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import logging
-import os
 import sqlite3
 import sys
 from enum import Enum
 from io import StringIO
 from itertools import islice
 from typing import (
-    TYPE_CHECKING,
     Any,
     Generator,
     Iterable,
@@ -21,10 +19,6 @@ from typing import (
 )
 
 from simple_sqlite3_orm._sqlite_spec import COMPARE_OPERATORS, CONDITION_OPERATORS
-
-if TYPE_CHECKING:
-    from simple_sqlite3_orm._orm import ORMBase
-    from simple_sqlite3_orm._table_spec import TableSpecType
 
 logger = logging.getLogger(__name__)
 
@@ -343,37 +337,3 @@ def gen_sql_script(*stmts: str) -> str:
             buffer.write(stmt.strip(";"))
             buffer.write(";")
         return buffer.getvalue().strip()
-
-
-#
-# ------ advanced helper tools ------ #
-#
-
-
-def sort_and_replace(
-    _orm: ORMBase[TableSpecType], table_name: str, *, order_by_col: str
-) -> None:
-    """Sort the table, and then replace the old table with the sorted one."""
-    _original_table_name = table_name
-    _sorted_table_name = f"{table_name}_sorted_{os.urandom(2).hex()}"
-    _table_spec = _orm.orm_table_spec
-
-    _table_create_stmt = _table_spec.table_create_stmt(_sorted_table_name)
-    _table_select_stmt = _table_spec.table_select_stmt(
-        select_from=_original_table_name, order_by=(order_by_col,)
-    )
-    _dump_sorted = f"INSERT INTO {_sorted_table_name} {_table_select_stmt}"
-
-    conn = _orm.orm_con
-    with conn as conn:
-        conn.executescript(
-            gen_sql_script(
-                "BEGIN;",
-                _table_create_stmt,
-                _dump_sorted,
-                f"DROP TABLE {_original_table_name};",
-                f"ALTER TABLE {_sorted_table_name} RENAME TO {_original_table_name};",
-            )
-        )
-    with conn as conn:
-        conn.execute("VACUUM;")
