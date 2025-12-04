@@ -21,6 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dynamic = [ "version" ]
 dependencies = [ "pydantic>=2.6,<3", "typing-extensions>=4" ]
@@ -36,6 +37,52 @@ dev = [
   "pytest-mock>=3.14,<3.15",
   "ruff>=0.6,<0.12",
 ]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+fallback_version = "0.0.0"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/simple_sqlite3_orm/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = [ "/.github", "/docs", "sonar-project.properties" ]
+
+[tool.hatch.build.targets.wheel]
+only-include = [ "src" ]
+sources = [ "src" ]
+
+[tool.ruff]
+target-version = "py38"
+include = [ "pyproject.toml", "src/**/*.py", "tests/**/*.py" ]
+
+format.line-ending = "lf"
+format.docstring-code-format = true
+lint.select = [
+  "A",   # flake8-builtins
+  "B",   # flake8-bugbear
+  "E4",
+  "E7",
+  "E9",
+  "F",   # pyflakes
+  "I",   # isort
+  "ICN", # flake8-import-conventions
+  "Q",   # flake8-quotes
+]
+lint.ignore = [
+  "E203", # (white space before ':'): this error conflicts with black linting
+  "E266", # (too many leading '#'): sometimes we use multiple # for separting sections
+  "E701", # (multiple statements on one line)
+  # recommended by ruff to avoid conflicts with ruff formatter
+  "Q000",
+  "Q001",
+  "Q002",
+  "Q003",
+  "S101", # (use of assert): mostly we use assert for typing
+]
+lint.pydocstyle.convention = "google"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

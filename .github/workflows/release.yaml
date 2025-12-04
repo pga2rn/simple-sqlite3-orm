@@ -4,16 +4,21 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: write
+
 jobs:
   build-and-upload-artifacts:
     name: build release packages and push gh artifacts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: setup python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           # use the minimum py ver we support to generate the wheel
           python-version: 3.8
@@ -36,7 +41,7 @@ jobs:
             done
 
       - name: upload release artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-and-upload-artifacts
           path: dist/*
@@ -52,7 +57,7 @@ jobs:
 
     steps:
       - name: download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: build-and-upload-artifacts
           path: dist
@@ -60,7 +65,7 @@ jobs:
       - run: rm dist/*.checksum
 
       - name: publish to pypi
-        uses: pypa/gh-action-pypi-publish@v1.12.4
+        uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
           skip-existing: true
 
@@ -69,12 +74,10 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     needs: build-and-upload-artifacts
-    permissions:
-      contents: write
 
     steps:
       - name: download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: build-and-upload-artifacts
           path: dist
