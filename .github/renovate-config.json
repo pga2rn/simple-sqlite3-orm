@@ -6,13 +6,20 @@
   "lockFileMaintenance": {
     "enabled": true
   },
+  "enabledManagers": [
+    "pep621"
+  ],
   "packageRules": [
     {
       "matchManagers": [
         "uv"
       ],
-      "groupName": "python-dependencies"
+      "groupName": "python-dependencies",
+      "rangeStrategy": "widen"
     }
+  ],
+  "labels": [
+    "dependencies"
   ],
   "onboarding": false,
   "requireConfig": "optional"
