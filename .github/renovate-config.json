@@ -12,12 +12,12 @@
   "packageRules": [
     {
       "matchManagers": [
-        "uv"
+        "pep621"
       ],
-      "groupName": "python-dependencies",
-      "rangeStrategy": "widen"
+      "groupName": "python-dependencies"
     }
   ],
+  "rangeStrategy": "widen",
   "labels": [
     "dependencies"
   ],
