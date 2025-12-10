@@ -17,10 +17,9 @@
       "matchManagers": [
         "pep621"
       ],
-      "groupName": "python-dependencies"
+      "rangeStrategy": "widen"
     }
   ],
-  "rangeStrategy": "widen",
   "labels": [
     "dependencies"
   ],
