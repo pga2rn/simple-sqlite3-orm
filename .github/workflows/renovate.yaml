@@ -22,4 +22,5 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           configurationFile: .github/renovate-config.json
         env:
-          LOG_LEVEL: 'debug'
+          LOG_LEVEL: "debug"
+          RENOVATE_REPOSITORIES: "pga2rn/simple-sqlite3-orm"
