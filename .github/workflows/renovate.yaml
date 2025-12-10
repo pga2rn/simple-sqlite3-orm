@@ -5,14 +5,17 @@ on:
     - cron: "0 0 * * 1" # every Monday 00:00 UTC
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
 
 jobs:
   renovate:
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout commit
         uses: actions/checkout@v5
