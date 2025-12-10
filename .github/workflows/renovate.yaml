@@ -20,3 +20,6 @@ jobs:
         uses: renovatebot/github-action@v44.0.5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          configurationFile: .github/renovate-config.json
+        env:
+          LOG_LEVEL: 'debug'
