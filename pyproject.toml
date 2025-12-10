@@ -32,7 +32,7 @@ urls.Tracker = "https://github.com/pga2rn/simple-sqlite3-orm/issues"
 [dependency-groups]
 dev = [
   "coverage>=7.6,<7.9",
-  "pytest>=8.3,<8.4",
+  "pytest>=8.4,<8.5",
   "pytest-asyncio>=0.24,<0.27",
   "pytest-mock>=3.14,<3.15",
   "ruff>=0.6,<0.12",
