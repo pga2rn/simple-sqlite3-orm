@@ -4,7 +4,10 @@
     "config:best-practices"
   ],
   "lockFileMaintenance": {
-    "enabled": true
+    "enabled": true,
+    "schedule": [
+      "at any time"
+    ]
   },
   "enabledManagers": [
     "pep621"
