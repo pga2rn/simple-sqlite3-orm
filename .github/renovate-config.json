@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices"
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "at any time"
+    ]
+  },
+  "enabledManagers": [
+    "pep621"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": [
+        "pep621"
+      ],
+      "rangeStrategy": "widen"
+    }
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "onboarding": false,
+  "prHourlyLimit": 16,
+  "requireConfig": "optional"
+}
