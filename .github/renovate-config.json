@@ -24,5 +24,6 @@
     "dependencies"
   ],
   "onboarding": false,
+  "prHourlyLimit": 16,
   "requireConfig": "optional"
 }
