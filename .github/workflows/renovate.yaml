@@ -5,14 +5,18 @@ on:
     - cron: "0 0 * * 1" # every Monday 00:00 UTC
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
 
 jobs:
   renovate:
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
     steps:
       - name: Checkout commit
         uses: actions/checkout@v6
@@ -20,3 +24,7 @@ jobs:
         uses: renovatebot/github-action@v44.0.5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          configurationFile: .github/renovate-config.json
+        env:
+          LOG_LEVEL: "debug"
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
