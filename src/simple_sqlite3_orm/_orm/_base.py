@@ -202,7 +202,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             #   by class variable.
             self._orm_table_name = table_name
 
-        if not getattr(self, "_orm_table_name", None):
+        # NOTE: _orm_table_name is set by __init_subclass__
+        if not getattr(self, "_orm_table_name", None):  # pragma: no cover
             raise ValueError(
                 "table_name must be provided either by class variable orm_bootstrap_table_name, "
                 "or by providing <table_name> keyword arg"
@@ -214,8 +215,8 @@ class ORMBase(ORMCommonBase[TableSpecType]):
             self._con = con
         elif callable(con) and isinstance(_conn := con(), sqlite3.Connection):
             self._con = _conn
-        else:
-            raise ValueError(f"invalid {con=}")
+        else:  # pragma: no cover
+            raise ValueError(f"invalid {type(con)=}")
 
         _row_factory = _select_row_factory(self.orm_table_spec, row_factory)
         if _row_factory != DO_NOT_CHANGE_ROW_FACTORY:
@@ -223,10 +224,10 @@ class ORMBase(ORMCommonBase[TableSpecType]):
 
     __class_getitem__ = classmethod(parameterized_class_getitem)
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> Self:  # pragma: no cover
         return self
 
-    def __exit__(self, exec_type, exc_val, exc_tb):
+    def __exit__(self, exec_type, exc_val, exc_tb):  # pragma: no cover
         self._con.close()
         return False
 
@@ -929,11 +930,11 @@ class ORMBase(ORMCommonBase[TableSpecType]):
         params = None
         if not _stmt:
             # sanity check here
-            if not (set_cols and set_cols_value):
+            if not (set_cols and set_cols_value):  # pragma: no cover
                 raise ValueError(
                     "if `_stmt` is not used, `set_cols` and `set_cols_value` are required"
                 )
-            if bool(where_cols_value) != bool(where_cols):
+            if bool(where_cols_value) != bool(where_cols):  # pragma: no cover
                 raise ValueError(
                     "`where_cols_value` and `where_cols` MUST be both omitted or both specifed"
                 )
@@ -965,7 +966,7 @@ class ORMBase(ORMCommonBase[TableSpecType]):
                 else _merge_iters(params, _extra_params_iter)
             )
 
-        if not params:
+        if not params:  # pragma: no cover
             raise ValueError(
                 "no param is provided! "
                 "also only specified `_extra_params` without providing other iter params is not allowed"
