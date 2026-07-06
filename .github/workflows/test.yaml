@@ -116,15 +116,3 @@ jobs:
         continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./test_result/coverage.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload test results to Codecov
-        uses: codecov/test-results-action@v1
-        with:
-          files: ./test_result/junit.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
