@@ -61,17 +61,20 @@ from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr
 
 # ------ Table definition ------ #
 
+
 class MyTable(TableSpec):
     entry_id: Annotated[int, ConstrainRepr("PRIMARY KEY")]
     entry_type: Annotated[
         Literal["A", "B", "C"],
-        ConstrainRepr("NOT NULL", ("CHECK", "entry_type IN (A,B,C)"))
+        ConstrainRepr("NOT NULL", ("CHECK", "entry_type IN (A,B,C)")),
     ]
     entry_token: bytes
 
     # A custom type that defines serializer/deserializer in pydantic way,
     #   this custom type is serialized into bytes and stored as BLOB in database.
-    special_attrs: Annotated[SpecialAttrsType, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL")]
+    special_attrs: Annotated[
+        SpecialAttrsType, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL")
+    ]
 ```
 
 ### (Recommended) Define typing helpers for your table
@@ -90,6 +93,7 @@ from simple_sqlite3_orm import ColsSelectFactory
 
 # ------------ TypedDict ------------ #
 
+
 # NOTE: `total` param below allows only specifying some col/value pairs
 class MyTableCols(TypedDict, total=False):
     # no need to copy and paste the full type annotations from the actual TableSpec,
@@ -99,20 +103,23 @@ class MyTableCols(TypedDict, total=False):
     entry_token: bytes
     special_attrs: SpecialAttrsType
 
+
 # examples:
 
 good_rows = MyTableCols(entry_id=123)
-bad_rows_type_invalid = MyTableCols(entry_id="not_a_int") # type check error
-bad_rows_unknown_col = MyTableCols(unknown="unknown") # type check error
+bad_rows_type_invalid = MyTableCols(entry_id="not_a_int")  # type check error
+bad_rows_unknown_col = MyTableCols(unknown="unknown")  # type check error
 
 # ------------ ColsSelector ------------ #
 
-MyTableColsSelector = ColsSelectFactory[Literal["entry_id", "entry_type", "entry_token", "special_attrs"]]
+MyTableColsSelector = ColsSelectFactory[
+    Literal["entry_id", "entry_type", "entry_token", "special_attrs"]
+]
 
 # examples:
 
 good_cols_selection = MyTableColsSelector("entry_id", "special_attrs")
-bad_cols_selection = MyTableColsSelector("entyr_di") # type check error
+bad_cols_selection = MyTableColsSelector("entyr_di")  # type check error
 ```
 
 ### Define your database as code
@@ -125,12 +132,15 @@ After the table definition is ready, you can further define ORM types.
 ```python
 from simple_sqlite3_orm import CreateIndexParams, CreateTableParams, ORMBase
 
-class MyORM(ORMBase[MyTable]):
 
+class MyORM(ORMBase[MyTable]):
     orm_bootstrap_table_name = "my_table"
     orm_bootstrap_create_table_params = CreateTableParams(without_rowid=True)
     orm_bootstrap_indexes_params = [
-        CreateIndexParams(index_name="entry_token_index", index_cols=MyTableColsSelector("entry_token"))
+        CreateIndexParams(
+            index_name="entry_token_index",
+            index_cols=MyTableColsSelector("entry_token"),
+        )
     ]
 ```
 
@@ -181,10 +191,13 @@ inserted_entries_count = orm.orm_insert_mappings(mappings_to_insert)
 You can select entries by matching column(s) from database:
 
 ```python
-res_gen: Generator[MyTable] = orm.orm_select_entries(MyTableCols(entry_type="A", entry_token=b"abcdef"))
+res_gen: Generator[MyTable] = orm.orm_select_entries(
+    MyTableCols(entry_type="A", entry_token=b"abcdef")
+)
 
 # process each selected entry here
-for entry in res_gen: ...
+for entry in res_gen:
+    ...
 ```
 
 ### Update rows
@@ -204,7 +217,7 @@ orm.orm_update_entries(
 orm.orm_update_entries(
     set_values=MyTableCols(entry_token="ccddee123", entry_type="C"),
     where_stmt="WHERE entry_id > :entry_lower_bound AND entry_id < :entry_upper_bound",
-    _extra_params={"entry_lower_bound": 123, "entry_upper_bound": 456}
+    _extra_params={"entry_lower_bound": 123, "entry_upper_bound": 456},
 )
 ```
 
