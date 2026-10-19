@@ -202,6 +202,9 @@ class TableSpec(BaseModel):
     ) -> str:
         """Get index create statement with this table spec class.
 
+        If <table_name> is schema-qualified ("<schema>.<table>"), the schema qualifier is
+            moved onto the index name, as sqlite3 requires: CREATE INDEX <schema>.<index> ON <table>.
+
         Raises:
             ValueError on <index_cols> not specified, or invalid <index_cols>.
 
@@ -221,6 +224,16 @@ class TableSpec(BaseModel):
                 cls.table_get_col_fieldinfo(_col)
                 indexed_cols.append(_col)
         indexed_columns_stmt = f"({','.join(indexed_cols)})"
+
+        # NOTE: in sqlite3 the schema qualifier belongs to the index name, NOT the table name:
+        #   CREATE INDEX [schema.]index_name ON table_name (...)
+        # The ORM layer passes "<schema>.<table>" as <table_name> when schema_name is set,
+        #   so move the qualifier onto the index name here.
+        _schema, _, _table_name = table_name.partition(".")
+        if _table_name:
+            table_name = _table_name
+            if "." not in index_name:
+                index_name = f"{_schema}.{index_name}"
 
         res = gen_sql_stmt(
             "CREATE",
