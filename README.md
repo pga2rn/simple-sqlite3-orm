@@ -7,31 +7,18 @@
 [![Supported Python version](https://img.shields.io/pypi/pyversions/simple-sqlite3-orm.svg)](https://pypi.org/project/simple-sqlite3-orm/)
 [![PyPI version](https://badge.fury.io/py/simple-sqlite3-orm.svg)](https://pypi.org/project/simple-sqlite3-orm/)
 
-A simple yet powerful SQLite3 ORM based on Python's sqlite3 DB engine, powered by pydantic.
+A simple yet powerful SQLite3 ORM built on Python's standard library `sqlite3` module, powered by pydantic.
 
-It targets basic CRUD operations and does it well, while also opened to complicated use cases.
+It targets basic CRUD operations and does them well, while staying open to more complicated use cases.
 
-## Features and hightlights
+## Features and highlights
 
-- Light-weight sqlite3 ORM based on Python3's std sqlite3 DB engine, with only `pydantic` and `typing_extensions` as dependencies.
-- Support defining your database and table as code.
-- Provides simple and clean APIs for basic CRUD operatations.
-- All functions and types are fully typed and docstrings applied.
-- Opened to advanced and more complicated use cases with helper functions, extra APIs and sqlite3 specific constants.
-
-## Natively supported Python types
-
-Besides the sqlite3 natively supported python types,`simple-sqlite3-orm` also adds direct support to the following python types:
-
-- Enums types: `IntEnum` and `StrEnum`.
-- Literal types: str Literal and int Literal.
-- Supported types that wrapped within Optional(like `Optional[str]`).
-
-`simple-sqlite3-orm` also datetime support with the following types:
-
-- `DatetimeUnixTimestamp`: will be serialized and stored as REAL in database.
-- `DatetimeUnixTimestampInt`: will be serialized and stored as INTEGER in database.
-- `DatetimeISO8601`: will be serialized into ISO8601 format string and stored as TEXT in database.
+- Light-weight ORM on top of Python's standard `sqlite3` module, with only `pydantic` and `typing_extensions` as dependencies.
+- Define your tables and databases as code, and bootstrap new database files deterministically.
+- Simple and clean APIs for basic CRUD operations, with `executemany` variants for bulk writes.
+- All functions and types are fully typed, with docstrings.
+- Thread pool (`ORMThreadPoolBase`) and asyncio (`AsyncORMBase`) variants that expose the same API.
+- Open to advanced use cases with raw-SQL escape hatches, helper functions, extra APIs and sqlite3-specific constants.
 
 ## Installation
 
@@ -39,94 +26,121 @@ Besides the sqlite3 natively supported python types,`simple-sqlite3-orm` also ad
 pip install simple-sqlite3-orm
 ```
 
-`simple-sqlite3-orm` supports Python 3.8+.
+Or add the `simple-sqlite3-orm` as your project dependency with [uv](https://docs.astral.sh/uv/):
+
+```shell
+uv add simple-sqlite3-orm
+```
+
+`simple-sqlite3-orm` supports Python 3.8+, including Python 3.14 and the free-threaded 3.14t build.
+
+## Natively supported Python types
+
+Besides the Python types that `sqlite3` supports natively (`int`, `float`, `str`, `bytes` and `None`), `simple-sqlite3-orm` maps the following annotations to SQLite column types automatically:
+
+- Enum types: `IntEnum` and `StrEnum`.
+- Literal types: `Literal` of `str` values or of `int` values.
+- Any of the above wrapped in `Optional` (like `Optional[str]`).
+
+`simple-sqlite3-orm` also ships `datetime.datetime` helper types that define how the value is serialized for the database:
+
+- `DatetimeUnixTimestamp`: serialized as a unix timestamp `float`.
+- `DatetimeUnixTimestampInt`: serialized as a unix timestamp `int`.
+- `DatetimeISO8601`: serialized as an ISO 8601 formatted `str`.
+
+These helper types only define the serializer and validator. Pair them with `TypeAffinityRepr` to set the column type, e.g. `Annotated[DatetimeUnixTimestamp, TypeAffinityRepr(float)]` for a `REAL` column.
+
+Any other type can be stored by defining its database form with pydantic validators and serializers, then setting the column type with `TypeAffinityRepr`. See [sample_db](tests/sample_db) for examples.
 
 ## Basic usage
 
-This chapter only shows very basic(thus simple) usage of CRUD operations, there are also many extra APIs available for advanced use cases.
-
-`simple-sqlite3-orm` applies docstrings to most of the APIs, you can always refer to docstrings for help and more information.
+This chapter only shows very basic usage of CRUD operations. Many extra APIs are available for advanced use cases; most APIs carry docstrings, so refer to them for details.
 
 ### Define your table as code
 
-`simple-sqlite3-orm` provides `TableSpec` as base for you to define table.
+`simple-sqlite3-orm` provides `TableSpec` as the base class for table definitions.
 
-`TableSpec` subclasses pydantic's `BaseModel`, so you can follow your experience of using pydantic to define your table as code.
+`TableSpec` subclasses pydantic's `BaseModel`, so defining a table works just like defining a pydantic model. Column types are inferred from the annotations, and `Annotated` metadata adds SQL details:
+
+- `TypeAffinityRepr` sets the column type explicitly, for types that cannot be inferred.
+- `ConstrainRepr` adds column constraints such as `PRIMARY KEY`, `NOT NULL`, `UNIQUE`, `CHECK` and `DEFAULT`.
 
 For a more complicated example, see [sample_db](tests/sample_db).
 
 ```python
 from typing import Literal
+
+from typing_extensions import Annotated
+
 from simple_sqlite3_orm import ConstrainRepr, TableSpec, TypeAffinityRepr
 
-# ------ Table definition ------ #
 
 class MyTable(TableSpec):
     entry_id: Annotated[int, ConstrainRepr("PRIMARY KEY")]
     entry_type: Annotated[
         Literal["A", "B", "C"],
-        ConstrainRepr("NOT NULL", ("CHECK", "entry_type IN (A,B,C)"))
+        ConstrainRepr("NOT NULL", ("CHECK", "(entry_type IN ('A', 'B', 'C'))")),
     ]
     entry_token: bytes
-
-    # A custom type that defines serializer/deserializer in pydantic way,
-    #   this custom type is serialized into bytes and stored as BLOB in database.
+    # A column whose type cannot be inferred from the annotation:
+    #   a custom type with pydantic validator/serializer, stored as BLOB.
     special_attrs: Annotated[SpecialAttrsType, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL")]
 ```
+
+`simple_sqlite3_orm.utils` provides helpers like `gen_check_constrain`, `concatenate_condition` and `wrap_value` for composing `CHECK` and `DEFAULT` expressions from enums and literals.
 
 ### (Recommended) Define typing helpers for your table
 
 It is recommended to define two typing helpers for your table:
 
-1. A `TypedDict` for generating col/value mapping with type check.
-2. A `ColsSelector` for generating a tuple for columns name selection with type check and completion suggestions.
+1. A `TypedDict` for building column/value mappings with type checking.
+2. A `ColsSelectFactory` for building tuples of column names with type checking and completion suggestions.
 
-`simple_sqlite3_orm` APIs take mappings as params, and take tuples for columns selections.
-You can utilize the defined typing helpers to enable static type chec with completion suggestions over column names when using APIs, preventing column name typos or unsynced updates to column names.
+`simple-sqlite3-orm` APIs take mappings as parameters, and tuples for column selections.
+With these helpers, your type checker catches column name typos and column renames that were not propagated to every call site.
 
 ```python
-from typing import TypedDict
+from typing import Literal, TypedDict
+
 from simple_sqlite3_orm import ColsSelectFactory
 
 # ------------ TypedDict ------------ #
 
-# NOTE: `total` param below allows only specifying some col/value pairs
+# NOTE: `total=False` allows specifying only some of the col/value pairs.
 class MyTableCols(TypedDict, total=False):
-    # no need to copy and paste the full type annotations from the actual TableSpec,
-    #   only the actual type is needed.
+    # No need to copy the full annotations from the TableSpec,
+    #   only the actual Python types are needed.
     entry_id: int
     entry_type: Literal["A", "B", "C"]
     entry_token: bytes
     special_attrs: SpecialAttrsType
 
 # examples:
-
-good_rows = MyTableCols(entry_id=123)
-bad_rows_type_invalid = MyTableCols(entry_id="not_a_int") # type check error
-bad_rows_unknown_col = MyTableCols(unknown="unknown") # type check error
+good_row = MyTableCols(entry_id=123)
+bad_row_type_invalid = MyTableCols(entry_id="not_an_int")  # type check error
+bad_row_unknown_col = MyTableCols(unknown="unknown")  # type check error
 
 # ------------ ColsSelector ------------ #
 
 MyTableColsSelector = ColsSelectFactory[Literal["entry_id", "entry_type", "entry_token", "special_attrs"]]
 
 # examples:
-
 good_cols_selection = MyTableColsSelector("entry_id", "special_attrs")
-bad_cols_selection = MyTableColsSelector("entyr_di") # type check error
+bad_cols_selection = MyTableColsSelector("entyr_di")  # type check error
 ```
 
 ### Define your database as code
 
-After the table definition is ready, you can further define ORM types.
+With the table definition ready, define the ORM type for it.
 
-`simple-sqlite3-orm` provides `ORMBase` for you to define the ORM with table you defined previously.
-`ORMBase` supports defining database as code with specifying table_name, table create configuration and indexes for deterministically bootstrapping new empty database file.
+`simple-sqlite3-orm` provides `ORMBase` for defining the ORM over a table. Subscript it with your `TableSpec` subclass.
+`ORMBase` supports defining the database as code: specify the table name, the `CREATE TABLE` options and the indexes, so a new empty database file can be bootstrapped deterministically.
 
 ```python
 from simple_sqlite3_orm import CreateIndexParams, CreateTableParams, ORMBase
 
-class MyORM(ORMBase[MyTable]):
 
+class MyORM(ORMBase[MyTable]):
     orm_bootstrap_table_name = "my_table"
     orm_bootstrap_create_table_params = CreateTableParams(without_rowid=True)
     orm_bootstrap_indexes_params = [
@@ -134,9 +148,9 @@ class MyORM(ORMBase[MyTable]):
     ]
 ```
 
-### Bootstrap new database
+### Bootstrap a new database
 
-After defining the ORM, you can bootstrap a new empty database, create table(and indexes) deterministically as follow:
+After defining the ORM, bootstrap a new empty database and create the table (and indexes) deterministically:
 
 ```python
 import sqlite3
@@ -147,26 +161,31 @@ orm = MyORM(conn)
 orm.orm_bootstrap_db()
 ```
 
-Alternatively, you can also use `orm_create_table` and `orm_create_index` separately to bootstrap a new database.
+Alternatively, call `orm_create_table` and `orm_create_index` separately.
+
+An `ORMBase` instance can also be used as a context manager, which closes the connection on exit.
+The `table_name` and `schema_name` init parameters override the class-level table name, so one ORM type can serve several tables with the same schema.
+
+Note that an `ORMBase` instance wraps a single `sqlite3.Connection` and must not be shared across threads; see [ORM pool support](#orm-pool-support) for that.
 
 ### Insert rows
 
-You can use `orm_insert_entry` or `orm_insert_mapping` to insert exactly one entry:
+Use `orm_insert_entry` or `orm_insert_mapping` to insert exactly one row:
 
 ```python
 entry_to_insert: MyTable
 mapping_to_insert: MyTableCols
 
-# insert a row by MyTable instance
+# insert a row from a MyTable instance
 orm.orm_insert_entry(entry_to_insert)
 
-# insert a row by mapping as MyTableCols TypedDict
-#   with a mapping, you can insert partially set row and let DB engine fill
-#   the unprovided cols with DEFAULT value or NULL.
+# insert a row from a mapping (here the MyTableCols TypedDict).
+#   With a mapping you can insert a partially specified row and let the
+#   DB engine fill the missing columns with their DEFAULT value or NULL.
 orm.orm_insert_mapping(mapping_to_insert)
 ```
 
-Or you can insert a bunch of entries by an iterable of entries:
+Or insert many rows at once from an iterable, which runs a single `executemany`:
 
 ```python
 entries_to_insert: Iterable[MyTable]
@@ -176,47 +195,59 @@ inserted_entries_count = orm.orm_insert_entries(entries_to_insert)
 inserted_entries_count = orm.orm_insert_mappings(mappings_to_insert)
 ```
 
+All insert APIs accept an `or_option` keyword (`"replace"`, `"ignore"`, ...) to generate `INSERT OR ...` statements.
+
 ### Select rows
 
-You can select entries by matching column(s) from database:
+Select rows by matching column value(s). The result is a generator that yields `MyTable` instances by default:
 
 ```python
-res_gen: Generator[MyTable] = orm.orm_select_entries(MyTableCols(entry_type="A", entry_token=b"abcdef"))
+res_gen = orm.orm_select_entries(MyTableCols(entry_type="A", entry_token=b"abcdef"))
 
 # process each selected entry here
 for entry in res_gen: ...
+
+# keyword arguments work as well, and `_order_by`, `_limit` and `_distinct` are available:
+for entry in orm.orm_select_entries(entry_type="A", _order_by=("entry_id",), _limit=10): ...
 ```
+
+Related APIs:
+
+- `orm_select_entry` returns the first matching row, or `None`.
+- `orm_check_entry_exist` returns whether at least one row matches.
+- `orm_select_all_with_pagination(batch_size=...)` iterates over the whole table in batches. It seeks by `rowid`, so it does not work on `WITHOUT ROWID` tables like the `MyTable` example above.
 
 ### Update rows
 
-You can update specific rows with one set of params as follow:
+Update specific rows with one set of values:
 
 ```python
-# specify rows by matching cols
-#   WHERE stmt will be generated from `where_cols_value`.
+# specify the rows by matching columns:
+#   the WHERE statement will be generated from `where_cols_value`.
 orm.orm_update_entries(
-    set_values=MyTableCols(entry_token="ccddee123", entry_type="C"),
+    set_values=MyTableCols(entry_token=b"ccddee123", entry_type="C"),
     where_cols_value=MyTableCols(entry_id=123),
 )
 
-# alteratively, you can directly provide the WHERE stmt and `extra_params` for the query execution.
-#   be careful to not use the columns's named-placeholder used by `set_values`.
+# alternatively, provide the WHERE statement directly, with `_extra_params`
+#   for the named placeholders it uses.
+#   Be careful not to reuse the named placeholders of the columns in `set_values`.
 orm.orm_update_entries(
-    set_values=MyTableCols(entry_token="ccddee123", entry_type="C"),
+    set_values=MyTableCols(entry_token=b"ccddee123", entry_type="C"),
     where_stmt="WHERE entry_id > :entry_lower_bound AND entry_id < :entry_upper_bound",
-    _extra_params={"entry_lower_bound": 123, "entry_upper_bound": 456}
+    _extra_params={"entry_lower_bound": 123, "entry_upper_bound": 456},
 )
 ```
 
-Also, there is an `executemany` version of ORM update API, `orm_update_entries_many`, which you can use many sets of params for the same UPDATE query execution.
-Using this API is **SIGNIFICANTLY** faster with lower memory usage than calling `orm_update_entries` each time in a for loop.
+There is also an `executemany` version, `orm_update_entries_many`, which runs the same UPDATE statement with many sets of parameters.
+It is **significantly** faster and uses less memory than calling `orm_update_entries` in a loop.
 
 ```python
 set_cols_value_iter: Iterable[MyTableCols]
-where_cols_value_iter: Iterable[Mapping[str, Any]]
+where_cols_value_iter: Iterable[MyTableCols]
 
 updated_rows_count: int = orm.orm_update_entries_many(
-    set_cols=MyTableColsSelector("entry_id", "entry_token", "entry_type"),
+    set_cols=MyTableColsSelector("entry_token", "entry_type"),
     where_cols=MyTableColsSelector("entry_id"),
     set_cols_value=set_cols_value_iter,
     where_cols_value=where_cols_value_iter,
@@ -225,18 +256,88 @@ updated_rows_count: int = orm.orm_update_entries_many(
 
 ### Delete rows
 
-Like select operation, you can detele entries by matching column(s):
+Like select, delete rows by matching column value(s):
 
 ```python
-affected_row_counts: int = orm.orm_delete_entries(MyTableCols(entry_type="C"))
+affected_rows_count: int = orm.orm_delete_entries(MyTableCols(entry_type="C"))
 ```
+
+`orm_delete_entries_with_returning` does the same but yields the deleted rows (via SQLite's `RETURNING` clause).
+
+### Run raw SQL
+
+When the ORM APIs are not enough, run SQL statements on the same connection while keeping the row factory:
+
+```python
+rows = orm.orm_execute(
+    "SELECT * FROM my_table WHERE entry_id > :lower_bound;",
+    {"lower_bound": 100},
+)
+
+# generator version for large results
+for entry in orm.orm_execute_gen("SELECT * FROM my_table;"): ...
+```
+
+`orm_executemany` and `orm_executescript` are also available.
+The `gen_sql_stmt` helper and the constants in `simple_sqlite3_orm` (`SQLiteTypeAffinity`, `SQLiteStorageClass`, `SQLiteBuiltInFuncs`, ...) help with composing statements.
+
+### Row factory
+
+By default an ORM sets the connection's `row_factory` so that rows come back as validated `TableSpec` instances.
+The `row_factory` init parameter accepts:
+
+- `"table_spec"` (default): rows are parsed and validated into `TableSpec` instances.
+- `"table_spec_no_validation"`: rows are constructed without pydantic validation, which is faster.
+- `"sqlite3_row_factory"`: rows are `sqlite3.Row` objects.
+- `None`: rows are plain tuples.
+- `"do_not_change"`: keep whatever `row_factory` the connection already has.
+- any custom `sqlite3` row factory callable.
+
+Select and execute APIs also accept a per-query `_row_factory` / `row_factory` keyword.
 
 ## ORM pool support
 
-`simple-sqlite3-orm` also provides ORM threadpool(`ORMThreadPoolBase`) and asyncio ORM(`AsyncORMBase`, experimental) supports.
+`simple-sqlite3-orm` also provides a thread pool ORM (`ORMThreadPoolBase`) and an asyncio ORM (`AsyncORMBase`, experimental).
 
-ORM threadpool and asyncio ORM implements most of the APIs available in `ORMBase`, except for the `orm_conn` API.
+Both implement the same APIs as `ORMBase`, except for `orm_con`, since each worker thread owns its own connection.
+Instead of a connection, they take a `con_factory` callable and the number of connections (worker threads) to open.
+WAL mode is recommended for concurrent access, see [SQLite's documentation](https://www.sqlite.org/wal.html#concurrency).
+
+```python
+import sqlite3
+from functools import partial
+
+from simple_sqlite3_orm import AsyncORMBase, ORMThreadPoolBase
+
+
+class MyORMPool(ORMThreadPoolBase[MyTable]):
+    orm_bootstrap_table_name = "my_table"
+
+
+class MyAsyncORM(AsyncORMBase[MyTable]):
+    orm_bootstrap_table_name = "my_table"
+
+
+con_factory = partial(sqlite3.connect, "my_db.sqlite3", check_same_thread=False)
+
+# thread pool: each API call is dispatched to a worker thread with its own connection
+with MyORMPool(con_factory=con_factory, number_of_cons=4) as orm_pool:
+    for entry in orm_pool.orm_select_entries(entry_type="A"): ...
+
+# asyncio: the same APIs become coroutines. Generator APIs return an
+#   async generator when awaited. Create the instance inside the running event loop.
+async def main():
+    async_orm = MyAsyncORM(con_factory=con_factory, number_of_cons=4)
+    try:
+        async for entry in await async_orm.orm_select_entries(entry_type="A"): ...
+    finally:
+        async_orm.orm_pool_shutdown()
+```
+
+## Utilities
+
+`simple_sqlite3_orm.utils` provides connection and PRAGMA helpers, including `enable_wal_mode`, `enable_mmap`, `enable_tmp_store_at_memory`, `optimize_db`, `check_db_integrity`, `lookup_table`, `attach_database` and `check_pragma_compile_time_options`.
 
 ## License
 
-`simple-sqlite3-orm` is licensed under Apache 2.0 License.
+`simple-sqlite3-orm` is licensed under the Apache 2.0 License.
