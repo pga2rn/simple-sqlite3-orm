@@ -54,6 +54,50 @@ def test_table_create(table_create_params: CreateTableParams) -> None:
             _conn.execute(table_create_stmt)
 
 
+@pytest.mark.parametrize(
+    "table_name, index_name, expected_stmt",
+    (
+        (
+            TBL_NAME,
+            "id_str_index",
+            f"CREATE INDEX id_str_index ON {TBL_NAME} (id_str);",
+        ),
+        # schema-qualified table name: the qualifier must be moved onto the index name
+        (
+            f"other.{TBL_NAME}",
+            "id_str_index",
+            f"CREATE INDEX other.id_str_index ON {TBL_NAME} (id_str);",
+        ),
+        (
+            f"temp.{TBL_NAME}",
+            "id_str_index",
+            f"CREATE INDEX temp.id_str_index ON {TBL_NAME} (id_str);",
+        ),
+        # an already qualified index name is left untouched
+        (
+            f"other.{TBL_NAME}",
+            "other.id_str_index",
+            f"CREATE INDEX other.id_str_index ON {TBL_NAME} (id_str);",
+        ),
+    ),
+)
+def test_table_create_index(
+    table_name: str, index_name: str, expected_stmt: str
+) -> None:
+    index_create_stmt = SimpleTableForTest.table_create_index_stmt(
+        table_name=table_name,
+        index_name=index_name,
+        index_cols=SimpleTableForTestColsSelect("id_str"),
+    )
+    assert index_create_stmt == expected_stmt
+
+    with contextlib.closing(sqlite3.connect(":memory:")) as db_conn:
+        with db_conn as _conn:
+            _conn.execute("ATTACH DATABASE ':memory:' AS other")
+            _conn.execute(SimpleTableForTest.table_create_stmt(table_name=table_name))
+            _conn.execute(index_create_stmt)
+
+
 class TestTableSpecWithDB:
     """A quick and simple test to test through normal usage of tablespec.
 

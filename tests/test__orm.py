@@ -521,3 +521,38 @@ def test_row_factory_specifying(
     # by the way, test the orm_conn_row_factory setter
     _orm.orm_conn_row_factory = _dummy_row_factory
     assert _orm.orm_conn_row_factory == _dummy_row_factory
+
+
+class SimpleTableORMWithIndexes(ORMBase[SimpleTableForTest]):
+    orm_bootstrap_table_name = TBL_NAME
+    orm_bootstrap_indexes_params = [
+        CreateIndexParams(
+            index_name="id_str_index",
+            index_cols=SimpleTableForTestColsSelect("id_str"),
+            unique=True,
+        )
+    ]
+
+
+@pytest.mark.parametrize("schema_name", ("other", "temp"))
+def test_create_index_with_schema_name(schema_name: str) -> None:
+    """Regression test: index creation on an ORM configured with <schema_name>."""
+    with contextlib.closing(sqlite3.connect(":memory:")) as conn:
+        conn.execute("ATTACH DATABASE ':memory:' AS other")
+        orm_inst = SimpleTableORMWithIndexes(conn, schema_name=schema_name)
+        orm_inst.orm_bootstrap_db()
+        orm_inst.orm_create_index(
+            index_name="int_str_index",
+            index_keys=SimpleTableForTestColsSelect("int_str"),
+            allow_existed=True,
+        )
+
+        cur = conn.cursor()
+        cur.row_factory = None
+        created_indexes = {
+            row[0]
+            for row in cur.execute(
+                f"SELECT name FROM {schema_name}.sqlite_master WHERE type = 'index'"
+            )
+        }
+        assert {"id_str_index", "int_str_index"} <= created_indexes
