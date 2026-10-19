@@ -17,7 +17,9 @@ from tests.conftest import (
 )
 
 TBL_NAME = "test_table"
-ENTRY_FOR_TEST = SimpleTableForTest(id=123, id_str="123", extra=0.123, int_str=987)
+ENTRY_FOR_TEST = SimpleTableForTest(
+    id=123, id_str="123", extra=0.123, int_str=987, nullable_str="nullable"
+)
 
 
 @pytest.mark.parametrize(
@@ -85,7 +87,19 @@ class TestTableSpecWithDB:
         (
             (
                 "insert a complete row",
-                (SimpleTableForTestCols(int_str=987, id=1, id_str="1", extra=0.123)),
+                (
+                    SimpleTableForTestCols(
+                        int_str=987, id=1, id_str="1", extra=0.123, nullable_str="1"
+                    )
+                ),
+            ),
+            (
+                "insert a complete row, with nullable_str set to None",
+                (
+                    SimpleTableForTestCols(
+                        int_str=987, id=1, id_str="1", extra=0.123, nullable_str=None
+                    )
+                ),
             ),
             (
                 "insert a partially set row, omit id(rowid alias)",
@@ -128,7 +142,7 @@ class TestTableSpecWithDB:
             )
             # for cols with no defautl value defined, NULL will be assigned
             # for rowid, it will be automatically incremented
-            assert _cur.fetchone() == (1, ID_STR_DEFAULT_VALUE, None, None)
+            assert _cur.fetchone() == (1, ID_STR_DEFAULT_VALUE, None, None, None)
 
     def test_lookup_entry(self, db_conn: sqlite3.Connection, prepare_test_entry):
         _to_lookup = self.ENTRY_FOR_TEST
@@ -329,14 +343,16 @@ class TestTableSpecWithDB:
     "_in, _validate, _expected",
     (
         (
-            (1, "1", 1.0, "789"),
+            (1, "1", 1.0, "789", None),
             True,
             SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
         ),
         (
-            (1, "1", 1.0, 789),
+            (1, "1", 1.0, 789, "abc"),
             False,
-            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+            SimpleTableForTest(
+                id=1, id_str="1", extra=1.0, int_str=789, nullable_str="abc"
+            ),
         ),
     ),
 )
@@ -357,9 +373,17 @@ def test_table_from_tuple(
             SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
         ),
         (
-            {"id": 1, "id_str": "1", "extra": 1.0, "int_str": 789},
+            {
+                "id": 1,
+                "id_str": "1",
+                "extra": 1.0,
+                "int_str": 789,
+                "nullable_str": "abc",
+            },
             False,
-            SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
+            SimpleTableForTest(
+                id=1, id_str="1", extra=1.0, int_str=789, nullable_str="abc"
+            ),
         ),
     ),
 )
@@ -376,7 +400,13 @@ def test_table_from_dict(
     (
         (
             SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
-            {"id": 1, "id_str": "1", "extra": 1.0, "int_str": "789"},
+            {
+                "id": 1,
+                "id_str": "1",
+                "extra": 1.0,
+                "int_str": "789",
+                "nullable_str": None,
+            },
         ),
         (
             SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
@@ -393,8 +423,8 @@ def test_table_dump_asdict(_in: SimpleTableForTest, _expected: dict[str, Any]):
     (
         (
             SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),
-            ["id", "id_str", "extra", "int_str"],
-            (1, "1", 1.0, "789"),
+            ["id", "id_str", "extra", "int_str", "nullable_str"],
+            (1, "1", 1.0, "789", None),
         ),
         (
             SimpleTableForTest(id=1, id_str="1", extra=1.0, int_str=789),

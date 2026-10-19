@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import random
 import sqlite3
+import sys
 from pathlib import Path
 from typing import Callable, Generator, Literal, Optional, TypedDict
 
@@ -44,6 +45,13 @@ class SimpleTableForTest(TableSpec):
         PlainSerializer(lambda x: str(x)),
         PlainValidator(lambda x: int(x)),
     ] = 0
+    # NOTE: PEP 604 `X | None` union syntax, see TABLESPEC_BUG_REPORT.md #1.
+    #   The syntax is only evaluable on Python 3.10+, so older interpreters
+    #   fall back to the equivalent Optional[X] form.
+    if sys.version_info >= (3, 10):
+        nullable_str: str | None = None
+    else:  # pragma: no cover
+        nullable_str: Optional[str] = None
 
 
 class SimpleTableForTestCols(TypedDict, total=False):
@@ -51,10 +59,11 @@ class SimpleTableForTestCols(TypedDict, total=False):
     id_str: str
     extra: Optional[float]
     int_str: int
+    nullable_str: Optional[str]
 
 
 SimpleTableForTestColsSelect = ColsSelectFactory[
-    Literal["id", "id_str", "extra", "int_str"]
+    Literal["id", "id_str", "extra", "int_str", "nullable_str"]
 ]
 
 # sqlite3 lib features set
