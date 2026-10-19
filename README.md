@@ -26,6 +26,12 @@ It targets basic CRUD operations and does them well, while staying open to more 
 pip install simple-sqlite3-orm
 ```
 
+Or add the `simple-sqlite3-orm` as your project dependency with [uv](https://docs.astral.sh/uv/):
+
+```shell
+uv add simple-sqlite3-orm
+```
+
 `simple-sqlite3-orm` supports Python 3.8+, including Python 3.14 and the free-threaded 3.14t build.
 
 ## Natively supported Python types
