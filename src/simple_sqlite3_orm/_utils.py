@@ -197,6 +197,7 @@ def gen_sql_stmt(*components: str, end_with: str | None = ";") -> str:
         for comp in components:
             if not comp:
                 continue
+            comp.strip()
             buffer.write(" ")
             buffer.write(comp)
         if end_with:
