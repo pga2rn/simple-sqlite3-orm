@@ -152,16 +152,26 @@ class TestORMBase:
         (
             (
                 SimpleTableForTestCols(id=123, int_str=123, id_str="123"),
-                SimpleTableForTestCols(id=123, int_str=123, id_str="123", extra=None),
+                SimpleTableForTestCols(
+                    id=123, int_str=123, id_str="123", extra=None, nullable_str=None
+                ),
             ),
             (
-                SimpleTableForTestCols(int_str=123, id_str="456", extra=1.23),
-                SimpleTableForTestCols(int_str=123, id_str="456", extra=1.23, id=1),
+                SimpleTableForTestCols(
+                    int_str=123, id_str="456", extra=1.23, nullable_str="abc"
+                ),
+                SimpleTableForTestCols(
+                    int_str=123, id_str="456", extra=1.23, id=1, nullable_str="abc"
+                ),
             ),
             (
                 SimpleTableForTestCols(int_str=123),
                 SimpleTableForTestCols(
-                    int_str=123, id=1, id_str=ID_STR_DEFAULT_VALUE, extra=None
+                    int_str=123,
+                    id=1,
+                    id_str=ID_STR_DEFAULT_VALUE,
+                    extra=None,
+                    nullable_str=None,
                 ),
             ),
         ),

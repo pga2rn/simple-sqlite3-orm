@@ -35,6 +35,16 @@ else:
     from functools import lru_cache  # noqa: F401
 
 
+if sys.version_info >= (3, 10):
+    from types import UnionType
+
+    # NOTE: on 3.10 to 3.13, `X | None` has origin `types.UnionType` while
+    #   `Optional[X]`/`Union[X, None]` has origin `typing.Union`.
+    #   On 3.14+ the two are unified, but checking both is still correct.
+    _UNION_ORIGINS: tuple[Any, ...] = (Union, UnionType)
+else:  # pragma: no cover
+    _UNION_ORIGINS: tuple[Any, ...] = (Union,)
+
 if sys.version_info >= (3, 9):
     from types import GenericAlias  # noqa: F401
 else:  # pragma: no cover
@@ -57,7 +67,7 @@ def map_type(
     """Mapping python types to corresponding sqlite storage classes.
 
     Currently this function suports the following input:
-    1. sqlite3 native types(and wrapped in Optional).
+    1. sqlite3 native types(and wrapped in Optional, including PEP 604 `X | None`).
     2. Literal types.
     3. Enum types with str or int as data type.
     4. user defined affinity string, will be used as it.
@@ -72,15 +82,23 @@ def map_type(
     _origin = get_origin(_in)
     if _origin is Literal:
         return _map_from_literal(_in)
-    if (
-        _origin is Union
-        and len(_args := get_args(_in)) == 2
-        and _args[-1] is type(None)
-    ):
-        # Optional[X] is actually Union[X, type(None)]
-        # after extract the actual types from Optional,
+    if _origin in _UNION_ORIGINS:
+        # Optional[X], Union[X, None], Union[None, X] and X | None are all
+        #   a union of exactly one type and NoneType. The position of NoneType
+        #   is not guaranteed, so look it up instead of assuming it is last.
+        _args = get_args(_in)
+        if len(_args) != 2:
+            raise TypeError(
+                f"only Optional[X] (a union of one type and None) is supported: {_in}"
+            )
+        _non_none_args = [_arg for _arg in _args if _arg is not type(None)]
+        if len(_non_none_args) != 1:
+            raise TypeError(
+                f"only Optional[X] (a union of one type and None) is supported: {_in}"
+            )
+        # after extract the actual type from Optional,
         #   do mapping from the beginning.
-        return map_type(_args[0])
+        return map_type(_non_none_args[0])
     if _origin is not None:
         raise TypeError(f"not one of Literal or Optional: {_in}")
 
