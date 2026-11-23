@@ -84,7 +84,9 @@ class MyTable(TableSpec):
     entry_token: bytes
     # A column whose type cannot be inferred from the annotation:
     #   a custom type with pydantic validator/serializer, stored as BLOB.
-    special_attrs: Annotated[SpecialAttrsType, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL")]
+    special_attrs: Annotated[
+        SpecialAttrsType, TypeAffinityRepr(bytes), ConstrainRepr("NOT NULL")
+    ]
 ```
 
 `simple_sqlite3_orm.utils` provides helpers like `gen_check_constrain`, `concatenate_condition` and `wrap_value` for composing `CHECK` and `DEFAULT` expressions from enums and literals.
@@ -106,6 +108,7 @@ from simple_sqlite3_orm import ColsSelectFactory
 
 # ------------ TypedDict ------------ #
 
+
 # NOTE: `total=False` allows specifying only some of the col/value pairs.
 class MyTableCols(TypedDict, total=False):
     # No need to copy the full annotations from the TableSpec,
@@ -115,6 +118,7 @@ class MyTableCols(TypedDict, total=False):
     entry_token: bytes
     special_attrs: SpecialAttrsType
 
+
 # examples:
 good_row = MyTableCols(entry_id=123)
 bad_row_type_invalid = MyTableCols(entry_id="not_an_int")  # type check error
@@ -122,7 +126,9 @@ bad_row_unknown_col = MyTableCols(unknown="unknown")  # type check error
 
 # ------------ ColsSelector ------------ #
 
-MyTableColsSelector = ColsSelectFactory[Literal["entry_id", "entry_type", "entry_token", "special_attrs"]]
+MyTableColsSelector = ColsSelectFactory[
+    Literal["entry_id", "entry_type", "entry_token", "special_attrs"]
+]
 
 # examples:
 good_cols_selection = MyTableColsSelector("entry_id", "special_attrs")
@@ -144,7 +150,10 @@ class MyORM(ORMBase[MyTable]):
     orm_bootstrap_table_name = "my_table"
     orm_bootstrap_create_table_params = CreateTableParams(without_rowid=True)
     orm_bootstrap_indexes_params = [
-        CreateIndexParams(index_name="entry_token_index", index_cols=MyTableColsSelector("entry_token"))
+        CreateIndexParams(
+            index_name="entry_token_index",
+            index_cols=MyTableColsSelector("entry_token"),
+        )
     ]
 ```
 
@@ -205,10 +214,12 @@ Select rows by matching column value(s). The result is a generator that yields `
 res_gen = orm.orm_select_entries(MyTableCols(entry_type="A", entry_token=b"abcdef"))
 
 # process each selected entry here
-for entry in res_gen: ...
+for entry in res_gen:
+    ...
 
 # keyword arguments work as well, and `_order_by`, `_limit` and `_distinct` are available:
-for entry in orm.orm_select_entries(entry_type="A", _order_by=("entry_id",), _limit=10): ...
+for entry in orm.orm_select_entries(entry_type="A", _order_by=("entry_id",), _limit=10):
+    ...
 ```
 
 Related APIs:
@@ -275,7 +286,8 @@ rows = orm.orm_execute(
 )
 
 # generator version for large results
-for entry in orm.orm_execute_gen("SELECT * FROM my_table;"): ...
+for entry in orm.orm_execute_gen("SELECT * FROM my_table;"):
+    ...
 ```
 
 `orm_executemany` and `orm_executescript` are also available.
@@ -322,14 +334,17 @@ con_factory = partial(sqlite3.connect, "my_db.sqlite3", check_same_thread=False)
 
 # thread pool: each API call is dispatched to a worker thread with its own connection
 with MyORMPool(con_factory=con_factory, number_of_cons=4) as orm_pool:
-    for entry in orm_pool.orm_select_entries(entry_type="A"): ...
+    for entry in orm_pool.orm_select_entries(entry_type="A"):
+        ...
+
 
 # asyncio: the same APIs become coroutines. Generator APIs return an
 #   async generator when awaited. Create the instance inside the running event loop.
 async def main():
     async_orm = MyAsyncORM(con_factory=con_factory, number_of_cons=4)
     try:
-        async for entry in await async_orm.orm_select_entries(entry_type="A"): ...
+        async for entry in await async_orm.orm_select_entries(entry_type="A"):
+            ...
     finally:
         async_orm.orm_pool_shutdown()
 ```
